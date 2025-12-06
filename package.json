@@ -1,0 +1,17 @@
+{
+  "name": "rn-inspector",
+  "version": "0.1.0",
+  "private": false,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "lint": "echo \"TODO: add lint script\"",
+    "test": "echo \"TODO: add test runner\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0"
+  }
+}
