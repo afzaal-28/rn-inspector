@@ -1,6 +1,6 @@
 {
-  "name": "rn-inspector",
-  "private": false,
+  "name": "rn-inspector-ui",
+  "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {

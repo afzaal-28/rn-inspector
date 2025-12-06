@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "rn-inspector",
+  "productName": "rn-inspector-ui",
   "version": "0.1.0",
   "identifier": "com.rn.inspector",
   "build": {

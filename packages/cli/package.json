@@ -1,15 +1,16 @@
 {
   "name": "rn-inspector",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": false,
-  "type": "module",
+  "type": "commonjs",
   "bin": {
     "rn-inspector": "dist/index.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "ui-dist"
   ],
   "scripts": {
     "build": "tsc -p .",
@@ -17,10 +18,13 @@
     "dev": "tsc -p . --watch"
   },
   "dependencies": {
-    "execa": "^8.0.1",
+    "serve-static": "^1.15.0",
+    "finalhandler": "^1.2.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.10"
+    "@types/ws": "^8.5.10",
+    "@types/serve-static": "^1.15.7",
+    "@types/finalhandler": "^1.1.3"
   }
 }

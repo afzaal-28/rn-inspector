@@ -1,7 +1,7 @@
 {
-  "name": "rn-inspector",
+  "name": "rn-inspector-proxy",
   "version": "0.1.0",
-  "private": false,
+  "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

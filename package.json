@@ -1,5 +1,5 @@
 {
-  "name": "rn-inspector",
+  "name": "rn-inspector-monorepo",
   "version": "0.1.0",
   "private": false,
   "workspaces": [

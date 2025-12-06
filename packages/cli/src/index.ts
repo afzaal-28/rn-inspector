@@ -1,24 +1,28 @@
+#!/usr/bin/env node
 import http, { IncomingMessage, ServerResponse } from 'http';
 import WebSocket, { RawData, WebSocketServer } from 'ws';
-import { execa } from 'execa';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import serveStatic from 'serve-static';
+import finalhandler from 'finalhandler';
 
 const DEFAULT_METRO_PORT = 8081;
-const DEFAULT_UI_PORT = 9230;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_UI_WS_PORT = 9230;
+const DEFAULT_UI_STATIC_PORT = 4173;
+const baseFile: string = typeof __filename !== 'undefined' ? __filename : path.resolve(process.argv[1] ?? '');
+const baseDir: string = typeof __dirname !== 'undefined' ? __dirname : path.dirname(baseFile);
 
 type ProxyOptions = {
   metroPort?: number;
   host?: string;
-  uiPort?: number;
+  uiWsPort?: number;
 };
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const parsed: { metroPort: number; uiPort: number; uiDev?: boolean } = {
+  const parsed: { metroPort: number; uiWsPort: number; uiPort: number } = {
     metroPort: DEFAULT_METRO_PORT,
-    uiPort: DEFAULT_UI_PORT,
+    uiWsPort: DEFAULT_UI_WS_PORT,
+    uiPort: DEFAULT_UI_STATIC_PORT,
   };
   args.forEach((arg) => {
     if (arg.startsWith('--port=')) {
@@ -27,8 +31,9 @@ function parseArgs() {
     } else if (arg.startsWith('--ui-port=')) {
       const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.uiPort = val;
-    } else if (arg === '--ui-dev') {
-      parsed.uiDev = true;
+    } else if (arg.startsWith('--ui-ws-port=')) {
+      const val = Number(arg.split('=')[1]);
+      if (!Number.isNaN(val)) parsed.uiWsPort = val;
     }
   });
   if (process.env.METRO_PORT) {
@@ -50,7 +55,7 @@ function getMetroPort(envPort?: string | undefined): number {
 async function startProxy(opts: ProxyOptions = {}) {
   const metroPort = opts.metroPort ?? getMetroPort(process.env.METRO_PORT);
   const host = opts.host ?? '127.0.0.1';
-  const uiPort = opts.uiPort ?? DEFAULT_UI_PORT;
+  const uiPort = opts.uiWsPort ?? DEFAULT_UI_WS_PORT;
 
   const targetWsUrl = `ws://${host}:${metroPort}/message`;
   console.log(`[rn-inspector] Connecting to ${targetWsUrl} ...`);
@@ -101,35 +106,34 @@ async function startProxy(opts: ProxyOptions = {}) {
   return { metroWs, uiWss, server };
 }
 
-async function startUi(uiDev: boolean) {
-  const uiDir = path.resolve(__dirname, '../../ui');
-  if (uiDev) {
-    console.log('[rn-inspector] starting Tauri (dev) in packages/ui ...');
-    const sub = execa('npm', ['run', 'tauri', '--', 'dev'], { cwd: uiDir, stdio: 'inherit' });
-    sub.catch((err: unknown) => console.error('[rn-inspector] ui dev failed', err));
-    return sub;
-  }
-  console.log('[rn-inspector] building Tauri app (this may take a while)...');
-  await execa('npm', ['run', 'tauri', '--', 'build'], { cwd: uiDir, stdio: 'inherit' });
-  console.log('[rn-inspector] built UI. Launching...');
-  const exePath = path.resolve(uiDir, 'src-tauri', 'target', 'release');
-  const binary = process.platform === 'win32' ? path.join(exePath, 'rn-inspector-ui.exe') : path.join(exePath, 'rn-inspector-ui');
-  const sub = execa(binary, { stdio: 'inherit' });
-  sub.catch((err: unknown) => console.error('[rn-inspector] ui run failed', err));
-  return sub;
+function startStaticUi(staticPort: number) {
+  const staticDir = path.resolve(baseDir, '../ui-dist');
+  const serve = serveStatic(staticDir);
+  const server = http.createServer((req, res) => {
+    serve(req as any, res as any, finalhandler(req as any, res as any));
+  });
+  server.listen(staticPort, () => {
+    console.log(`[rn-inspector] UI served at http://localhost:${staticPort}`);
+  });
+  return server;
 }
 
 export async function main() {
-  const { metroPort, uiPort, uiDev } = parseArgs();
+  const { metroPort, uiPort, uiWsPort } = parseArgs();
 
-  console.log(`[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiPort})`);
-  await startProxy({ metroPort, uiPort });
+  console.log(`[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`);
+  await startProxy({ metroPort, uiWsPort });
 
-  console.log('[rn-inspector] launching UI...');
-  await startUi(Boolean(uiDev));
+  console.log('[rn-inspector] serving UI assets...');
+  startStaticUi(uiPort);
+
+  console.log(`[rn-inspector] open http://localhost:${uiPort} (UI connects to ws://localhost:${uiWsPort ?? DEFAULT_UI_WS_PORT}/inspector)`);
 }
 
-if (require.main === module) {
+const entrypoint = baseFile;
+const invoked = process.argv[1] && path.resolve(process.argv[1]) === entrypoint;
+
+if (invoked) {
   main().catch((err) => {
     console.error('[rn-inspector] CLI failed:', err);
     process.exit(1);
