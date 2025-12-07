@@ -220,11 +220,9 @@ export default function StoragePage() {
                   <Typography color="error.main" variant="body2">
                     {(currentStorage.asyncStorage as any)?.error || 'Error fetching AsyncStorage'}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Make sure @react-native-async-storage/async-storage is installed in your app.
-                  </Typography>
+
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                    To enable inspection, expose it globally in your app, for example:
+                    To enable async-storage inspection, expose it globally in your app, for example:
                   </Typography>
                   <Box
                     component="pre"
@@ -317,7 +315,7 @@ export default function StoragePage() {
                     {(currentStorage.redux as any)?.error || 'Error fetching Redux state'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    To enable Redux inspection, expose your store globally:
+                    To enable Redux inspection, expose your store globally, for example:
                   </Typography>
                   <Box
                     component="pre"

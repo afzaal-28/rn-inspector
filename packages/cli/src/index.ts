@@ -464,7 +464,7 @@ const INJECT_STORAGE_SNIPPET = `
           } else if (g.store && typeof g.store.getState === 'function') {
             result.redux = safeSerialize(g.store.getState(), 6);
           } else {
-            result.redux = { error: 'Redux store not found. Expose it via window.__RN_INSPECTOR_REDUX_STORE__ = store;' };
+            result.redux = { error: 'Redux store not found' };
           }
         } catch (e) {
           result.redux = { error: e.message };
