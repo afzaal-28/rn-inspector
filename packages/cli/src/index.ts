@@ -946,12 +946,7 @@ export async function main() {
   registerKeyHandlers(uiUrl);
 }
 
-const entrypoint = baseFile;
-const invoked = process.argv[1] && path.resolve(process.argv[1]) === entrypoint;
-
-if (invoked) {
-  main().catch((err) => {
-    console.error('[rn-inspector] CLI failed:', err);
-    process.exit(1);
-  });
-}
+main().catch((err) => {
+  console.error('[rn-inspector] CLI failed:', err);
+  process.exit(1);
+});

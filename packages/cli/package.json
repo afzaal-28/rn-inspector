@@ -1,6 +1,7 @@
 {
   "name": "rn-inspector",
-  "version": "0.1.5",
+  "version": "0.1.6",
+  "description": "CLI + Web UI to inspect React Native console and network traffic via Metro and DevTools.",
   "private": false,
   "type": "commonjs",
   "bin": {
@@ -26,5 +27,23 @@
     "@types/ws": "^8.5.10",
     "@types/serve-static": "^1.15.7",
     "@types/finalhandler": "^1.1.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/afzaal-28/rn-inspector.git"
+  },
+  "homepage": "https://github.com/afzaal-28/rn-inspector#readme",
+  "bugs": {
+    "url": "https://github.com/afzaal-28/rn-inspector/issues"
+  },
+  "author": "afzaal-28",
+  "keywords": [
+    "react-native",
+    "react",
+    "devtools",
+    "inspector",
+    "debugging",
+    "network",
+    "console"
+  ]
 }

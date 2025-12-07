@@ -280,6 +280,7 @@ export default function AppShell() {
               anchorEl={deviceAnchorEl}
               placement="bottom-start"
               modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
+              sx={(theme) => ({ zIndex: theme.zIndex.tooltip })}
             >
               <ClickAwayListener onClickAway={() => setDeviceAnchorEl(null)}>
                 <Box
