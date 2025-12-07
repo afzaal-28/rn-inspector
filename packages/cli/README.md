@@ -47,29 +47,37 @@ After installing, the `rn-inspector` command is available in your shell.
 ## CLI usage
 
 ```bash
-rn-inspector [--port=8081] [--ui-port=4173] [--ui-ws-port=9230] [--devtools-url=ws://...]
+rn-inspector \
+  [--port 8081 | --port=8081] \
+  [--ui-port 4173 | --ui-port=4173] \
+  [--ui-ws-port 9230 | --ui-ws-port=9230] \
+  [--devtools-url ws://...] \
+  [--version | -v | version]
 ```
 
 ### Options
 
-- `--port=<number>`
+- `--port <number>` / `--port=<number>`
   - Metro port to connect to.
   - Default: `8081`.
   - This is also affected by the `METRO_PORT` environment variable (see below).
 
-- `--ui-port=<number>`
+- `--ui-port <number>` / `--ui-port=<number>`
   - HTTP port where the Web UI is served.
   - Default: `4173`.
   - The UI will be available at `http://localhost:<ui-port>`.
 
-- `--ui-ws-port=<number>`
+- `--ui-ws-port <number>` / `--ui-ws-port=<number>`
   - WebSocket port used between the CLI proxy and the Web UI.
   - Default: `9230`.
   - The UI connects to `ws://localhost:<ui-ws-port>/inspector`.
 
-- `--devtools-url=<ws-url>`
+- `--devtools-url <ws-url>` / `--devtools-url=<ws-url>`
   - Explicit DevTools websocket URL to attach to (for advanced usage).
   - If omitted, `rn-inspector` will **auto-discover** DevTools targets via `http://<host>:<port>/json` on a range of ports (starting around the Metro port) and attach to all matching targets.
+
+- `--version`, `-v`, `version`
+  - Print the `rn-inspector` CLI version and exit without starting the proxy.
 
 ### Environment variables
 
@@ -128,6 +136,47 @@ The UI includes:
   - Global **capture toggles** for Console and Network streams.
   - Global **proxy WS status chip** (shows connection status and basic stats; click to reconnect when disconnected).
   - Global **DevTools status chip** (shows connected/closed/error and lets you request a DevTools reconnect from the UI).
+
+---
+
+## Storage & Redux inspection
+
+The **Storage** page lets you inspect:
+
+- **AsyncStorage** key/value pairs.
+- **Redux** state (if you are using Redux).
+
+To keep the CLI simple and avoid depending on your bundler setup, you need to expose these on the global object in your app:
+
+### AsyncStorage
+
+In your React Native app (for example in `App.tsx`):
+
+```ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Make AsyncStorage visible to rn-inspector storage helper
+(global as any).AsyncStorage = AsyncStorage;
+```
+
+Once this is set and the app is running with DevTools debugging enabled, the Storage page's **AsyncStorage** panel will show your keys and values.
+
+### Redux store
+
+If you use Redux, expose your store after you create it (anywhere in your app setup):
+
+```ts
+import { createStore } from 'redux';
+
+const store = createStore(reducer);
+
+// Expose Redux store for rn-inspector
+(global as any).__RN_INSPECTOR_REDUX_STORE__ = store;
+```
+
+The Storage page's **Redux State** panel will then show `store.getState()` and update as your state changes.
+
+If you do not expose these globals, the Storage page will show a helpful message explaining what to add in your app.
 
 ---
 

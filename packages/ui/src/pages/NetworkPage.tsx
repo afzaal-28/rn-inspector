@@ -32,7 +32,7 @@ function formatTs(ts: string) {
 }
 
 const NetworkPage = () => {
-  const { networkEvents, activeDeviceId } = useProxy();
+  const { networkEvents, activeDeviceId, networkClearedAtMs, setNetworkClearedAtMs } = useProxy();
   const [selectedEvent, setSelectedEvent] = useState<NetworkEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'headers' | 'payload' | 'response'>('headers');
@@ -40,7 +40,6 @@ const NetworkPage = () => {
   const [copied, setCopied] = useState(false);
   const [showHtmlPreview, setShowHtmlPreview] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [clearedAtMs, setClearedAtMs] = useState<number | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -96,18 +95,42 @@ const NetworkPage = () => {
   const isHtmlResponse = responseContentType.toLowerCase().includes('text/html');
   const isTextLikeResponse = !isImageResponse && !isPdfResponse && !isVideoResponse;
 
-  const filteredNetworkEvents = useMemo(() => {
-    let latest = networkEvents.slice(-300);
+  const mergedNetworkEvents = useMemo(() => {
+    const byId = new Map<string, NetworkEvent>();
+    const latest = networkEvents.slice(-600);
 
-    if (clearedAtMs) {
+    latest.forEach((evt) => {
+      const key = evt.id || `${evt.method}:${evt.url}:${evt.ts}`;
+      const existing = byId.get(key);
+      if (!existing) {
+        byId.set(key, { ...evt });
+      } else {
+        byId.set(key, {
+          ...existing,
+          ...evt,
+          ts: existing.ts,
+        });
+      }
+    });
+
+    return Array.from(byId.values()).sort((a, b) => {
+      const aTs = Date.parse(a.ts);
+      const bTs = Date.parse(b.ts);
+      if (Number.isNaN(aTs) || Number.isNaN(bTs)) return 0;
+      return bTs - aTs;
+    });
+  }, [networkEvents]);
+
+  const filteredNetworkEvents = useMemo(() => {
+    let latest = mergedNetworkEvents;
+
+    if (networkClearedAtMs) {
       latest = latest.filter((evt) => {
         const tsMs = Date.parse(evt.ts);
         if (Number.isNaN(tsMs)) return true;
-        return tsMs > clearedAtMs;
+        return tsMs > networkClearedAtMs;
       });
     }
-
-    latest = latest.reverse();
 
     let byDevice = latest;
     if (activeDeviceId && activeDeviceId !== 'all') {
@@ -129,14 +152,20 @@ const NetworkPage = () => {
     }
 
     return byDevice;
-  }, [networkEvents, activeDeviceId, searchQuery, clearedAtMs]);
+  }, [mergedNetworkEvents, activeDeviceId, searchQuery, networkClearedAtMs]);
 
   useEffect(() => {
     setShowHtmlPreview(false);
   }, [selectedEvent, activeTab]);
 
   const handleClear = () => {
-    setClearedAtMs(Date.now());
+    if (networkEvents.length > 0) {
+      const last = networkEvents[networkEvents.length - 1];
+      const lastMs = Date.parse(last.ts);
+      setNetworkClearedAtMs(Number.isNaN(lastMs) ? Date.now() : lastMs);
+    } else {
+      setNetworkClearedAtMs(Date.now());
+    }
     setSelectedEvent(null);
     setDrawerOpen(false);
   };
@@ -300,7 +329,7 @@ const NetworkPage = () => {
                   <Box sx={{ minWidth: 90, textAlign: 'right' }}>
                     <Chip
                       size="small"
-                      label={evt.status ?? '—'}
+                      label={evt.status != null ? evt.status : 'Pending'}
                       color={getStatusColor(evt.status)}
                       variant="filled"
                       sx={{ mr: evt.error ? 0.5 : 0, borderRadius: 2, textTransform: 'none' }}

@@ -35,9 +35,10 @@ const drawerWidth = 220;
 const navItems = [
   { label: 'Console', icon: <TerminalIcon fontSize="small" />, path: '/', disabled: false },
   { label: 'Network', icon: <NetworkCheckIcon fontSize="small" />, path: '/network', disabled: false },
+  { label: 'Storage', icon: <StorageIcon fontSize="small" />, path: '/storage', disabled: false },
+  { label: 'Inspector', icon: <LanIcon fontSize="small" />, path: '/inspector', disabled: true },
   { label: 'Sessions', icon: <StorageIcon fontSize="small" />, path: '/sessions', disabled: true },
   { label: 'Settings', icon: <SettingsIcon fontSize="small" />, path: '/settings', disabled: true },
-  { label: 'Storage', icon: <StorageIcon fontSize="small" />, path: '/storage', disabled: true },
   { label: 'Application', icon: <LanIcon fontSize="small" />, path: '/application', disabled: true },
   { label: 'Components', icon: <TerminalIcon fontSize="small" />, path: '/components', disabled: true },
   { label: 'Preview', icon: <LanIcon fontSize="small" />, path: '/preview', disabled: true },
@@ -280,6 +281,7 @@ export default function AppShell() {
               <Typography
                 variant="body2"
                 noWrap
+                color="text.primary"
                 sx={{ flex: 1, fontWeight: 500 }}
               >
                 {activeDeviceId === 'all'

@@ -2,6 +2,7 @@
 import http, { IncomingMessage, ServerResponse } from 'http';
 import WebSocket, { RawData, WebSocketServer } from 'ws';
 import path from 'path';
+import fs from 'fs';
 import serveStatic from 'serve-static';
 import finalhandler from 'finalhandler';
 import { spawn } from 'child_process';
@@ -28,32 +29,69 @@ type DevtoolsTarget = {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const parsed: { metroPort: number; uiWsPort: number; uiPort: number; devtoolsWsUrl?: string } = {
+  const parsed: {
+    metroPort: number;
+    uiWsPort: number;
+    uiPort: number;
+    devtoolsWsUrl?: string;
+    showVersion?: boolean;
+  } = {
     metroPort: DEFAULT_METRO_PORT,
     uiWsPort: DEFAULT_UI_WS_PORT,
     uiPort: DEFAULT_UI_STATIC_PORT,
     devtoolsWsUrl: process.env.RN_INSPECTOR_DEVTOOLS_URL,
   };
-  args.forEach((arg) => {
-    if (arg.startsWith('--port=')) {
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    const next = args[i + 1];
+
+    if (arg === '--version' || arg === '-v' || arg === 'version') {
+      parsed.showVersion = true;
+    } else if (arg === '--port' && next && !next.startsWith('-')) {
+      const val = Number(next);
+      if (!Number.isNaN(val)) parsed.metroPort = val;
+      i += 1;
+    } else if (arg.startsWith('--port=')) {
       const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.metroPort = val;
+    } else if (arg === '--ui-port' && next && !next.startsWith('-')) {
+      const val = Number(next);
+      if (!Number.isNaN(val)) parsed.uiPort = val;
+      i += 1;
     } else if (arg.startsWith('--ui-port=')) {
       const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.uiPort = val;
+    } else if (arg === '--ui-ws-port' && next && !next.startsWith('-')) {
+      const val = Number(next);
+      if (!Number.isNaN(val)) parsed.uiWsPort = val;
+      i += 1;
     } else if (arg.startsWith('--ui-ws-port=')) {
       const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.uiWsPort = val;
+    } else if (arg === '--devtools-url' && next && !next.startsWith('-')) {
+      if (next) parsed.devtoolsWsUrl = next;
+      i += 1;
     } else if (arg.startsWith('--devtools-url=')) {
       const val = arg.split('=')[1];
       if (val) parsed.devtoolsWsUrl = val;
     }
-  });
+  }
   if (process.env.METRO_PORT) {
     const v = Number(process.env.METRO_PORT);
     if (!Number.isNaN(v)) parsed.metroPort = v;
   }
   return parsed;
+}
+
+function getCliVersion(): string {
+  try {
+    const pkgPath = path.resolve(baseDir, '../package.json');
+    const raw = fs.readFileSync(pkgPath, 'utf8');
+    const pkg = JSON.parse(raw) as { version?: string };
+    return pkg.version ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
 
 function getMetroPort(envPort?: string | undefined): number {
@@ -319,6 +357,326 @@ const INJECT_NETWORK_SNIPPET = `
   } catch (eOuter) {}
 })();`;
 
+const INJECT_STORAGE_SNIPPET = `
+(function () {
+  try {
+    var g = typeof globalThis !== 'undefined' ? globalThis : typeof global !== 'undefined' ? global : this;
+    if (!g) return;
+    if (g.__RN_INSPECTOR_STORAGE_PATCHED__) return;
+    g.__RN_INSPECTOR_STORAGE_PATCHED__ = true;
+
+    // Helper to serialize values safely
+    function safeSerialize(obj, maxDepth) {
+      maxDepth = maxDepth || 5;
+      var seen = new WeakSet();
+      function serialize(val, depth) {
+        if (depth > maxDepth) return '[Max depth]';
+        if (val === null) return null;
+        if (val === undefined) return undefined;
+        var type = typeof val;
+        if (type === 'string' || type === 'number' || type === 'boolean') return val;
+        if (type === 'function') return '[Function]';
+        if (type !== 'object') return String(val);
+        if (seen.has(val)) return '[Circular]';
+        seen.add(val);
+        if (Array.isArray(val)) {
+          var arr = [];
+          for (var i = 0; i < Math.min(val.length, 100); i++) {
+            arr.push(serialize(val[i], depth + 1));
+          }
+          if (val.length > 100) arr.push('[... ' + (val.length - 100) + ' more]');
+          return arr;
+        }
+        var result = {};
+        var keys = Object.keys(val);
+        for (var j = 0; j < Math.min(keys.length, 50); j++) {
+          var key = keys[j];
+          try { result[key] = serialize(val[key], depth + 1); } catch (e) { result[key] = '[Error]'; }
+        }
+        if (keys.length > 50) result['...'] = '[' + (keys.length - 50) + ' more]';
+        return result;
+      }
+      return serialize(obj, 0);
+    }
+
+    // Setup storage fetcher that responds to requests
+    g.__RN_INSPECTOR_FETCH_STORAGE__ = function(requestId) {
+      var result = { requestId: requestId, asyncStorage: null, redux: null, error: null };
+      
+      // Try to get AsyncStorage
+      try {
+        var AsyncStorage = null;
+        // Try different ways to access AsyncStorage
+        if (g.AsyncStorage) {
+          AsyncStorage = g.AsyncStorage;
+        } else {
+          try {
+            var rn = require('@react-native-async-storage/async-storage');
+            AsyncStorage = rn.default || rn;
+          } catch (e1) {
+            try {
+              var rn2 = require('react-native');
+              AsyncStorage = rn2.AsyncStorage;
+            } catch (e2) {}
+          }
+        }
+        
+        if (AsyncStorage && typeof AsyncStorage.getAllKeys === 'function') {
+          AsyncStorage.getAllKeys().then(function(keys) {
+            if (!keys || keys.length === 0) {
+              result.asyncStorage = {};
+              sendResult();
+              return;
+            }
+            AsyncStorage.multiGet(keys).then(function(pairs) {
+              var storage = {};
+              (pairs || []).forEach(function(pair) {
+                var key = pair[0];
+                var value = pair[1];
+                try {
+                  storage[key] = JSON.parse(value);
+                } catch (e) {
+                  storage[key] = value;
+                }
+              });
+              result.asyncStorage = safeSerialize(storage, 6);
+              sendResult();
+            }).catch(function(e) {
+              result.asyncStorage = { error: e.message };
+              sendResult();
+            });
+          }).catch(function(e) {
+            result.asyncStorage = { error: e.message };
+            sendResult();
+          });
+          return; // async path
+        } else {
+          result.asyncStorage = { error: 'AsyncStorage not available' };
+        }
+      } catch (e) {
+        result.asyncStorage = { error: e.message };
+      }
+      
+      sendResult();
+      
+      function sendResult() {
+        // Try to get Redux state
+        try {
+          if (g.__REDUX_DEVTOOLS_EXTENSION__ && g.__REDUX_DEVTOOLS_EXTENSION__.store) {
+            result.redux = safeSerialize(g.__REDUX_DEVTOOLS_EXTENSION__.store.getState(), 6);
+          } else if (g.__RN_INSPECTOR_REDUX_STORE__) {
+            result.redux = safeSerialize(g.__RN_INSPECTOR_REDUX_STORE__.getState(), 6);
+          } else if (g.store && typeof g.store.getState === 'function') {
+            result.redux = safeSerialize(g.store.getState(), 6);
+          } else {
+            result.redux = { error: 'Redux store not found. Expose it via window.__RN_INSPECTOR_REDUX_STORE__ = store;' };
+          }
+        } catch (e) {
+          result.redux = { error: e.message };
+        }
+        
+        console.log('__RN_INSPECTOR_STORAGE__:' + JSON.stringify(result));
+      }
+    };
+  } catch (eOuter) {}
+})();`;
+
+const INJECT_INSPECTOR_SNIPPET = `
+(function () {
+  try {
+    var g = typeof globalThis !== 'undefined' ? globalThis : typeof global !== 'undefined' ? global : this;
+    if (!g) return;
+    if (g.__RN_INSPECTOR_UI_PATCHED__) return;
+    g.__RN_INSPECTOR_UI_PATCHED__ = true;
+
+    // Helper to serialize UI tree safely
+    function serializeElement(element, depth) {
+      if (!element || depth > 15) return null;
+      
+      var result = {
+        type: null,
+        props: {},
+        children: [],
+        layout: null
+      };
+      
+      try {
+        // Get element type
+        if (typeof element.type === 'string') {
+          result.type = element.type;
+        } else if (element.type && element.type.displayName) {
+          result.type = element.type.displayName;
+        } else if (element.type && element.type.name) {
+          result.type = element.type.name;
+        } else if (element.type) {
+          result.type = 'Component';
+        }
+        
+        // Get relevant props (excluding children and functions)
+        if (element.props) {
+          var propKeys = Object.keys(element.props);
+          for (var i = 0; i < Math.min(propKeys.length, 20); i++) {
+            var key = propKeys[i];
+            if (key === 'children') continue;
+            var val = element.props[key];
+            var valType = typeof val;
+            if (valType === 'string' || valType === 'number' || valType === 'boolean') {
+              result.props[key] = val;
+            } else if (valType === 'function') {
+              result.props[key] = '[Function]';
+            } else if (val === null) {
+              result.props[key] = null;
+            } else if (valType === 'object') {
+              // For style objects, try to serialize
+              if (key === 'style') {
+                try {
+                  result.props[key] = JSON.parse(JSON.stringify(val));
+                } catch (e) {
+                  result.props[key] = '[Style Object]';
+                }
+              } else {
+                result.props[key] = '[Object]';
+              }
+            }
+          }
+        }
+        
+        // Get children
+        if (element.props && element.props.children) {
+          var children = element.props.children;
+          if (Array.isArray(children)) {
+            for (var j = 0; j < Math.min(children.length, 50); j++) {
+              var child = serializeElement(children[j], depth + 1);
+              if (child) result.children.push(child);
+            }
+          } else if (typeof children === 'object' && children !== null) {
+            var child = serializeElement(children, depth + 1);
+            if (child) result.children.push(child);
+          } else if (typeof children === 'string' || typeof children === 'number') {
+            result.children.push({ type: 'Text', props: { text: String(children) }, children: [] });
+          }
+        }
+      } catch (e) {
+        result.error = e.message;
+      }
+      
+      return result;
+    }
+
+    // Function to get UI hierarchy
+    g.__RN_INSPECTOR_FETCH_UI__ = function(requestId) {
+      var result = { requestId: requestId, hierarchy: null, screenshot: null, error: null };
+      
+      try {
+        // Try to access React DevTools hook
+        var hook = g.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        if (hook && hook.renderers) {
+          var renderers = Array.from(hook.renderers.values());
+          if (renderers.length > 0) {
+            var renderer = renderers[0];
+            if (renderer && renderer.findFiberByHostInstance) {
+              // Try to get root fiber
+              var roots = hook.getFiberRoots ? hook.getFiberRoots(1) : null;
+              if (roots && roots.size > 0) {
+                var rootFiber = Array.from(roots)[0];
+                if (rootFiber && rootFiber.current) {
+                  result.hierarchy = serializeFiber(rootFiber.current, 0);
+                }
+              }
+            }
+          }
+        }
+        
+        // Fallback: try to get from AppRegistry
+        if (!result.hierarchy) {
+          try {
+            var AppRegistry = require('react-native').AppRegistry;
+            if (AppRegistry && AppRegistry.getRunnable) {
+              result.hierarchy = { type: 'AppRoot', props: {}, children: [], note: 'Full hierarchy requires React DevTools hook' };
+            }
+          } catch (e) {}
+        }
+        
+        if (!result.hierarchy) {
+          result.hierarchy = { type: 'Root', props: {}, children: [], note: 'Could not access component tree' };
+        }
+      } catch (e) {
+        result.error = e.message;
+      }
+      
+      console.log('__RN_INSPECTOR_UI__:' + JSON.stringify(result));
+      
+      function serializeFiber(fiber, depth) {
+        if (!fiber || depth > 20) return null;
+        
+        var node = {
+          type: null,
+          props: {},
+          children: [],
+          key: fiber.key || null
+        };
+        
+        try {
+          // Get type name
+          if (typeof fiber.type === 'string') {
+            node.type = fiber.type;
+          } else if (fiber.type && fiber.type.displayName) {
+            node.type = fiber.type.displayName;
+          } else if (fiber.type && fiber.type.name) {
+            node.type = fiber.type.name;
+          } else if (fiber.tag === 5) {
+            node.type = 'HostComponent';
+          } else if (fiber.tag === 6) {
+            node.type = 'Text';
+          } else if (fiber.tag === 3) {
+            node.type = 'HostRoot';
+          } else {
+            node.type = 'Unknown';
+          }
+          
+          // Get props
+          if (fiber.memoizedProps && typeof fiber.memoizedProps === 'object') {
+            var props = fiber.memoizedProps;
+            var keys = Object.keys(props);
+            for (var i = 0; i < Math.min(keys.length, 15); i++) {
+              var key = keys[i];
+              if (key === 'children') continue;
+              var val = props[key];
+              var t = typeof val;
+              if (t === 'string' || t === 'number' || t === 'boolean' || val === null) {
+                node.props[key] = val;
+              } else if (t === 'function') {
+                node.props[key] = '[Function]';
+              } else if (key === 'style' && t === 'object') {
+                try { node.props[key] = JSON.parse(JSON.stringify(val)); } catch (e) { node.props[key] = '[Style]'; }
+              } else {
+                node.props[key] = '[' + t + ']';
+              }
+            }
+          }
+          
+          // Get text content for text nodes
+          if (fiber.tag === 6 && fiber.memoizedProps) {
+            node.props.text = String(fiber.memoizedProps);
+          }
+          
+          // Traverse children
+          var child = fiber.child;
+          while (child) {
+            var serialized = serializeFiber(child, depth + 1);
+            if (serialized) node.children.push(serialized);
+            child = child.sibling;
+          }
+        } catch (e) {
+          node.error = e.message;
+        }
+        
+        return node;
+      }
+    };
+  } catch (eOuter) {}
+})();`;
+
 function normalizeHeaders(input: Record<string, unknown> | undefined): Record<string, string> | undefined {
   if (!input) return undefined;
   const out: Record<string, string> = {};
@@ -343,6 +701,76 @@ function mapConsoleLevel(type: string | undefined): 'log' | 'info' | 'warn' | 'e
   if (type === 'warning' || type === 'warn') return 'warn';
   if (type === 'info') return 'info';
   return 'log';
+}
+
+function handleInjectedStorageFromConsole(
+  params: any,
+  broadcast: (message: unknown) => void,
+  deviceId?: string,
+): boolean {
+  if (!params || !Array.isArray(params.args) || params.args.length === 0) return false;
+  const first = params.args[0];
+  const raw = typeof first.value === 'string' ? first.value : undefined;
+  if (!raw || !raw.startsWith('__RN_INSPECTOR_STORAGE__')) return false;
+
+  const rest = raw.slice('__RN_INSPECTOR_STORAGE__'.length);
+  const trimmed = rest.trim().startsWith(':') ? rest.trim().slice(1).trim() : rest.trim();
+
+  let payload: any;
+  try {
+    payload = JSON.parse(trimmed);
+  } catch {
+    return true; // marker but unparsable; consume to avoid polluting console
+  }
+
+  broadcast({
+    type: 'storage',
+    payload: {
+      requestId: payload.requestId,
+      asyncStorage: payload.asyncStorage,
+      redux: payload.redux,
+      error: payload.error,
+      deviceId,
+      ts: new Date().toISOString(),
+    },
+  });
+
+  return true;
+}
+
+function handleInjectedUIFromConsole(
+  params: any,
+  broadcast: (message: unknown) => void,
+  deviceId?: string,
+): boolean {
+  if (!params || !Array.isArray(params.args) || params.args.length === 0) return false;
+  const first = params.args[0];
+  const raw = typeof first.value === 'string' ? first.value : undefined;
+  if (!raw || !raw.startsWith('__RN_INSPECTOR_UI__')) return false;
+
+  const rest = raw.slice('__RN_INSPECTOR_UI__'.length);
+  const trimmed = rest.trim().startsWith(':') ? rest.trim().slice(1).trim() : rest.trim();
+
+  let payload: any;
+  try {
+    payload = JSON.parse(trimmed);
+  } catch {
+    return true; // marker but unparsable; consume to avoid polluting console
+  }
+
+  broadcast({
+    type: 'inspector',
+    payload: {
+      requestId: payload.requestId,
+      hierarchy: payload.hierarchy,
+      screenshot: payload.screenshot,
+      error: payload.error,
+      deviceId,
+      ts: new Date().toISOString(),
+    },
+  });
+
+  return true;
 }
 
 function handleInjectedNetworkFromConsole(
@@ -381,6 +809,26 @@ function handleInjectedNetworkFromConsole(
       requestBody: payload.requestBody,
     };
     map.set(id, req);
+    const ts =
+      typeof payload.ts === 'string' ? payload.ts : new Date(req.startTimeMs).toISOString();
+    broadcast({
+      type: 'network',
+      payload: {
+        id,
+        phase: 'start',
+        ts,
+        method: req.method,
+        url: req.url,
+        status: undefined,
+        durationMs: 0,
+        error: undefined,
+        requestHeaders: req.requestHeaders,
+        responseHeaders: undefined,
+        requestBody: req.requestBody,
+        responseBody: undefined,
+        deviceId,
+      },
+    });
   } else if (phase === 'end' || phase === 'error') {
     const existing: TrackedRequest =
       map.get(id) ?? {
@@ -408,6 +856,8 @@ function handleInjectedNetworkFromConsole(
     const event = {
       type: 'network',
       payload: {
+        id,
+        phase: phase === 'error' ? 'error' : 'end',
         ts: typeof payload.ts === 'string' ? payload.ts : new Date(existing.startTimeMs).toISOString(),
         method: existing.method,
         url: existing.url,
@@ -458,24 +908,99 @@ function stringifyConsoleArgs(args: any[] | undefined): string {
     .join(' ');
 }
 
+function stringifyConsoleValues(values: unknown[] | undefined): string {
+  if (!Array.isArray(values) || values.length === 0) return '';
+  return values
+    .map((v) => {
+      if (typeof v === 'string') return v;
+      try {
+        return JSON.stringify(v);
+      } catch {
+        return String(v);
+      }
+    })
+    .join(' ');
+}
+
+function normalizePreviewProperty(prop: any): unknown {
+  if (!prop) return null;
+  
+  // If it has a value, use it directly
+  if (typeof prop.value !== 'undefined') {
+    // Try to parse JSON strings that might be serialized objects
+    if (typeof prop.value === 'string') {
+      try {
+        return JSON.parse(prop.value);
+      } catch {
+        return prop.value;
+      }
+    }
+    return prop.value;
+  }
+  
+  // If it has a subtype like 'array', indicate that
+  if (prop.subtype === 'array' && typeof prop.description === 'string') {
+    return prop.description; // e.g., "Array(10)"
+  }
+  
+  if (typeof prop.type !== 'undefined') {
+    return `[${prop.type}]`;
+  }
+  
+  return null;
+}
+
 function normalizeConsoleArg(arg: any): unknown {
   if (!arg) return null;
 
-  if (typeof arg.value !== 'undefined') return arg.value;
+  // Primitive value
+  if (typeof arg.value !== 'undefined') {
+    // Try to parse JSON strings
+    if (typeof arg.value === 'string') {
+      try {
+        return JSON.parse(arg.value);
+      } catch {
+        return arg.value;
+      }
+    }
+    return arg.value;
+  }
 
+  // Handle arrays with preview
+  if (arg.subtype === 'array' && arg.preview) {
+    const preview = arg.preview;
+    if (Array.isArray(preview.properties)) {
+      try {
+        const arr: unknown[] = [];
+        (preview.properties as any[]).forEach((p) => {
+          const idx = parseInt(p.name, 10);
+          if (!isNaN(idx)) {
+            arr[idx] = normalizePreviewProperty(p);
+          }
+        });
+        // If array was truncated, add indicator
+        if (preview.overflow) {
+          arr.push('...[truncated]');
+        }
+        return arr;
+      } catch {
+        // fall through
+      }
+    }
+  }
+
+  // Handle objects with preview
   if (arg.preview && Array.isArray(arg.preview.properties)) {
     try {
       const out: Record<string, unknown> = {};
       (arg.preview.properties as any[]).forEach((p) => {
         const name = String(p.name ?? '');
-        const value =
-          typeof p.value !== 'undefined'
-            ? p.value
-            : typeof p.type !== 'undefined'
-            ? p.type
-            : null;
-        out[name] = value;
+        out[name] = normalizePreviewProperty(p);
       });
+      // If object was truncated, add indicator
+      if (arg.preview.overflow) {
+        out['...'] = '[truncated]';
+      }
       return out;
     } catch {
       // ignore and fall back
@@ -491,19 +1016,45 @@ function normalizeConsoleArg(arg: any): unknown {
   }
 }
 
-function handleRuntimeConsole(params: any, broadcast: (message: unknown) => void, deviceId?: string) {
+async function handleRuntimeConsole(
+  params: any,
+  broadcast: (message: unknown) => void,
+  deviceId?: string,
+  evaluateConsoleArg?: (arg: any) => Promise<unknown>,
+) {
   if (!params) return;
   const tsMs = typeof params.timestamp === 'number' ? params.timestamp * 1000 : Date.now();
   const argsArray = Array.isArray(params.args) ? params.args : [];
+
+  let rawArgs: unknown[];
+  if (evaluateConsoleArg) {
+    const limited = argsArray.slice(0, 10);
+    rawArgs = await Promise.all(
+      limited.map(async (a: any) => {
+        try {
+          return await evaluateConsoleArg(a);
+        } catch {
+          return normalizeConsoleArg(a);
+        }
+      }),
+    );
+  } else {
+    rawArgs = argsArray.map((a: any) => normalizeConsoleArg(a));
+  }
+
+  const msg = evaluateConsoleArg && rawArgs.length
+    ? stringifyConsoleValues(rawArgs)
+    : stringifyConsoleArgs(argsArray);
+
   const evt = {
     type: 'console',
     payload: {
       ts: new Date(tsMs).toISOString(),
       level: mapConsoleLevel(typeof params.type === 'string' ? params.type : undefined),
-      msg: stringifyConsoleArgs(argsArray),
+      msg,
       origin: 'devtools',
       deviceId,
-      rawArgs: argsArray.map((a: any) => normalizeConsoleArg(a)),
+      rawArgs,
     },
   };
   broadcast(evt);
@@ -546,6 +1097,7 @@ function handleNetworkEvent(
         : typeof params.timestamp === 'number'
         ? params.timestamp * 1000
         : Date.now();
+    const hadExisting = map.has(id);
     const existing: TrackedRequest =
       map.get(id) ?? {
         method: String(request.method || 'GET'),
@@ -561,6 +1113,27 @@ function handleNetworkEvent(
       existing.requestBody = tryParseJson(request.postData);
     }
     map.set(id, existing);
+    if (!hadExisting) {
+      const ts = new Date(existing.startTimeMs).toISOString();
+      broadcast({
+        type: 'network',
+        payload: {
+          id,
+          phase: 'start',
+          ts,
+          method: existing.method,
+          url: existing.url,
+          status: existing.status,
+          durationMs: 0,
+          error: undefined,
+          requestHeaders: existing.requestHeaders,
+          responseHeaders: existing.responseHeaders,
+          requestBody: existing.requestBody,
+          responseBody: existing.responseBody,
+          deviceId,
+        },
+      });
+    }
   } else if (method === 'Network.responseReceived') {
     const response = params.response ?? {};
     const existing: TrackedRequest =
@@ -573,6 +1146,25 @@ function handleNetworkEvent(
     const respHeaders = normalizeHeaders(response.headers as Record<string, unknown> | undefined);
     if (respHeaders) existing.responseHeaders = respHeaders;
     map.set(id, existing);
+    const ts = new Date(existing.startTimeMs).toISOString();
+    broadcast({
+      type: 'network',
+      payload: {
+        id,
+        phase: 'response',
+        ts,
+        method: existing.method,
+        url: existing.url,
+        status: existing.status,
+        durationMs: existing.durationMs,
+        error: existing.error,
+        requestHeaders: existing.requestHeaders,
+        responseHeaders: existing.responseHeaders,
+        requestBody: existing.requestBody,
+        responseBody: existing.responseBody,
+        deviceId,
+      },
+    });
   } else if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {
     const existing = map.get(id);
     if (!existing) return;
@@ -585,6 +1177,8 @@ function handleNetworkEvent(
     const event = {
       type: 'network',
       payload: {
+        id,
+        phase: method === 'Network.loadingFailed' ? 'error' : 'end',
         ts: new Date(existing.startTimeMs).toISOString(),
         method: existing.method,
         url: existing.url,
@@ -603,13 +1197,111 @@ function handleNetworkEvent(
   }
 }
 
+type DevtoolsBridge = {
+  ws: WebSocket;
+  deviceId: string;
+  requestStorage: (requestId: string) => void;
+  requestUI: (requestId: string) => void;
+};
+
 function attachDevtoolsBridge(
   devtoolsWsUrl: string,
   broadcast: (message: unknown) => void,
   deviceId: string,
-) {
+): DevtoolsBridge {
   const state: DevtoolsState = { requests: new Map() };
   let devtoolsWs: WebSocket | null = null;
+  let nextStorageRequestId = 1000;
+
+  let nextConsoleEvalId = 100;
+  const pendingConsoleEvals = new Map<number, (value: unknown) => void>();
+
+  const evaluateConsoleArg = async (arg: any): Promise<unknown> => {
+    if (!arg || typeof arg !== 'object' || !arg.objectId) {
+      return normalizeConsoleArg(arg);
+    }
+
+    const ws = devtoolsWs;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return normalizeConsoleArg(arg);
+    }
+
+    const id = nextConsoleEvalId++;
+    // Use a custom serialization function that handles circular references and deep nesting
+    const serializeFn = `function() {
+      try {
+        var seen = new WeakSet();
+        var maxDepth = 10;
+        function serialize(obj, depth) {
+          if (depth > maxDepth) return '[Max depth exceeded]';
+          if (obj === null) return null;
+          if (obj === undefined) return undefined;
+          var type = typeof obj;
+          if (type === 'string' || type === 'number' || type === 'boolean') return obj;
+          if (type === 'function') return '[Function]';
+          if (type === 'symbol') return obj.toString();
+          if (type === 'bigint') return obj.toString() + 'n';
+          if (type !== 'object') return String(obj);
+          if (seen.has(obj)) return '[Circular]';
+          seen.add(obj);
+          if (Array.isArray(obj)) {
+            var arr = [];
+            for (var i = 0; i < Math.min(obj.length, 100); i++) {
+              arr.push(serialize(obj[i], depth + 1));
+            }
+            if (obj.length > 100) arr.push('[... ' + (obj.length - 100) + ' more items]');
+            return arr;
+          }
+          if (obj instanceof Date) return obj.toISOString();
+          if (obj instanceof RegExp) return obj.toString();
+          if (obj instanceof Error) return { name: obj.name, message: obj.message, stack: obj.stack };
+          var result = {};
+          var keys = Object.keys(obj);
+          for (var j = 0; j < Math.min(keys.length, 50); j++) {
+            var key = keys[j];
+            try { result[key] = serialize(obj[key], depth + 1); } catch (e) { result[key] = '[Error: ' + e.message + ']'; }
+          }
+          if (keys.length > 50) result['...'] = '[' + (keys.length - 50) + ' more keys]';
+          return result;
+        }
+        return serialize(this, 0);
+      } catch (e) { return { error: e.message }; }
+    }`;
+    const payload = {
+      id,
+      method: 'Runtime.callFunctionOn',
+      params: {
+        objectId: arg.objectId,
+        functionDeclaration: serializeFn,
+        returnByValue: true,
+        awaitPromise: true,
+      },
+    };
+
+    return new Promise<unknown>((resolve) => {
+      pendingConsoleEvals.set(id, (value: unknown) => {
+        if (value === null || typeof value === 'undefined') {
+          resolve(normalizeConsoleArg(arg));
+        } else {
+          resolve(value);
+        }
+      });
+      try {
+        ws.send(JSON.stringify(payload));
+      } catch {
+        pendingConsoleEvals.delete(id);
+        resolve(normalizeConsoleArg(arg));
+        return;
+      }
+
+      setTimeout(() => {
+        if (pendingConsoleEvals.has(id)) {
+          pendingConsoleEvals.delete(id);
+          resolve(normalizeConsoleArg(arg));
+        }
+      }, 500);
+    });
+  };
 
   const connect = () => {
     const ws = new WebSocket(devtoolsWsUrl);
@@ -641,6 +1333,28 @@ function attachDevtoolsBridge(
             },
           }),
         );
+        ws.send(
+          JSON.stringify({
+            id: 7,
+            method: 'Runtime.evaluate',
+            params: {
+              expression: INJECT_STORAGE_SNIPPET,
+              includeCommandLineAPI: false,
+              awaitPromise: false,
+            },
+          }),
+        );
+        ws.send(
+          JSON.stringify({
+            id: 8,
+            method: 'Runtime.evaluate',
+            params: {
+              expression: INJECT_INSPECTOR_SNIPPET,
+              includeCommandLineAPI: false,
+              awaitPromise: false,
+            },
+          }),
+        );
         broadcast({
           type: 'meta',
           payload: {
@@ -664,6 +1378,18 @@ function attachDevtoolsBridge(
         console.warn('[rn-inspector] Failed to parse DevTools message', err);
         return;
       }
+
+      if (msg && typeof msg.id === 'number' && pendingConsoleEvals.has(msg.id)) {
+        const resolve = pendingConsoleEvals.get(msg.id)!;
+        pendingConsoleEvals.delete(msg.id);
+        const value =
+          msg && msg.result && typeof msg.result.value !== 'undefined'
+            ? msg.result.value
+            : null;
+        resolve(value);
+        return;
+      }
+
       if (!msg || typeof msg !== 'object') return;
       const method = typeof msg.method === 'string' ? msg.method : undefined;
       const params = msg.params as any;
@@ -674,7 +1400,13 @@ function attachDevtoolsBridge(
         if (handleInjectedNetworkFromConsole(params, state, broadcast, deviceId)) {
           return;
         }
-        handleRuntimeConsole(params, broadcast, deviceId);
+        if (handleInjectedStorageFromConsole(params, broadcast, deviceId)) {
+          return;
+        }
+        if (handleInjectedUIFromConsole(params, broadcast, deviceId)) {
+          return;
+        }
+        void handleRuntimeConsole(params, broadcast, deviceId, evaluateConsoleArg);
       } else if (method === 'Log.entryAdded') {
         handleLogEntry(params, broadcast, deviceId);
       } else if (
@@ -729,7 +1461,66 @@ function attachDevtoolsBridge(
     return ws;
   };
 
-  return connect();
+  const ws = connect();
+
+  const requestStorage = (requestId: string) => {
+    if (!devtoolsWs || devtoolsWs.readyState !== WebSocket.OPEN) {
+      broadcast({
+        type: 'storage',
+        payload: {
+          requestId,
+          asyncStorage: { error: 'DevTools not connected' },
+          redux: { error: 'DevTools not connected' },
+          deviceId,
+          ts: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+    const evalId = nextStorageRequestId++;
+    devtoolsWs.send(
+      JSON.stringify({
+        id: evalId,
+        method: 'Runtime.evaluate',
+        params: {
+          expression: `(typeof __RN_INSPECTOR_FETCH_STORAGE__ === 'function') ? __RN_INSPECTOR_FETCH_STORAGE__('${requestId}') : console.log('__RN_INSPECTOR_STORAGE__:' + JSON.stringify({ requestId: '${requestId}', asyncStorage: { error: 'Storage helper not injected' }, redux: { error: 'Storage helper not injected' } }))`,
+          includeCommandLineAPI: false,
+          awaitPromise: false,
+        },
+      }),
+    );
+  };
+
+  const requestUI = (requestId: string) => {
+    if (!devtoolsWs || devtoolsWs.readyState !== WebSocket.OPEN) {
+      broadcast({
+        type: 'inspector',
+        payload: {
+          requestId,
+          hierarchy: null,
+          screenshot: null,
+          error: 'DevTools not connected',
+          deviceId,
+          ts: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+    const evalId = nextStorageRequestId++;
+    devtoolsWs.send(
+      JSON.stringify({
+        id: evalId,
+        method: 'Runtime.evaluate',
+        params: {
+          expression: `(typeof __RN_INSPECTOR_FETCH_UI__ === 'function') ? __RN_INSPECTOR_FETCH_UI__('${requestId}') : console.log('__RN_INSPECTOR_UI__:' + JSON.stringify({ requestId: '${requestId}', hierarchy: null, error: 'UI inspector not injected' }))`,
+          includeCommandLineAPI: false,
+          awaitPromise: false,
+        },
+      }),
+    );
+  };
+
+  return { ws, deviceId, requestStorage, requestUI };
 }
 
 async function startProxy(opts: ProxyOptions = {}) {
@@ -762,7 +1553,7 @@ async function startProxy(opts: ProxyOptions = {}) {
     });
   };
 
-  let devtoolsWs: WebSocket | null = null;
+  const devtoolsBridges = new Map<string, DevtoolsBridge>();
 
   const attachDevtools = async () => {
     try {
@@ -770,7 +1561,8 @@ async function startProxy(opts: ProxyOptions = {}) {
         // Explicit DevTools URL provided: treat as a single device.
         const deviceId = 'devtools-explicit';
         console.log(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`);
-        devtoolsWs = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId);
+        const bridge = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId);
+        devtoolsBridges.set(deviceId, bridge);
 
         currentDevices = [
           {
@@ -811,8 +1603,8 @@ async function startProxy(opts: ProxyOptions = {}) {
 
           devices.forEach((d, index) => {
             const target = targets[index];
-            const ws = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id);
-            if (!devtoolsWs) devtoolsWs = ws;
+            const bridge = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id);
+            devtoolsBridges.set(d.id, bridge);
           });
         } else {
           broadcast({
@@ -858,6 +1650,89 @@ async function startProxy(opts: ProxyOptions = {}) {
         if (!msg || typeof msg !== 'object') return;
         if (msg.type === 'control' && msg.command === 'reconnect-devtools') {
           void attachDevtools();
+        } else if (msg.type === 'control' && msg.command === 'fetch-storage') {
+          // Request storage from specified device or all devices
+          const requestId = msg.requestId || `storage-${Date.now()}`;
+          const targetDeviceId = msg.deviceId;
+          
+          if (targetDeviceId && targetDeviceId !== 'all') {
+            const bridge = devtoolsBridges.get(targetDeviceId);
+            if (bridge) {
+              bridge.requestStorage(requestId);
+            } else {
+              broadcast({
+                type: 'storage',
+                payload: {
+                  requestId,
+                  asyncStorage: { error: `Device ${targetDeviceId} not found` },
+                  redux: { error: `Device ${targetDeviceId} not found` },
+                  deviceId: targetDeviceId,
+                  ts: new Date().toISOString(),
+                },
+              });
+            }
+          } else {
+            // Request from all devices
+            if (devtoolsBridges.size === 0) {
+              broadcast({
+                type: 'storage',
+                payload: {
+                  requestId,
+                  asyncStorage: { error: 'No devices connected' },
+                  redux: { error: 'No devices connected' },
+                  deviceId: 'all',
+                  ts: new Date().toISOString(),
+                },
+              });
+            } else {
+              devtoolsBridges.forEach((bridge) => {
+                bridge.requestStorage(`${requestId}-${bridge.deviceId}`);
+              });
+            }
+          }
+        } else if (msg.type === 'control' && msg.command === 'fetch-ui') {
+          // Request UI hierarchy from specified device or first available
+          const requestId = msg.requestId || `ui-${Date.now()}`;
+          const targetDeviceId = msg.deviceId;
+          
+          if (targetDeviceId && targetDeviceId !== 'all') {
+            const bridge = devtoolsBridges.get(targetDeviceId);
+            if (bridge) {
+              bridge.requestUI(requestId);
+            } else {
+              broadcast({
+                type: 'inspector',
+                payload: {
+                  requestId,
+                  hierarchy: null,
+                  screenshot: null,
+                  error: `Device ${targetDeviceId} not found`,
+                  deviceId: targetDeviceId,
+                  ts: new Date().toISOString(),
+                },
+              });
+            }
+          } else {
+            // Request from first available device
+            if (devtoolsBridges.size === 0) {
+              broadcast({
+                type: 'inspector',
+                payload: {
+                  requestId,
+                  hierarchy: null,
+                  screenshot: null,
+                  error: 'No devices connected',
+                  deviceId: 'all',
+                  ts: new Date().toISOString(),
+                },
+              });
+            } else {
+              const firstBridge = devtoolsBridges.values().next().value;
+              if (firstBridge) {
+                firstBridge.requestUI(requestId);
+              }
+            }
+          }
         }
       } catch {
         // ignore malformed control messages
@@ -918,7 +1793,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   const address = server.address();
   console.log('[rn-inspector] Local proxy health endpoint on', address);
 
-  return { metroWs, uiWss, server, devtoolsWs };
+  return { metroWs, uiWss, server, devtoolsBridges };
 }
 
 function startStaticUi(staticPort: number) {
@@ -988,7 +1863,13 @@ function registerKeyHandlers(uiUrl: string) {
 }
 
 export async function main() {
-  const { metroPort, uiPort, uiWsPort, devtoolsWsUrl: explicitDevtoolsWsUrl } = parseArgs();
+  const { metroPort, uiPort, uiWsPort, devtoolsWsUrl: explicitDevtoolsWsUrl, showVersion } = parseArgs();
+
+  if (showVersion) {
+    const version = getCliVersion();
+    console.log(version);
+    return;
+  }
 
   const devtoolsWsUrl = explicitDevtoolsWsUrl;
 

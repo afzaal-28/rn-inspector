@@ -1,14 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  useProxyStream,
-  type ConsoleEvent,
-  type NetworkEvent,
-  type DeviceInfo,
-} from '../hooks/useProxyStream';
+import { useProxyStream, type ConsoleEvent, type NetworkEvent, type DeviceInfo, type StorageEvent, type InspectorEvent } from '../hooks/useProxyStream';
 
 export interface ProxyContextValue {
   consoleEvents: ConsoleEvent[];
   networkEvents: NetworkEvent[];
+  storageData: Map<string, StorageEvent>;
+  inspectorData: Map<string, InspectorEvent>;
   status: 'connecting' | 'open' | 'closed' | 'error';
   stats: { consoleCount: number; networkCount: number; status: typeof status };
   reconnect: () => void;
@@ -17,6 +14,12 @@ export interface ProxyContextValue {
   setActiveDeviceId: (id: string) => void;
   devtoolsStatus: 'unknown' | 'open' | 'closed' | 'error';
   reconnectDevtools: () => void;
+  fetchStorage: (deviceId?: string) => void;
+  fetchUI: (deviceId?: string) => void;
+  consoleClearedAtMs: number | null;
+  setConsoleClearedAtMs: (value: number | null) => void;
+  networkClearedAtMs: number | null;
+  setNetworkClearedAtMs: (value: number | null) => void;
   captureConsole: boolean;
   setCaptureConsole: (value: boolean) => void;
   captureNetwork: boolean;
@@ -43,6 +46,9 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     }
     return true;
   });
+
+  const [consoleClearedAtMs, setConsoleClearedAtMs] = useState<number | null>(null);
+  const [networkClearedAtMs, setNetworkClearedAtMs] = useState<number | null>(null);
 
   const [captureNetwork, setCaptureNetwork] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -89,6 +95,8 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
   const value: ProxyContextValue = {
     consoleEvents,
     networkEvents,
+    storageData: stream.storageData,
+    inspectorData: stream.inspectorData,
     status: stream.status,
     stats: stream.stats as any,
     reconnect: stream.reconnect,
@@ -97,6 +105,12 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     setActiveDeviceId: stream.setActiveDeviceId,
     devtoolsStatus: stream.devtoolsStatus,
     reconnectDevtools: stream.reconnectDevtools,
+    fetchStorage: stream.fetchStorage,
+    fetchUI: stream.fetchUI,
+    consoleClearedAtMs,
+    setConsoleClearedAtMs,
+    networkClearedAtMs,
+    setNetworkClearedAtMs,
     captureConsole,
     setCaptureConsole,
     captureNetwork,

@@ -1,7 +1,7 @@
 {
   "name": "rn-inspector",
-  "version": "0.2.0",
-  "description": "CLI + Web UI to inspect React Native console and network traffic via Metro and DevTools.",
+  "version": "0.2.1",
+  "description": "CLI and web UI to inspect React Native console, Redux, AsyncStorage, and network traffic via Metro and DevTools.",
   "private": false,
   "type": "commonjs",
   "bin": {
@@ -44,6 +44,8 @@
     "inspector",
     "debugging",
     "network",
-    "console"
+    "console",
+    "storage",
+    "application"
   ]
 }

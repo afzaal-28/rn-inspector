@@ -22,6 +22,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import NotesIcon from '@mui/icons-material/Notes';
 import GlassPanel from '../ui/GlassPanel';
+import JsonTreeView from '../components/JsonTreeView';
 import type { ConsoleEvent } from '../hooks/useProxyStream';
 import { useProxy } from '../context/ProxyContext';
 import SearchIcon from '@mui/icons-material/Search';
@@ -55,14 +56,13 @@ function formatTs(ts: string) {
 }
 
 const ConsolePage = () => {
-  const { consoleEvents, activeDeviceId } = useProxy();
+  const { consoleEvents, activeDeviceId, consoleClearedAtMs, setConsoleClearedAtMs } = useProxy();
   const [levelFilter, setLevelFilter] = useState<'all' | 'log' | 'info' | 'warn' | 'error'>('all');
   const [selectedEvent, setSelectedEvent] = useState<ConsoleEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [clearedAtMs, setClearedAtMs] = useState<number | null>(null);
 
   const handleCopyMessage = () => {
     if (selectedEvent?.msg) {
@@ -75,11 +75,11 @@ const ConsolePage = () => {
   const filteredEvents = useMemo(() => {
     let latest = consoleEvents.slice(-300);
 
-    if (clearedAtMs) {
+    if (consoleClearedAtMs) {
       latest = latest.filter((evt) => {
         const tsMs = Date.parse(evt.ts);
         if (Number.isNaN(tsMs)) return true;
-        return tsMs > clearedAtMs;
+        return tsMs > consoleClearedAtMs;
       });
     }
 
@@ -98,10 +98,16 @@ const ConsolePage = () => {
     }
 
     return byLevel;
-  }, [consoleEvents, levelFilter, activeDeviceId, searchQuery, clearedAtMs]);
+  }, [consoleEvents, levelFilter, activeDeviceId, searchQuery, consoleClearedAtMs]);
 
   const handleClear = () => {
-    setClearedAtMs(Date.now());
+    if (consoleEvents.length > 0) {
+      const last = consoleEvents[consoleEvents.length - 1];
+      const lastMs = Date.parse(last.ts);
+      setConsoleClearedAtMs(Number.isNaN(lastMs) ? Date.now() : lastMs);
+    } else {
+      setConsoleClearedAtMs(Date.now());
+    }
     setSelectedEvent(null);
     setDrawerOpen(false);
   };
@@ -518,25 +524,18 @@ const ConsolePage = () => {
                       </Typography>
                     </Box>
                     <Box
-                      component="pre"
                       sx={{
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        fontFamily: '"Fira Code", "JetBrains Mono", monospace',
-                        fontSize: 13,
-                        lineHeight: 1.6,
-                        m: 0,
                         p: 2,
                         background: (theme) =>
                           theme.palette.mode === 'dark'
                             ? 'rgba(0,0,0,0.3)'
                             : 'rgba(0,0,0,0.04)',
                         borderRadius: 1.5,
-                        maxHeight: 300,
+                        maxHeight: 400,
                         overflow: 'auto',
                       }}
                     >
-                      {JSON.stringify(selectedEvent.rawArgs, null, 2)}
+                      <JsonTreeView data={selectedEvent.rawArgs} defaultExpanded />
                     </Box>
                   </Box>
                 )}

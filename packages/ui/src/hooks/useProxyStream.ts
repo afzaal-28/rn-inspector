@@ -12,6 +12,8 @@ export type ConsoleEvent = {
 export type NetworkHeaders = Record<string, string>;
 
 export type NetworkEvent = {
+  id?: string;
+  phase?: 'start' | 'response' | 'end' | 'error';
   ts: string;
   method: string;
   url: string;
@@ -31,9 +33,38 @@ export type DeviceInfo = {
   url?: string;
 };
 
+export type StorageEvent = {
+  requestId: string;
+  asyncStorage: Record<string, unknown> | null;
+  redux: Record<string, unknown> | null;
+  error?: string;
+  deviceId?: string;
+  ts: string;
+};
+
+export type UINode = {
+  type: string | null;
+  props: Record<string, unknown>;
+  children: UINode[];
+  key?: string | null;
+  error?: string;
+  note?: string;
+};
+
+export type InspectorEvent = {
+  requestId: string;
+  hierarchy: UINode | null;
+  screenshot: string | null;
+  error?: string;
+  deviceId?: string;
+  ts: string;
+};
+
 export type ProxyEvent =
   | { type: 'console'; payload: ConsoleEvent }
   | { type: 'network'; payload: NetworkEvent }
+  | { type: 'storage'; payload: StorageEvent }
+  | { type: 'inspector'; payload: InspectorEvent }
   | { type: 'meta'; payload: Record<string, unknown> };
 
 export function useProxyStream(endpoint?: string) {
@@ -41,6 +72,8 @@ export function useProxyStream(endpoint?: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const [consoleEvents, setConsoleEvents] = useState<ConsoleEvent[]>([]);
   const [networkEvents, setNetworkEvents] = useState<NetworkEvent[]>([]);
+  const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(new Map());
+  const [inspectorData, setInspectorData] = useState<Map<string, InspectorEvent>>(new Map());
   const [status, setStatus] = useState<'connecting' | 'open' | 'closed' | 'error'>('connecting');
 
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
@@ -63,6 +96,22 @@ export function useProxyStream(endpoint?: string) {
       setConsoleEvents((prev) => [...prev, parsed.payload].slice(-500));
     } else if (parsed.type === 'network') {
       setNetworkEvents((prev) => [...prev, parsed.payload].slice(-500));
+    } else if (parsed.type === 'storage') {
+      const storagePayload = parsed.payload as StorageEvent;
+      const deviceId = storagePayload.deviceId || 'unknown';
+      setStorageData((prev) => {
+        const next = new Map(prev);
+        next.set(deviceId, storagePayload);
+        return next;
+      });
+    } else if (parsed.type === 'inspector') {
+      const inspectorPayload = parsed.payload as InspectorEvent;
+      const deviceId = inspectorPayload.deviceId || 'unknown';
+      setInspectorData((prev) => {
+        const next = new Map(prev);
+        next.set(deviceId, inspectorPayload);
+        return next;
+      });
     } else if (parsed.type === 'meta') {
       const payload = parsed.payload as any;
       const kind = payload?.kind;
@@ -219,9 +268,43 @@ export function useProxyStream(endpoint?: string) {
     }
   };
 
+  const fetchStorage = (deviceId?: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'control',
+          command: 'fetch-storage',
+          deviceId: deviceId || activeDeviceId,
+          requestId: `storage-${Date.now()}`,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  const fetchUI = (deviceId?: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'control',
+          command: 'fetch-ui',
+          deviceId: deviceId || activeDeviceId,
+          requestId: `ui-${Date.now()}`,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
   return {
     consoleEvents,
     networkEvents,
+    storageData,
+    inspectorData,
     status,
     stats,
     reconnect,
@@ -230,5 +313,7 @@ export function useProxyStream(endpoint?: string) {
     setActiveDeviceId,
     devtoolsStatus,
     reconnectDevtools,
+    fetchStorage,
+    fetchUI,
   };
 }
