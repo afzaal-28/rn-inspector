@@ -195,18 +195,15 @@ export default function InspectorPage() {
 
   // Get inspector data for the active device
   const currentInspector = useMemo(() => {
-    if (activeDeviceId === 'all') {
-      const entries = Array.from(inspectorData.values());
-      if (entries.length === 0) return null;
-      return entries[0];
-    }
+    if (!activeDeviceId) return null;
     return inspectorData.get(activeDeviceId) || null;
   }, [inspectorData, activeDeviceId]);
 
   const handleRefresh = useCallback(() => {
+    if (!activeDeviceId) return;
     setLoading(true);
     setSelectedNode(null);
-    fetchUI(activeDeviceId === 'all' ? undefined : activeDeviceId);
+    fetchUI(activeDeviceId);
     setTimeout(() => setLoading(false), 3000);
   }, [fetchUI, activeDeviceId]);
 
@@ -268,24 +265,6 @@ export default function InspectorPage() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {devices.length > 1 && (
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel>Device</InputLabel>
-                <Select
-                  value={activeDeviceId}
-                  label="Device"
-                  onChange={(e) => setActiveDeviceId(e.target.value)}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value="all">All Devices</MenuItem>
-                  {devices.map((d) => (
-                    <MenuItem key={d.id} value={d.id}>
-                      {d.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
             <Button
               variant="outlined"
               startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}

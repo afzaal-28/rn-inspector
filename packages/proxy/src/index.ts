@@ -33,7 +33,6 @@ export async function startProxy(opts: ProxyOptions = {}) {
     console.log('[rn-inspector-proxy] Connected to Metro websocket');
   });
 
-  // Broadcast helper
   const uiWss = new WebSocketServer({ port: uiPort });
   uiWss.on('listening', () => {
     console.log(`[rn-inspector-proxy] UI WebSocket server on ws://${host}:${uiPort}/inspector`);
@@ -50,7 +49,6 @@ export async function startProxy(opts: ProxyOptions = {}) {
 
   metroWs.on('message', (data: RawData) => {
     const raw = data.toString();
-    // TODO: parse real Metro payload; for now wrap as console info
     const evt = { type: 'console', payload: { ts: new Date().toISOString(), level: 'info', msg: raw, origin: 'metro' } };
     broadcast(evt);
     console.log('[rn-inspector-proxy] console evt broadcast');
@@ -64,7 +62,6 @@ export async function startProxy(opts: ProxyOptions = {}) {
     console.error('[rn-inspector-proxy] Metro websocket error:', err);
   });
 
-  // Placeholder HTTP server (healthcheck)
   const server = http.createServer((_req: IncomingMessage, res: ServerResponse) => {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, uiWs: `ws://${host}:${uiPort}/inspector` }));

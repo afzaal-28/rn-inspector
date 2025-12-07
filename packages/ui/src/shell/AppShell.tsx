@@ -284,9 +284,7 @@ export default function AppShell() {
                 color="text.primary"
                 sx={{ flex: 1, fontWeight: 500 }}
               >
-                {activeDeviceId === 'all'
-                  ? 'All devices'
-                  : devices.find((d) => d.id === activeDeviceId)?.label ?? activeDeviceId}
+                {(devices.find((d) => d.id === activeDeviceId)?.label ?? activeDeviceId) || 'No device selected'}
               </Typography>
             </Box>
 
@@ -309,13 +307,6 @@ export default function AppShell() {
                     p: 0.5,
                   })}
                 >
-                  <MenuItem
-                    sx={{ borderRadius: 1 }}
-                    selected={activeDeviceId === 'all'}
-                    onClick={() => handleDeviceSelect('all')}
-                  >
-                    All devices
-                  </MenuItem>
                   {devices.map((device) => (
                     <MenuItem
                       key={device.id}

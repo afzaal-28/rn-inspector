@@ -88,7 +88,7 @@ const ConsolePage = () => {
     let byLevel =
       levelFilter === 'all' ? latest : latest.filter((evt) => evt.level === levelFilter);
 
-    if (activeDeviceId && activeDeviceId !== 'all') {
+    if (activeDeviceId) {
       byLevel = byLevel.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
     }
 

@@ -5,10 +5,6 @@ import {
   Button,
   CircularProgress,
   Chip,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
   TextField,
   InputAdornment,
 } from '@mui/material';
@@ -21,25 +17,21 @@ import JsonTreeView from '../components/JsonTreeView';
 import { useProxy } from '../context/ProxyContext';
 
 export default function StoragePage() {
-  const { storageData, fetchStorage, devices, activeDeviceId, setActiveDeviceId, status } = useProxy();
+  const { storageData, fetchStorage, devices, activeDeviceId, status } = useProxy();
   const [loading, setLoading] = useState(false);
   const [asyncSearchQuery, setAsyncSearchQuery] = useState('');
   const [reduxSearchQuery, setReduxSearchQuery] = useState('');
 
   // Get storage for the active device
   const currentStorage = useMemo(() => {
-    if (activeDeviceId === 'all') {
-      // Merge all device storage or show first available
-      const entries = Array.from(storageData.values());
-      if (entries.length === 0) return null;
-      return entries[0];
-    }
+    if (!activeDeviceId) return null;
     return storageData.get(activeDeviceId) || null;
   }, [storageData, activeDeviceId]);
 
   const handleRefresh = () => {
+    if (!activeDeviceId) return;
     setLoading(true);
-    fetchStorage(activeDeviceId === 'all' ? undefined : activeDeviceId);
+    fetchStorage(activeDeviceId);
     // Auto-clear loading after timeout
     setTimeout(() => setLoading(false), 3000);
   };
@@ -129,24 +121,6 @@ export default function StoragePage() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {devices.length > 1 && (
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel>Device</InputLabel>
-                <Select
-                  value={activeDeviceId}
-                  label="Device"
-                  onChange={(e) => setActiveDeviceId(e.target.value)}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value="all">All Devices</MenuItem>
-                  {devices.map((d) => (
-                    <MenuItem key={d.id} value={d.id}>
-                      {d.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
             <Button
               variant="outlined"
               startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}

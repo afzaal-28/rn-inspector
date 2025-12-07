@@ -133,7 +133,7 @@ const NetworkPage = () => {
     }
 
     let byDevice = latest;
-    if (activeDeviceId && activeDeviceId !== 'all') {
+    if (activeDeviceId) {
       byDevice = byDevice.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
     }
 

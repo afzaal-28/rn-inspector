@@ -365,7 +365,6 @@ const INJECT_STORAGE_SNIPPET = `
     if (g.__RN_INSPECTOR_STORAGE_PATCHED__) return;
     g.__RN_INSPECTOR_STORAGE_PATCHED__ = true;
 
-    // Helper to serialize values safely
     function safeSerialize(obj, maxDepth) {
       maxDepth = maxDepth || 5;
       var seen = new WeakSet();
@@ -399,14 +398,11 @@ const INJECT_STORAGE_SNIPPET = `
       return serialize(obj, 0);
     }
 
-    // Setup storage fetcher that responds to requests
     g.__RN_INSPECTOR_FETCH_STORAGE__ = function(requestId) {
       var result = { requestId: requestId, asyncStorage: null, redux: null, error: null };
       
-      // Try to get AsyncStorage
       try {
         var AsyncStorage = null;
-        // Try different ways to access AsyncStorage
         if (g.AsyncStorage) {
           AsyncStorage = g.AsyncStorage;
         } else {
@@ -449,7 +445,7 @@ const INJECT_STORAGE_SNIPPET = `
             result.asyncStorage = { error: e.message };
             sendResult();
           });
-          return; // async path
+          return;
         } else {
           result.asyncStorage = { error: 'AsyncStorage not available' };
         }
@@ -460,7 +456,6 @@ const INJECT_STORAGE_SNIPPET = `
       sendResult();
       
       function sendResult() {
-        // Try to get Redux state
         try {
           if (g.__REDUX_DEVTOOLS_EXTENSION__ && g.__REDUX_DEVTOOLS_EXTENSION__.store) {
             result.redux = safeSerialize(g.__REDUX_DEVTOOLS_EXTENSION__.store.getState(), 6);
@@ -489,7 +484,6 @@ const INJECT_INSPECTOR_SNIPPET = `
     if (g.__RN_INSPECTOR_UI_PATCHED__) return;
     g.__RN_INSPECTOR_UI_PATCHED__ = true;
 
-    // Helper to serialize UI tree safely
     function serializeElement(element, depth) {
       if (!element || depth > 15) return null;
       
@@ -501,7 +495,6 @@ const INJECT_INSPECTOR_SNIPPET = `
       };
       
       try {
-        // Get element type
         if (typeof element.type === 'string') {
           result.type = element.type;
         } else if (element.type && element.type.displayName) {
@@ -512,7 +505,6 @@ const INJECT_INSPECTOR_SNIPPET = `
           result.type = 'Component';
         }
         
-        // Get relevant props (excluding children and functions)
         if (element.props) {
           var propKeys = Object.keys(element.props);
           for (var i = 0; i < Math.min(propKeys.length, 20); i++) {
@@ -527,7 +519,6 @@ const INJECT_INSPECTOR_SNIPPET = `
             } else if (val === null) {
               result.props[key] = null;
             } else if (valType === 'object') {
-              // For style objects, try to serialize
               if (key === 'style') {
                 try {
                   result.props[key] = JSON.parse(JSON.stringify(val));
@@ -541,7 +532,6 @@ const INJECT_INSPECTOR_SNIPPET = `
           }
         }
         
-        // Get children
         if (element.props && element.props.children) {
           var children = element.props.children;
           if (Array.isArray(children)) {
@@ -563,19 +553,16 @@ const INJECT_INSPECTOR_SNIPPET = `
       return result;
     }
 
-    // Function to get UI hierarchy
     g.__RN_INSPECTOR_FETCH_UI__ = function(requestId) {
       var result = { requestId: requestId, hierarchy: null, screenshot: null, error: null };
       
       try {
-        // Try to access React DevTools hook
         var hook = g.__REACT_DEVTOOLS_GLOBAL_HOOK__;
         if (hook && hook.renderers) {
           var renderers = Array.from(hook.renderers.values());
           if (renderers.length > 0) {
             var renderer = renderers[0];
             if (renderer && renderer.findFiberByHostInstance) {
-              // Try to get root fiber
               var roots = hook.getFiberRoots ? hook.getFiberRoots(1) : null;
               if (roots && roots.size > 0) {
                 var rootFiber = Array.from(roots)[0];
@@ -587,7 +574,6 @@ const INJECT_INSPECTOR_SNIPPET = `
           }
         }
         
-        // Fallback: try to get from AppRegistry
         if (!result.hierarchy) {
           try {
             var AppRegistry = require('react-native').AppRegistry;
@@ -617,7 +603,6 @@ const INJECT_INSPECTOR_SNIPPET = `
         };
         
         try {
-          // Get type name
           if (typeof fiber.type === 'string') {
             node.type = fiber.type;
           } else if (fiber.type && fiber.type.displayName) {
@@ -634,7 +619,6 @@ const INJECT_INSPECTOR_SNIPPET = `
             node.type = 'Unknown';
           }
           
-          // Get props
           if (fiber.memoizedProps && typeof fiber.memoizedProps === 'object') {
             var props = fiber.memoizedProps;
             var keys = Object.keys(props);
@@ -655,12 +639,10 @@ const INJECT_INSPECTOR_SNIPPET = `
             }
           }
           
-          // Get text content for text nodes
           if (fiber.tag === 6 && fiber.memoizedProps) {
             node.props.text = String(fiber.memoizedProps);
           }
           
-          // Traverse children
           var child = fiber.child;
           while (child) {
             var serialized = serializeFiber(child, depth + 1);
@@ -720,7 +702,7 @@ function handleInjectedStorageFromConsole(
   try {
     payload = JSON.parse(trimmed);
   } catch {
-    return true; // marker but unparsable; consume to avoid polluting console
+    return true;
   }
 
   broadcast({
@@ -755,7 +737,7 @@ function handleInjectedUIFromConsole(
   try {
     payload = JSON.parse(trimmed);
   } catch {
-    return true; // marker but unparsable; consume to avoid polluting console
+    return true;
   }
 
   broadcast({
@@ -791,7 +773,7 @@ function handleInjectedNetworkFromConsole(
   try {
     payload = JSON.parse(trimmed);
   } catch {
-    return true; // marker but unparsable; consume to avoid polluting console
+    return true;
   }
 
   const id = String(payload.id ?? '');
@@ -875,7 +857,6 @@ function handleInjectedNetworkFromConsole(
     map.delete(id);
   }
 
-  // handled; do not treat as normal console log
   return true;
 }
 
@@ -885,7 +866,6 @@ function stringifyConsoleArgs(args: any[] | undefined): string {
     .map((arg) => {
       if (!arg) return 'undefined';
       if (typeof arg.value !== 'undefined') return String(arg.value);
-      // Use CDP object preview when available so objects are more readable than just "Object".
       if (arg.preview && Array.isArray(arg.preview.properties)) {
         try {
           const parts = (arg.preview.properties as any[]).map((p) => {
@@ -895,7 +875,6 @@ function stringifyConsoleArgs(args: any[] | undefined): string {
           });
           return `{ ${parts.join(', ')} }`;
         } catch {
-          // ignore and fall back
         }
       }
       if (typeof arg.description === 'string') return arg.description;
@@ -925,9 +904,7 @@ function stringifyConsoleValues(values: unknown[] | undefined): string {
 function normalizePreviewProperty(prop: any): unknown {
   if (!prop) return null;
   
-  // If it has a value, use it directly
   if (typeof prop.value !== 'undefined') {
-    // Try to parse JSON strings that might be serialized objects
     if (typeof prop.value === 'string') {
       try {
         return JSON.parse(prop.value);
@@ -937,10 +914,9 @@ function normalizePreviewProperty(prop: any): unknown {
     }
     return prop.value;
   }
-  
-  // If it has a subtype like 'array', indicate that
+
   if (prop.subtype === 'array' && typeof prop.description === 'string') {
-    return prop.description; // e.g., "Array(10)"
+    return prop.description;
   }
   
   if (typeof prop.type !== 'undefined') {
@@ -953,9 +929,7 @@ function normalizePreviewProperty(prop: any): unknown {
 function normalizeConsoleArg(arg: any): unknown {
   if (!arg) return null;
 
-  // Primitive value
   if (typeof arg.value !== 'undefined') {
-    // Try to parse JSON strings
     if (typeof arg.value === 'string') {
       try {
         return JSON.parse(arg.value);
@@ -966,7 +940,6 @@ function normalizeConsoleArg(arg: any): unknown {
     return arg.value;
   }
 
-  // Handle arrays with preview
   if (arg.subtype === 'array' && arg.preview) {
     const preview = arg.preview;
     if (Array.isArray(preview.properties)) {
@@ -978,18 +951,15 @@ function normalizeConsoleArg(arg: any): unknown {
             arr[idx] = normalizePreviewProperty(p);
           }
         });
-        // If array was truncated, add indicator
         if (preview.overflow) {
           arr.push('...[truncated]');
         }
         return arr;
       } catch {
-        // fall through
       }
     }
   }
 
-  // Handle objects with preview
   if (arg.preview && Array.isArray(arg.preview.properties)) {
     try {
       const out: Record<string, unknown> = {};
@@ -997,13 +967,11 @@ function normalizeConsoleArg(arg: any): unknown {
         const name = String(p.name ?? '');
         out[name] = normalizePreviewProperty(p);
       });
-      // If object was truncated, add indicator
       if (arg.preview.overflow) {
         out['...'] = '[truncated]';
       }
       return out;
     } catch {
-      // ignore and fall back
     }
   }
 
@@ -1227,7 +1195,6 @@ function attachDevtoolsBridge(
     }
 
     const id = nextConsoleEvalId++;
-    // Use a custom serialization function that handles circular references and deep nesting
     const serializeFn = `function() {
       try {
         var seen = new WeakSet();
@@ -1313,7 +1280,6 @@ function attachDevtoolsBridge(
         ws.send(JSON.stringify({ id: 1, method: 'Runtime.enable' }));
         ws.send(JSON.stringify({ id: 2, method: 'Log.enable' }));
         ws.send(JSON.stringify({ id: 3, method: 'Network.enable' }));
-        // Some DevTools backends require Page/Fetch domains for full Network info; these are best-effort.
         ws.send(JSON.stringify({ id: 4, method: 'Page.enable' }));
         ws.send(
           JSON.stringify({
@@ -1435,7 +1401,6 @@ function attachDevtoolsBridge(
           },
         });
       } catch {
-        // ignore broadcast errors
       }
     });
 
@@ -1454,7 +1419,6 @@ function attachDevtoolsBridge(
           },
         });
       } catch {
-        // ignore broadcast errors
       }
     });
 
@@ -1558,7 +1522,6 @@ async function startProxy(opts: ProxyOptions = {}) {
   const attachDevtools = async () => {
     try {
       if (opts.devtoolsWsUrl) {
-        // Explicit DevTools URL provided: treat as a single device.
         const deviceId = 'devtools-explicit';
         console.log(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`);
         const bridge = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId);
@@ -1581,7 +1544,6 @@ async function startProxy(opts: ProxyOptions = {}) {
           },
         });
       } else {
-        // Auto-discover all available DevTools targets and attach to each.
         const targets = await discoverDevtoolsTargets(metroPort);
         if (targets.length > 0) {
           const devices = targets.map((t, index) => ({
@@ -1626,7 +1588,6 @@ async function startProxy(opts: ProxyOptions = {}) {
   };
 
   uiWss.on('connection', (client) => {
-    // Send current devices list on connect, if we have one.
     if (currentDevices.length) {
       try {
         client.send(
@@ -1640,7 +1601,6 @@ async function startProxy(opts: ProxyOptions = {}) {
           }),
         );
       } catch {
-        // ignore per-client send errors
       }
     }
 
@@ -1651,7 +1611,6 @@ async function startProxy(opts: ProxyOptions = {}) {
         if (msg.type === 'control' && msg.command === 'reconnect-devtools') {
           void attachDevtools();
         } else if (msg.type === 'control' && msg.command === 'fetch-storage') {
-          // Request storage from specified device or all devices
           const requestId = msg.requestId || `storage-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
           
@@ -1672,7 +1631,6 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           } else {
-            // Request from all devices
             if (devtoolsBridges.size === 0) {
               broadcast({
                 type: 'storage',
@@ -1691,7 +1649,6 @@ async function startProxy(opts: ProxyOptions = {}) {
             }
           }
         } else if (msg.type === 'control' && msg.command === 'fetch-ui') {
-          // Request UI hierarchy from specified device or first available
           const requestId = msg.requestId || `ui-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
           
@@ -1713,7 +1670,6 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           } else {
-            // Request from first available device
             if (devtoolsBridges.size === 0) {
               broadcast({
                 type: 'inspector',
@@ -1735,7 +1691,6 @@ async function startProxy(opts: ProxyOptions = {}) {
           }
         }
       } catch {
-        // ignore malformed control messages
       }
     });
   });
@@ -1762,7 +1717,6 @@ async function startProxy(opts: ProxyOptions = {}) {
         },
       });
     } catch {
-      // ignore broadcast errors
     }
   });
 
@@ -1780,7 +1734,6 @@ async function startProxy(opts: ProxyOptions = {}) {
         },
       });
     } catch {
-      // ignore broadcast errors
     }
   });
 
@@ -1800,7 +1753,30 @@ function startStaticUi(staticPort: number) {
   const staticDir = path.resolve(baseDir, '../ui');
   const serve = serveStatic(staticDir);
   const server = http.createServer((req, res) => {
-    serve(req as any, res as any, finalhandler(req as any, res as any));
+    const done = finalhandler(req as any, res as any);
+
+    serve(req as any, res as any, (err) => {
+      if (err) {
+        return done(err as any);
+      }
+      if (req.method === 'GET') {
+        const accept = req.headers.accept;
+        const acceptsHtml = typeof accept === 'string' && accept.includes('text/html');
+
+        if (acceptsHtml) {
+          const indexPath = path.join(staticDir, 'index.html');
+          fs.readFile(indexPath, (readErr, data) => {
+            if (readErr) {
+              return done(readErr as any);
+            }
+            res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+            res.end(data);
+          });
+          return;
+        }
+      }
+      done();
+    });
   });
   server.listen(staticPort, () => {
     console.log(`[rn-inspector] UI served at http://localhost:${staticPort}`);
@@ -1812,7 +1788,6 @@ function openInBrowser(url: string) {
   try {
     const platform = process.platform;
     if (platform === 'win32') {
-      // On Windows, use "start" through cmd.exe
       const child = spawn('cmd', ['/c', 'start', '""', url], {
         stdio: 'ignore',
         detached: true,
@@ -1853,7 +1828,6 @@ function registerKeyHandlers(uiUrl: string) {
           '[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.',
         );
       } else if (key === '\u0003') {
-        // Ctrl+C
         process.exit(0);
       }
     });

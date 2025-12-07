@@ -10,7 +10,7 @@ export interface ProxyContextValue {
   stats: { consoleCount: number; networkCount: number; status: typeof status };
   reconnect: () => void;
   devices: DeviceInfo[];
-  activeDeviceId: string | 'all';
+  activeDeviceId: string;
   setActiveDeviceId: (id: string) => void;
   devtoolsStatus: 'unknown' | 'open' | 'closed' | 'error';
   reconnectDevtools: () => void;

@@ -77,16 +77,16 @@ export function useProxyStream(endpoint?: string) {
   const [status, setStatus] = useState<'connecting' | 'open' | 'closed' | 'error'>('connecting');
 
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
-  const [activeDeviceId, setActiveDeviceId] = useState<string | 'all'>(() => {
+  const [activeDeviceId, setActiveDeviceId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = window.localStorage.getItem('rn_inspector_active_device');
-        if (saved) return saved as string;
+        if (saved && saved !== 'all') return saved as string;
       } catch {
         // ignore storage errors
       }
     }
-    return 'all';
+    return '';
   });
 
   const [devtoolsStatus, setDevtoolsStatus] = useState<'unknown' | 'open' | 'closed' | 'error'>('unknown');
@@ -132,11 +132,13 @@ export function useProxyStream(endpoint?: string) {
         setDevices(mapped);
         if (mapped.length > 0) {
           setActiveDeviceId((prev) => {
-            if (prev !== 'all' && mapped.some((d) => d.id === prev)) {
+            if (prev && mapped.some((d) => d.id === prev)) {
               return prev;
             }
-            return mapped[0]?.id ?? 'all';
+            return mapped[0]?.id ?? '';
           });
+        } else {
+          setActiveDeviceId('');
         }
       } else {
         const source = payload?.source;
