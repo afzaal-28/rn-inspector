@@ -12,6 +12,7 @@ interface Notification {
   id: string;
   message: string;
   type: NotificationType;
+  count: number;
 }
 
 interface NotificationContainerProps {
@@ -30,12 +31,32 @@ const NotificationContainer = ({
   useEffect(() => {
     // Process any notifications that were queued before the container mounted
     if (typeof window !== 'undefined') {
+      const addNotification = (message: string, type: NotificationType = 'info') => {
+        setNotifications(prev => {
+          const existingIndex = prev.findIndex(
+            n => n.message === message && n.type === type
+          );
+
+          if (existingIndex !== -1) {
+            const existing = prev[existingIndex];
+            const updated: Notification = {
+              ...existing,
+              count: (existing.count ?? 1) + 1,
+            };
+            const remaining = prev.filter((_, index) => index !== existingIndex);
+            return [...remaining, updated];
+          }
+
+          const id = Math.random().toString(36).substr(2, 9);
+          return [...prev, { id, message, type, count: 1 }];
+        });
+      };
+
       const processQueue = () => {
         const queue = window.__notificationQueue || [];
         if (queue.length > 0) {
           queue.forEach(({ message, type = 'info' }: { message: string; type?: NotificationType }) => {
-            const id = Math.random().toString(36).substr(2, 9);
-            setNotifications(prev => [...prev, { id, message, type }]);
+            addNotification(message, type);
           });
           // Clear the queue
           window.__notificationQueue = [];
@@ -47,8 +68,7 @@ const NotificationContainer = ({
 
       // Expose showNotification method via window object
       window.showNotification = (message: string, type: NotificationType = 'info') => {
-        const id = Math.random().toString(36).substr(2, 9);
-        setNotifications(prev => [...prev, { id, message, type }]);
+        addNotification(message, type);
       };
 
       // Cleanup
@@ -159,7 +179,7 @@ const NotificationContainer = ({
                 const opacity = 1 - depth * 0.15; // faded for lower layers
                 return (
                   <Box
-                    key={notification.id}
+                    key={`${notification.id}-${notification.count ?? 1}`}
                     sx={{
                       position: 'relative',
                       zIndex: 1400 - depth,
@@ -176,6 +196,7 @@ const NotificationContainer = ({
                       id={notification.id}
                       message={notification.message}
                       type={notification.type}
+                      count={notification.count}
                       onDismiss={removeNotification}
                       autoHideDuration={autoHideDuration}
                     />
@@ -202,10 +223,11 @@ const NotificationContainer = ({
           ) : (
             visibleNotifications.map(notification => (
               <NotificationItem
-                key={notification.id}
+                key={`${notification.id}-${notification.count ?? 1}`}
                 id={notification.id}
                 message={notification.message}
                 type={notification.type}
+                count={notification.count}
                 onDismiss={removeNotification}
                 autoHideDuration={autoHideDuration}
               />
@@ -216,7 +238,7 @@ const NotificationContainer = ({
         {/* Expanded vertical list on hover (limit to latest 3) */}
         {isHovered && notifications.slice(-Math.min(3, notifications.length)).map((notification) => (
           <Box 
-            key={notification.id}
+            key={`${notification.id}-${notification.count ?? 1}`}
             sx={{
               transition: 'transform 0.2s ease, opacity 0.2s ease',
               transform: 'translateY(0)',
@@ -231,6 +253,7 @@ const NotificationContainer = ({
               id={notification.id}
               message={notification.message}
               type={notification.type}
+              count={notification.count}
               onDismiss={removeNotification}
               autoHideDuration={autoHideDuration}
             />

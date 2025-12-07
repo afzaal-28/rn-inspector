@@ -13,6 +13,7 @@ export interface NotificationItemProps {
   id: string;
   message: string;
   type: NotificationType;
+  count?: number;
   onDismiss: (id: string) => void;
   autoHideDuration?: number;
 }
@@ -48,6 +49,7 @@ const NotificationItem = ({
   id,
   message,
   type,
+  count = 1,
   onDismiss,
   autoHideDuration = 5000,
 }: NotificationItemProps) => {
@@ -102,6 +104,34 @@ const NotificationItem = ({
               position: 'relative',
             }}
           >
+            {count > 1 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  minWidth: 24,
+                  height: 22,
+                  borderRadius: 999,
+                  px: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: alpha(theme.palette[type].main || theme.palette.primary.main, 0.15),
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: theme.palette[type].main || theme.palette.primary.main,
+                    lineHeight: 1,
+                  }}
+                >
+                  x{count}
+                </Typography>
+              </Box>
+            )}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: 1 }}>
               {getNotificationIcon(type, theme)}
               <Box sx={{ mt: 0.25 }}>

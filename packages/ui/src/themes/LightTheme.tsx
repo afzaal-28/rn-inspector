@@ -68,7 +68,7 @@ export const lightTheme = createTheme({
       glassBg: 'rgba(255, 255, 255, 0.55)',
       glassBgHover: 'rgba(255, 255, 255, 0.65)',
       glassBorder: 'rgba(0, 0, 0, 0.08)',
-      glassShadow: '0 24px 60px rgba(0, 0, 0, 0.12)',
+      glassShadow: '0 6px 16px rgba(0, 0, 0, 0.12)',
       accent: '#7b5cff',
       accentGradient: 'linear-gradient(135deg, #7b5cff 0%, #4dabf7 100%)',
     },

@@ -69,7 +69,7 @@ export const darkTheme = createTheme({
       glassBg: 'rgba(30, 33, 37, 0.55)',
       glassBgHover: 'rgba(30, 33, 37, 0.65)',
       glassBorder: 'rgba(255, 255, 255, 0.08)',
-      glassShadow: '0 24px 60px rgba(0, 0, 0, 0.5)',
+      glassShadow: '0 8px 20px rgba(0, 0, 0, 0.45)',
       // Accents
       accent: '#a78bfa',
       accentGradient: 'linear-gradient(135deg, #a78bfa 0%, #74c0fc 100%)',
