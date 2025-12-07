@@ -1,6 +1,6 @@
 # rn-inspector CLI
 
-> **Warning:** All versions **before `0.1.6`** had known issues (especially on macOS). Please upgrade and use the latest version `0.1.6` or newer. We’re sorry for the inconvenience.
+> **Warning:** All versions **before `0.2.0`** had known issues (especially on macOS and DevTools reconnect behavior). Please upgrade and use the latest version `0.2.0` or newer. We’re sorry for the inconvenience.
 
 `rn-inspector` is a small CLI + Web UI that helps you debug **React Native** apps by:
 
@@ -116,14 +116,18 @@ The UI includes:
   - Live console logs from Metro and DevTools.
   - Level filters (log/info/warn/error).
   - Detail drawer with copy-to-clipboard and timestamps.
+  - Glassy search bar and Clear action in the header to filter and reset the current view.
 
 - **Network** page
   - HTTP requests captured via an injected fetch wrapper / DevTools Network domain.
   - Detail drawer with headers, payload, and response preview (including text, JSON, images, and some binary types).
+  - Glassy search bar and Clear action in the header to filter by URL/method/status and reset the current view.
 
 - **Header controls**
   - Global **device selector** (backed by the `deviceId` tagging in the CLI).
   - Global **capture toggles** for Console and Network streams.
+  - Global **proxy WS status chip** (shows connection status and basic stats; click to reconnect when disconnected).
+  - Global **DevTools status chip** (shows connected/closed/error and lets you request a DevTools reconnect from the UI).
 
 ---
 
@@ -149,8 +153,9 @@ If the terminal does not support raw mode (no TTY), these shortcuts are safely d
 
 - If the **Metro websocket** closes or errors, the CLI logs a message and sends a small `meta` event to the UI so you can see the status.
 - For **DevTools websockets** (one per device):
-  - The CLI retries reconnecting a few times with a delay.
-  - After several failures, it stops reconnecting and emits a `meta` event so the UI can reflect that the device is offline.
+  - The CLI emits `devtools` **status meta events** (`open`, `closed`, `error`) but does **not** auto-retry reconnecting.
+  - The Web UI header exposes a **DevTools status chip**; clicking it sends a control message to the CLI to re-run DevTools discovery and attach again.
+  - When DevTools auto-discovery finds no `/json` targets, the CLI logs a message *and* emits a warning `meta` event so the UI can surface a toast like “DevTools auto-discovery found no /json targets (falling back to Metro-only mode)”.
 
 ---
 

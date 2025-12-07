@@ -62,7 +62,15 @@ export default function AppShell() {
     setCaptureConsole,
     captureNetwork,
     setCaptureNetwork,
+    devtoolsStatus,
+    reconnectDevtools,
+    status,
+    stats,
+    reconnect,
   } = useProxy();
+
+  const effectiveDevtoolsStatus: 'unknown' | 'open' | 'closed' | 'error' =
+    devtoolsStatus === 'unknown' && devices.length > 0 ? 'open' : devtoolsStatus;
 
   const [heartbeatPatternIndex, setHeartbeatPatternIndex] = useState(0);
   const [deviceAnchorEl, setDeviceAnchorEl] = useState<HTMLElement | null>(null);
@@ -122,6 +130,7 @@ export default function AppShell() {
           background: theme.palette.custom.glassBg,
           border: `1px solid ${theme.palette.custom.glassBorder}`,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
         })}
@@ -131,6 +140,13 @@ export default function AppShell() {
           src="/banner.png"
           sx={{ width: '100%', height: 'auto', display: 'block' }}
         />
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ textAlign: 'center', mt: -1, mb: 1 }}
+        >
+          DevTools for React Native
+        </Typography>
       </Box>
       <Divider sx={{ opacity: 0.4, mx: 1 }} />
       <List
@@ -232,9 +248,6 @@ export default function AppShell() {
               <Typography variant="h6" noWrap component="div" fontWeight={700} color='text.primary'>
                 RN Inspector
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                DevTools for React Native
-              </Typography>
             </Box>
           </Box>
 
@@ -290,12 +303,12 @@ export default function AppShell() {
                     overflowY: 'auto',
                     borderRadius: 1.5,
                     border: `1px solid ${theme.palette.divider}`,
-                    backgroundColor: theme.palette.background.default,
-                    boxShadow: theme.shadows[6],
+                    backgroundColor: theme.palette.background.paper,
                     p: 0.5,
                   })}
                 >
                   <MenuItem
+                    sx={{ borderRadius: 1 }}
                     selected={activeDeviceId === 'all'}
                     onClick={() => handleDeviceSelect('all')}
                   >
@@ -304,6 +317,7 @@ export default function AppShell() {
                   {devices.map((device) => (
                     <MenuItem
                       key={device.id}
+                      sx={{ borderRadius: 1, mt: 0.5 }}
                       selected={activeDeviceId === device.id}
                       onClick={() => handleDeviceSelect(device.id)}
                     >
@@ -319,9 +333,30 @@ export default function AppShell() {
                 size="small"
                 label="Console"
                 color={captureConsole ? 'success' : 'default'}
-                variant={captureConsole ? 'filled' : 'outlined'}
+                variant='filled'
                 onClick={() => setCaptureConsole(!captureConsole)}
                 sx={{ cursor: 'pointer' }}
+              />
+            </Tooltip>
+
+            <Tooltip
+              title={
+                status === 'open'
+                  ? 'Proxy websocket connected'
+                  : 'Proxy disconnected. Click to try reconnecting.'
+              }
+            >
+              <Chip
+                size="small"
+                label={`WS: ${status}${
+                  stats.networkCount || stats.consoleCount
+                    ? ` • ${stats.consoleCount} logs / ${stats.networkCount} reqs`
+                    : ''
+                }`}
+                color={status === 'open' ? 'success' : status === 'connecting' ? 'warning' : 'default'}
+                variant='filled'
+                onClick={status === 'open' ? undefined : reconnect}
+                sx={{ cursor: status === 'open' ? 'default' : 'pointer' }}
               />
             </Tooltip>
 
@@ -330,9 +365,40 @@ export default function AppShell() {
                 size="small"
                 label="Network"
                 color={captureNetwork ? 'success' : 'default'}
-                variant={captureNetwork ? 'filled' : 'outlined'}
+                variant='filled'
                 onClick={() => setCaptureNetwork(!captureNetwork)}
                 sx={{ cursor: 'pointer' }}
+              />
+            </Tooltip>
+
+            <Tooltip
+              title={
+                effectiveDevtoolsStatus === 'open'
+                  ? 'DevTools bridges connected'
+                  : 'DevTools disconnected or errored. Click to try reconnecting.'
+              }
+            >
+              <Chip
+                size="small"
+                label={
+                  effectiveDevtoolsStatus === 'open'
+                    ? 'DevTools: connected'
+                    : effectiveDevtoolsStatus === 'error'
+                    ? 'DevTools: error'
+                    : effectiveDevtoolsStatus === 'closed'
+                    ? 'DevTools: closed'
+                    : 'DevTools: unknown'
+                }
+                color={
+                  effectiveDevtoolsStatus === 'open'
+                    ? 'success'
+                    : effectiveDevtoolsStatus === 'error'
+                    ? 'error'
+                    : 'default'
+                }
+                variant='filled'
+                onClick={effectiveDevtoolsStatus === 'open' ? undefined : reconnectDevtools}
+                sx={{ cursor: effectiveDevtoolsStatus === 'open' ? 'default' : 'pointer' }}
               />
             </Tooltip>
 

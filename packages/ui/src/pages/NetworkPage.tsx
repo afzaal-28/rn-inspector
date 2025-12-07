@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Chip, Stack, Typography, Tooltip, Drawer, Tabs, Tab, IconButton, Button } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Stack,
+  Typography,
+  Tooltip,
+  Drawer,
+  Tabs,
+  Tab,
+  IconButton,
+  Button,
+  TextField,
+  InputAdornment,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -8,6 +21,7 @@ import CallMadeIcon from '@mui/icons-material/CallMade';
 import GlassPanel from '../ui/GlassPanel';
 import type { NetworkEvent } from '../hooks/useProxyStream';
 import { useProxy } from '../context/ProxyContext';
+import SearchIcon from '@mui/icons-material/Search';
 
 function formatTs(ts: string) {
   try {
@@ -18,13 +32,15 @@ function formatTs(ts: string) {
 }
 
 const NetworkPage = () => {
-  const { networkEvents, status, stats, reconnect, activeDeviceId } = useProxy();
+  const { networkEvents, activeDeviceId } = useProxy();
   const [selectedEvent, setSelectedEvent] = useState<NetworkEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'headers' | 'payload' | 'response'>('headers');
   const [fullScreen, setFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showHtmlPreview, setShowHtmlPreview] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [clearedAtMs, setClearedAtMs] = useState<number | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -81,16 +97,49 @@ const NetworkPage = () => {
   const isTextLikeResponse = !isImageResponse && !isPdfResponse && !isVideoResponse;
 
   const filteredNetworkEvents = useMemo(() => {
-    const latest = networkEvents.slice(-300).reverse();
-    if (activeDeviceId && activeDeviceId !== 'all') {
-      return latest.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
+    let latest = networkEvents.slice(-300);
+
+    if (clearedAtMs) {
+      latest = latest.filter((evt) => {
+        const tsMs = Date.parse(evt.ts);
+        if (Number.isNaN(tsMs)) return true;
+        return tsMs > clearedAtMs;
+      });
     }
-    return latest;
-  }, [networkEvents, activeDeviceId]);
+
+    latest = latest.reverse();
+
+    let byDevice = latest;
+    if (activeDeviceId && activeDeviceId !== 'all') {
+      byDevice = byDevice.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      byDevice = byDevice.filter((evt) => {
+        const url = evt.url.toLowerCase();
+        const method = evt.method.toLowerCase();
+        const statusText = evt.status != null ? String(evt.status) : '';
+        return (
+          url.includes(query) ||
+          method.includes(query) ||
+          statusText.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    return byDevice;
+  }, [networkEvents, activeDeviceId, searchQuery, clearedAtMs]);
 
   useEffect(() => {
     setShowHtmlPreview(false);
   }, [selectedEvent, activeTab]);
+
+  const handleClear = () => {
+    setClearedAtMs(Date.now());
+    setSelectedEvent(null);
+    setDrawerOpen(false);
+  };
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
@@ -119,22 +168,75 @@ const NetworkPage = () => {
             HTTP requests captured from proxy (last 300)
           </Typography>
         </Box>
-        <Tooltip
-          title={
-            status === 'open'
-              ? 'Proxy websocket connected'
-              : 'Proxy disconnected. Click to try reconnecting.'
-          }
-        >
-          <Chip
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box
+            sx={(theme) => ({
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1,
+              py: 0.5,
+              borderRadius: 999,
+              backdropFilter: 'blur(14px) saturate(130%)',
+              WebkitBackdropFilter: 'blur(14px) saturate(130%)',
+              border: `1px solid ${theme.palette.divider}`,
+            })}
+          >
+            <TextField
+              size="small"
+              placeholder="Search requests"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                minWidth: 260,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 999,
+                  border: 'none',
+                  px: 1,
+                  py: 0.25,
+                  '& fieldset': {
+                    border: 'none',
+                  },
+                  '&:hover fieldset': {
+                    border: 'none',
+                  },
+                  '&.Mui-focused fieldset': {
+                    border: 'none',
+                  },
+                  '&.Mui-focused': {
+                    boxShadow: 'none',
+                    outline: 'none',
+                  },
+                },
+              }}
+            />
+          </Box>
+          <Button
             size="small"
-            label={`WS: ${status}${stats.networkCount ? ` • ${stats.networkCount} reqs` : ''}`}
-            color={status === 'open' ? 'success' : status === 'connecting' ? 'warning' : 'default'}
-            variant={status === 'open' ? 'filled' : 'outlined'}
-            onClick={status === 'open' ? undefined : reconnect}
-            sx={{ cursor: status === 'open' ? 'default' : 'pointer' }}
-          />
-        </Tooltip>
+            variant="outlined"
+            onClick={handleClear}
+            disabled={networkEvents.length === 0}
+            sx={(theme) => ({
+              textTransform: 'none',
+              borderRadius: 999,
+              px: 1.75,
+              fontSize: 12,
+              borderColor: theme.palette.divider,
+              '&:hover': {
+                borderColor: theme.palette.primary.main,
+              },
+            })}
+          >
+            Clear
+          </Button>
+        </Box>
       </Box>
       <GlassPanel
         sx={{

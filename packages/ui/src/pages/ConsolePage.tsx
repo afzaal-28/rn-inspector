@@ -1,5 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Box, Chip, Stack, Typography, Tabs, Tab, Drawer, IconButton, Tooltip } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Stack,
+  Typography,
+  Tabs,
+  Tab,
+  Drawer,
+  IconButton,
+  Tooltip,
+  TextField,
+  InputAdornment,
+  Button,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -11,6 +24,7 @@ import NotesIcon from '@mui/icons-material/Notes';
 import GlassPanel from '../ui/GlassPanel';
 import type { ConsoleEvent } from '../hooks/useProxyStream';
 import { useProxy } from '../context/ProxyContext';
+import SearchIcon from '@mui/icons-material/Search';
 
 const levelColor: Record<string, 'default' | 'primary' | 'warning' | 'error' | 'info' | 'success'> = {
   log: 'default',
@@ -41,12 +55,14 @@ function formatTs(ts: string) {
 }
 
 const ConsolePage = () => {
-  const { consoleEvents, status, stats, reconnect, activeDeviceId } = useProxy();
+  const { consoleEvents, activeDeviceId } = useProxy();
   const [levelFilter, setLevelFilter] = useState<'all' | 'log' | 'info' | 'warn' | 'error'>('all');
   const [selectedEvent, setSelectedEvent] = useState<ConsoleEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [clearedAtMs, setClearedAtMs] = useState<number | null>(null);
 
   const handleCopyMessage = () => {
     if (selectedEvent?.msg) {
@@ -57,16 +73,38 @@ const ConsolePage = () => {
   };
 
   const filteredEvents = useMemo(() => {
-    const latest = consoleEvents.slice(-300).reverse();
-    const byLevel =
+    let latest = consoleEvents.slice(-300);
+
+    if (clearedAtMs) {
+      latest = latest.filter((evt) => {
+        const tsMs = Date.parse(evt.ts);
+        if (Number.isNaN(tsMs)) return true;
+        return tsMs > clearedAtMs;
+      });
+    }
+
+    latest = latest.reverse();
+
+    let byLevel =
       levelFilter === 'all' ? latest : latest.filter((evt) => evt.level === levelFilter);
 
     if (activeDeviceId && activeDeviceId !== 'all') {
-      return byLevel.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
+      byLevel = byLevel.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      byLevel = byLevel.filter((evt) => evt.msg.toLowerCase().includes(query));
     }
 
     return byLevel;
-  }, [consoleEvents, levelFilter, activeDeviceId]);
+  }, [consoleEvents, levelFilter, activeDeviceId, searchQuery, clearedAtMs]);
+
+  const handleClear = () => {
+    setClearedAtMs(Date.now());
+    setSelectedEvent(null);
+    setDrawerOpen(false);
+  };
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
@@ -95,22 +133,76 @@ const ConsolePage = () => {
               Live logs from proxy
             </Typography>
           </Box>
-          <Tooltip
-            title={
-              status === 'open'
-                ? 'Proxy websocket connected'
-                : 'Proxy disconnected. Click to try reconnecting.'
-            }
-          >
-            <Chip
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={(theme) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1,
+                py: 0.5,
+                borderRadius: 999,
+                backdropFilter: 'blur(14px) saturate(130%)',
+                WebkitBackdropFilter: 'blur(14px) saturate(130%)',
+                border: `1px solid ${theme.palette.divider}`,
+              })}
+            >
+              <TextField
+                size="small"
+                placeholder="Search logs"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  minWidth: 260,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 999,
+                    border: 'none',
+                    px: 1,
+                    py: 0.25,
+                    '& fieldset': {
+                      border: 'none',
+                    },
+                    '&:hover fieldset': {
+                      border: 'none',
+                    },
+                    '&.Mui-focused fieldset': {
+                      border: 'none',
+                    },
+                    '&.Mui-focused': {
+                      boxShadow: 'none',
+                      outline: 'none',
+                    },
+                  },
+                }}
+              />
+            </Box>
+            <Button
               size="small"
-              label={`WS: ${status}${stats.consoleCount ? ` • ${stats.consoleCount} logs` : ''}`}
-              color={status === 'open' ? 'success' : status === 'connecting' ? 'warning' : 'default'}
-              variant={status === 'open' ? 'filled' : 'outlined'}
-              onClick={status === 'open' ? undefined : reconnect}
-              sx={{ cursor: status === 'open' ? 'default' : 'pointer' }}
-            />
-          </Tooltip>
+              variant="outlined"
+              onClick={handleClear}
+              disabled={consoleEvents.length === 0}
+              sx={(theme) => ({
+                textTransform: 'none',
+                borderRadius: 999,
+                px: 1.75,
+                fontSize: 12,
+                borderColor: theme.palette.divider,
+                '&:hover': {
+                  borderColor: theme.palette.primary.main,
+                },
+              })}
+            >
+              Clear
+            </Button>
+          </Box>
         </Box>
         <Tabs
           value={levelFilter}
@@ -343,54 +435,111 @@ const ConsolePage = () => {
 
               <Box
                 sx={{
-                  p: 2,
-                  background: (theme) =>
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(255,255,255,0.02)'
-                      : 'rgba(0,0,0,0.01)',
-                  border: (theme) => `1px solid ${theme.palette.divider}`,
-                  borderRadius: 2,
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    background: (theme) =>
-                      theme.palette.mode === 'dark'
-                        ? 'rgba(255,255,255,0.04)'
-                        : 'rgba(0,0,0,0.02)',
-                    transform: 'translateY(-1px)',
-                  },
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                  <Typography variant="overline" color="text.secondary">
-                    Message
-                  </Typography>
-                  <Tooltip title={copied ? 'Copied!' : 'Copy'}>
-                    <IconButton size="small" onClick={handleCopyMessage}>
-                      <ContentCopyIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
                 <Box
-                  component="pre"
                   sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontFamily: '"Fira Code", "JetBrains Mono", monospace',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    m: 0,
                     p: 2,
                     background: (theme) =>
                       theme.palette.mode === 'dark'
-                        ? 'rgba(0,0,0,0.3)'
-                        : 'rgba(0,0,0,0.04)',
-                    borderRadius: 1.5,
-                    maxHeight: 400,
-                    overflow: 'auto',
+                        ? 'rgba(255,255,255,0.02)'
+                        : 'rgba(0,0,0,0.01)',
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    borderRadius: 2,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      background: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.04)'
+                          : 'rgba(0,0,0,0.02)',
+                      transform: 'translateY(-1px)',
+                    },
                   }}
                 >
-                  {selectedEvent.msg}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Typography variant="overline" color="text.secondary">
+                      Message
+                    </Typography>
+                    <Tooltip title={copied ? 'Copied!' : 'Copy'}>
+                      <IconButton size="small" onClick={handleCopyMessage}>
+                        <ContentCopyIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <Box
+                    component="pre"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      fontFamily: '"Fira Code", "JetBrains Mono", monospace',
+                      fontSize: 13,
+                      lineHeight: 1.6,
+                      m: 0,
+                      p: 2,
+                      background: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(0,0,0,0.3)'
+                          : 'rgba(0,0,0,0.04)',
+                      borderRadius: 1.5,
+                      maxHeight: 300,
+                      overflow: 'auto',
+                    }}
+                  >
+                    {selectedEvent.msg}
+                  </Box>
                 </Box>
+
+                {selectedEvent.rawArgs && selectedEvent.rawArgs.length > 0 && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      background: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.02)'
+                          : 'rgba(0,0,0,0.01)',
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        background: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(255,255,255,0.04)'
+                            : 'rgba(0,0,0,0.02)',
+                        transform: 'translateY(-1px)',
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Typography variant="overline" color="text.secondary">
+                        Formatted
+                      </Typography>
+                    </Box>
+                    <Box
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        fontFamily: '"Fira Code", "JetBrains Mono", monospace',
+                        fontSize: 13,
+                        lineHeight: 1.6,
+                        m: 0,
+                        p: 2,
+                        background: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(0,0,0,0.3)'
+                            : 'rgba(0,0,0,0.04)',
+                        borderRadius: 1.5,
+                        maxHeight: 300,
+                        overflow: 'auto',
+                      }}
+                    >
+                      {JSON.stringify(selectedEvent.rawArgs, null, 2)}
+                    </Box>
+                  </Box>
+                )}
               </Box>
             </Box>
           )}

@@ -6,6 +6,7 @@ export type ConsoleEvent = {
   msg: string;
   origin?: string;
   deviceId?: string;
+  rawArgs?: unknown[];
 };
 
 export type NetworkHeaders = Record<string, string>;
@@ -55,6 +56,8 @@ export function useProxyStream(endpoint?: string) {
     return 'all';
   });
 
+  const [devtoolsStatus, setDevtoolsStatus] = useState<'unknown' | 'open' | 'closed' | 'error'>('unknown');
+
   const handleProxyEvent = (parsed: ProxyEvent) => {
     if (parsed.type === 'console') {
       setConsoleEvents((prev) => [...prev, parsed.payload].slice(-500));
@@ -87,6 +90,13 @@ export function useProxyStream(endpoint?: string) {
           });
         }
       } else {
+        const source = payload?.source;
+        const statusValue = payload?.status;
+        if (source === 'devtools' && typeof statusValue === 'string') {
+          if (statusValue === 'open' || statusValue === 'closed' || statusValue === 'error') {
+            setDevtoolsStatus(statusValue);
+          }
+        }
         const message =
           typeof payload?.message === 'string'
             ? payload.message
@@ -195,5 +205,30 @@ export function useProxyStream(endpoint?: string) {
     });
   };
 
-  return { consoleEvents, networkEvents, status, stats, reconnect, devices, activeDeviceId, setActiveDeviceId };
+  const reconnectDevtools = () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'control',
+          command: 'reconnect-devtools',
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  return {
+    consoleEvents,
+    networkEvents,
+    status,
+    stats,
+    reconnect,
+    devices,
+    activeDeviceId,
+    setActiveDeviceId,
+    devtoolsStatus,
+    reconnectDevtools,
+  };
 }

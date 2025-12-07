@@ -458,17 +458,52 @@ function stringifyConsoleArgs(args: any[] | undefined): string {
     .join(' ');
 }
 
+function normalizeConsoleArg(arg: any): unknown {
+  if (!arg) return null;
+
+  if (typeof arg.value !== 'undefined') return arg.value;
+
+  if (arg.preview && Array.isArray(arg.preview.properties)) {
+    try {
+      const out: Record<string, unknown> = {};
+      (arg.preview.properties as any[]).forEach((p) => {
+        const name = String(p.name ?? '');
+        const value =
+          typeof p.value !== 'undefined'
+            ? p.value
+            : typeof p.type !== 'undefined'
+            ? p.type
+            : null;
+        out[name] = value;
+      });
+      return out;
+    } catch {
+      // ignore and fall back
+    }
+  }
+
+  if (typeof arg.description === 'string') return arg.description;
+
+  try {
+    return JSON.parse(JSON.stringify(arg));
+  } catch {
+    return String(arg);
+  }
+}
+
 function handleRuntimeConsole(params: any, broadcast: (message: unknown) => void, deviceId?: string) {
   if (!params) return;
   const tsMs = typeof params.timestamp === 'number' ? params.timestamp * 1000 : Date.now();
+  const argsArray = Array.isArray(params.args) ? params.args : [];
   const evt = {
     type: 'console',
     payload: {
       ts: new Date(tsMs).toISOString(),
       level: mapConsoleLevel(typeof params.type === 'string' ? params.type : undefined),
-      msg: stringifyConsoleArgs(Array.isArray(params.args) ? params.args : []),
+      msg: stringifyConsoleArgs(argsArray),
       origin: 'devtools',
       deviceId,
+      rawArgs: argsArray.map((a: any) => normalizeConsoleArg(a)),
     },
   };
   broadcast(evt);
@@ -575,8 +610,6 @@ function attachDevtoolsBridge(
 ) {
   const state: DevtoolsState = { requests: new Map() };
   let devtoolsWs: WebSocket | null = null;
-  const maxReconnectAttempts = 3;
-  let reconnectAttempts = 0;
 
   const connect = () => {
     const ws = new WebSocket(devtoolsWsUrl);
@@ -584,7 +617,6 @@ function attachDevtoolsBridge(
 
     ws.on('open', () => {
       console.log(`[rn-inspector] Connected to DevTools websocket ${devtoolsWsUrl}`);
-      reconnectAttempts = 0;
       try {
         ws.send(JSON.stringify({ id: 1, method: 'Runtime.enable' }));
         ws.send(JSON.stringify({ id: 2, method: 'Log.enable' }));
@@ -609,6 +641,16 @@ function attachDevtoolsBridge(
             },
           }),
         );
+        broadcast({
+          type: 'meta',
+          payload: {
+            source: 'devtools',
+            status: 'open',
+            level: 'info',
+            deviceId,
+            ts: new Date().toISOString(),
+          },
+        });
       } catch (err) {
         console.error('[rn-inspector] Failed to send DevTools enable commands:', err);
       }
@@ -663,37 +705,6 @@ function attachDevtoolsBridge(
       } catch {
         // ignore broadcast errors
       }
-
-      reconnectAttempts += 1;
-      if (reconnectAttempts <= maxReconnectAttempts) {
-        const delayMs = 5000;
-        console.log(
-          `[rn-inspector] Attempting to reconnect DevTools websocket for device ${deviceId} in ${delayMs / 1000}s (attempt ${reconnectAttempts}/${maxReconnectAttempts})`,
-        );
-        setTimeout(() => {
-          connect();
-        }, delayMs);
-      } else {
-        console.warn(
-          `[rn-inspector] Max DevTools reconnect attempts reached for device ${deviceId}; giving up.`,
-        );
-        try {
-          broadcast({
-            type: 'meta',
-            payload: {
-              source: 'devtools',
-              status: 'closed_permanent',
-              level: 'error',
-              message:
-                'DevTools websocket closed too many times. Restart the CLI or your React Native app to reconnect.',
-              deviceId,
-              ts: new Date().toISOString(),
-            },
-          });
-        } catch {
-          // ignore broadcast errors
-        }
-      }
     });
 
     ws.on('error', (err: Error) => {
@@ -740,6 +751,8 @@ async function startProxy(opts: ProxyOptions = {}) {
     console.log(`[rn-inspector] UI WebSocket server on ws://${host}:${uiPort}/inspector`);
   });
 
+  let currentDevices: { id: string; label: string; url?: string }[] = [];
+
   const broadcast = (message: unknown) => {
     const data = JSON.stringify(message);
     uiWss.clients.forEach((client) => {
@@ -751,56 +764,108 @@ async function startProxy(opts: ProxyOptions = {}) {
 
   let devtoolsWs: WebSocket | null = null;
 
-  try {
-    if (opts.devtoolsWsUrl) {
-      // Explicit DevTools URL provided: treat as a single device.
-      const deviceId = 'devtools-explicit';
-      console.log(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`);
-      devtoolsWs = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId);
+  const attachDevtools = async () => {
+    try {
+      if (opts.devtoolsWsUrl) {
+        // Explicit DevTools URL provided: treat as a single device.
+        const deviceId = 'devtools-explicit';
+        console.log(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`);
+        devtoolsWs = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId);
 
-      broadcast({
-        type: 'meta',
-        payload: {
-          kind: 'devices',
-          devices: [
-            {
-              id: deviceId,
-              label: 'DevTools (explicit URL)',
-              url: opts.devtoolsWsUrl,
-            },
-          ],
-          ts: new Date().toISOString(),
-        },
-      });
-    } else {
-      // Auto-discover all available DevTools targets and attach to each.
-      const targets = await discoverDevtoolsTargets(metroPort);
-      if (targets.length > 0) {
-        const devices = targets.map((t, index) => ({
-          id: t.id || `devtools-${index}`,
-          label: t.title || t.description || t.id || `Target ${index + 1}`,
-          url: t.webSocketDebuggerUrl,
-        }));
+        currentDevices = [
+          {
+            id: deviceId,
+            label: 'DevTools (explicit URL)',
+            url: opts.devtoolsWsUrl,
+          },
+        ];
 
         broadcast({
           type: 'meta',
           payload: {
             kind: 'devices',
-            devices,
+            devices: currentDevices,
             ts: new Date().toISOString(),
           },
         });
+      } else {
+        // Auto-discover all available DevTools targets and attach to each.
+        const targets = await discoverDevtoolsTargets(metroPort);
+        if (targets.length > 0) {
+          const devices = targets.map((t, index) => ({
+            id: t.id || `devtools-${index}`,
+            label: t.title || t.description || t.id || `Target ${index + 1}`,
+            url: t.webSocketDebuggerUrl,
+          }));
 
-        devices.forEach((d, index) => {
-          const target = targets[index];
-          const ws = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id);
-          if (!devtoolsWs) devtoolsWs = ws;
-        });
+          currentDevices = devices;
+
+          broadcast({
+            type: 'meta',
+            payload: {
+              kind: 'devices',
+              devices: currentDevices,
+              ts: new Date().toISOString(),
+            },
+          });
+
+          devices.forEach((d, index) => {
+            const target = targets[index];
+            const ws = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id);
+            if (!devtoolsWs) devtoolsWs = ws;
+          });
+        } else {
+          broadcast({
+            type: 'meta',
+            payload: {
+              source: 'devtools',
+              status: 'closed',
+              level: 'warning',
+              message:
+                'DevTools auto-discovery found no /json targets (falling back to Metro-only mode). Make sure your React Native app is running with debugging enabled.',
+              ts: new Date().toISOString(),
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[rn-inspector] Failed to attach DevTools bridge(s):', err);
+    }
+  };
+
+  uiWss.on('connection', (client) => {
+    // Send current devices list on connect, if we have one.
+    if (currentDevices.length) {
+      try {
+        client.send(
+          JSON.stringify({
+            type: 'meta',
+            payload: {
+              kind: 'devices',
+              devices: currentDevices,
+              ts: new Date().toISOString(),
+            },
+          }),
+        );
+      } catch {
+        // ignore per-client send errors
       }
     }
-  } catch (err) {
-    console.error('[rn-inspector] Failed to attach DevTools bridge(s):', err);
-  }
+
+    client.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'control' && msg.command === 'reconnect-devtools') {
+          void attachDevtools();
+        }
+      } catch {
+        // ignore malformed control messages
+      }
+    });
+  });
+
+  await attachDevtools();
 
   metroWs.on('message', (data: RawData) => {
     const raw = data.toString();
@@ -857,7 +922,7 @@ async function startProxy(opts: ProxyOptions = {}) {
 }
 
 function startStaticUi(staticPort: number) {
-  const staticDir = path.resolve(baseDir, '../ui-dist');
+  const staticDir = path.resolve(baseDir, '../ui');
   const serve = serveStatic(staticDir);
   const server = http.createServer((req, res) => {
     serve(req as any, res as any, finalhandler(req as any, res as any));

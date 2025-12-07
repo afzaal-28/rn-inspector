@@ -15,6 +15,8 @@ export interface ProxyContextValue {
   devices: DeviceInfo[];
   activeDeviceId: string | 'all';
   setActiveDeviceId: (id: string) => void;
+  devtoolsStatus: 'unknown' | 'open' | 'closed' | 'error';
+  reconnectDevtools: () => void;
   captureConsole: boolean;
   setCaptureConsole: (value: boolean) => void;
   captureNetwork: boolean;
@@ -93,6 +95,8 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     devices: stream.devices,
     activeDeviceId: stream.activeDeviceId,
     setActiveDeviceId: stream.setActiveDeviceId,
+    devtoolsStatus: stream.devtoolsStatus,
+    reconnectDevtools: stream.reconnectDevtools,
     captureConsole,
     setCaptureConsole,
     captureNetwork,
