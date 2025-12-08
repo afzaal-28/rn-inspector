@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   AppBar,
   Box,
@@ -45,9 +45,12 @@ const navItems = [
 ];
 
 const heartbeatPatterns: string[] = [
-  '0,12 12,12 22,12 32,2 44,22 56,6 70,18 84,10 100,12 120,12',
-  '0,12 10,12 20,4 30,20 40,8 50,18 60,6 72,20 84,8 100,12 120,12',
-  '0,12 12,10 24,6 36,16 48,8 60,18 72,10 88,14 104,12 120,12',
+  // idle / flat
+  '0,12 24,12 48,12 72,12 96,12 120,12',
+  // normal activity
+  '0,12 12,12 22,12 32,4 44,20 56,8 70,16 84,10 100,12 120,12',
+  // high activity (sharper spikes)
+  '0,12 10,12 20,2 30,22 40,6 50,20 60,4 72,22 84,8 96,14 108,12 120,12',
 ];
 
 export default function AppShell() {
@@ -74,24 +77,37 @@ export default function AppShell() {
     devtoolsStatus === 'unknown' && devices.length > 0 ? 'open' : devtoolsStatus;
 
   const [heartbeatPatternIndex, setHeartbeatPatternIndex] = useState(0);
+  const lastActivityRef = useRef({ console: 0, network: 0 });
   const [deviceAnchorEl, setDeviceAnchorEl] = useState<HTMLElement | null>(null);
   const deviceMenuOpen = Boolean(deviceAnchorEl);
 
   useEffect(() => {
-    const durationMs = 1400;
+    const durationMs = 1000;
     const interval = setInterval(() => {
-      setHeartbeatPatternIndex((prev) => {
-        if (heartbeatPatterns.length <= 1) return 0;
-        let next = prev;
-        while (next === prev) {
-          next = Math.floor(Math.random() * heartbeatPatterns.length);
-        }
-        return next;
-      });
+      const prev = lastActivityRef.current;
+      const deltaConsole = Math.max(0, stats.consoleCount - prev.console);
+      const deltaNetwork = Math.max(0, stats.networkCount - prev.network);
+      const totalDelta = deltaConsole + deltaNetwork;
+
+      // Update last seen counts
+      lastActivityRef.current = {
+        console: stats.consoleCount,
+        network: stats.networkCount,
+      };
+
+      // Decide pattern based on recent activity
+      let index = 0; // idle / flat
+      if (totalDelta > 0 && totalDelta <= 5) {
+        index = 1; // normal pulse
+      } else if (totalDelta > 5) {
+        index = 2; // high activity / sharp spikes
+      }
+
+      setHeartbeatPatternIndex(index);
     }, durationMs);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [stats.consoleCount, stats.networkCount]);
 
   const activePath = useMemo(() => {
     const found = navItems.find((item) => (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)));
@@ -310,7 +326,7 @@ export default function AppShell() {
                   {devices.map((device) => (
                     <MenuItem
                       key={device.id}
-                      sx={{ borderRadius: 1, mt: 0.5 }}
+                      sx={{ borderRadius: 1, verticalGap: 0.5 }}
                       selected={activeDeviceId === device.id}
                       onClick={() => handleDeviceSelect(device.id)}
                     >
@@ -422,14 +438,6 @@ export default function AppShell() {
                     '60%': { strokeDashoffset: 40, opacity: 0.7 },
                     '100%': { strokeDashoffset: 0, opacity: 0.4 },
                   },
-                  '@keyframes heartbeatColor': {
-                    '0%': { color: '#4caf50' },
-                    '25%': { color: '#ff9800' },
-                    '50%': { color: '#f44336' },
-                    '75%': { color: '#2196f3' },
-                    '100%': { color: '#4caf50' },
-                  },
-                  animation: 'heartbeatColor 4s ease-in-out infinite',
                 }}
               >
                 <polyline

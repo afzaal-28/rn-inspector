@@ -11,6 +11,18 @@ export type ConsoleEvent = {
 
 export type NetworkHeaders = Record<string, string>;
 
+export type NetworkResourceType =
+  | 'fetch'
+  | 'xhr'
+  | 'doc'
+  | 'css'
+  | 'js'
+  | 'font'
+  | 'img'
+  | 'media'
+  | 'socket'
+  | 'other';
+
 export type NetworkEvent = {
   id?: string;
   phase?: 'start' | 'response' | 'end' | 'error';
@@ -26,6 +38,7 @@ export type NetworkEvent = {
   responseBody?: unknown;
   deviceId?: string;
   source?: 'fetch' | 'xhr' | 'native' | 'image-prefetch' | 'image-getsize' | 'websocket' | string;
+  resourceType?: NetworkResourceType;
 };
 
 export type DeviceInfo = {

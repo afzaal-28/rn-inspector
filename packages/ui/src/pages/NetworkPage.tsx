@@ -19,9 +19,24 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import GlassPanel from '../ui/GlassPanel';
-import type { NetworkEvent } from '../hooks/useProxyStream';
+import type { NetworkEvent, NetworkResourceType } from '../hooks/useProxyStream';
 import { useProxy } from '../context/ProxyContext';
 import SearchIcon from '@mui/icons-material/Search';
+
+type ResourceFilterType = 'all' | 'fetch-xhr' | NetworkResourceType;
+
+const RESOURCE_FILTERS: { value: ResourceFilterType; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'fetch-xhr', label: 'Fetch/XHR' },
+  { value: 'doc', label: 'Doc' },
+  { value: 'css', label: 'CSS' },
+  { value: 'js', label: 'JS' },
+  { value: 'font', label: 'Font' },
+  { value: 'img', label: 'Img' },
+  { value: 'media', label: 'Media' },
+  { value: 'socket', label: 'Socket' },
+  { value: 'other', label: 'Other' },
+];
 
 function formatTs(ts: string) {
   try {
@@ -29,6 +44,40 @@ function formatTs(ts: string) {
   } catch {
     return ts;
   }
+}
+
+function getResourceTypeLabel(resourceType?: NetworkResourceType): string {
+  if (!resourceType) return '';
+  const labels: Record<NetworkResourceType, string> = {
+    fetch: 'Fetch',
+    xhr: 'XHR',
+    doc: 'Doc',
+    css: 'CSS',
+    js: 'JS',
+    font: 'Font',
+    img: 'Img',
+    media: 'Media',
+    socket: 'WS',
+    other: 'Other',
+  };
+  return labels[resourceType] || resourceType;
+}
+
+function getResourceTypeColor(resourceType?: NetworkResourceType): 'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error' {
+  if (!resourceType) return 'default';
+  const colors: Record<NetworkResourceType, 'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error'> = {
+    fetch: 'primary',
+    xhr: 'primary',
+    doc: 'info',
+    css: 'secondary',
+    js: 'warning',
+    font: 'default',
+    img: 'success',
+    media: 'error',
+    socket: 'info',
+    other: 'default',
+  };
+  return colors[resourceType] || 'default';
 }
 
 const NetworkPage = () => {
@@ -40,6 +89,7 @@ const NetworkPage = () => {
   const [copied, setCopied] = useState(false);
   const [showHtmlPreview, setShowHtmlPreview] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [resourceFilter, setResourceFilter] = useState<ResourceFilterType>('all');
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -137,6 +187,17 @@ const NetworkPage = () => {
       byDevice = byDevice.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
     }
 
+    // Apply resource type filter
+    if (resourceFilter !== 'all') {
+      byDevice = byDevice.filter((evt) => {
+        const evtType = evt.resourceType || 'other';
+        if (resourceFilter === 'fetch-xhr') {
+          return evtType === 'fetch' || evtType === 'xhr';
+        }
+        return evtType === resourceFilter;
+      });
+    }
+
     const query = searchQuery.trim().toLowerCase();
     if (query) {
       byDevice = byDevice.filter((evt) => {
@@ -152,7 +213,7 @@ const NetworkPage = () => {
     }
 
     return byDevice;
-  }, [mergedNetworkEvents, activeDeviceId, searchQuery, networkClearedAtMs]);
+  }, [mergedNetworkEvents, activeDeviceId, searchQuery, networkClearedAtMs, resourceFilter]);
 
   useEffect(() => {
     setShowHtmlPreview(false);
@@ -184,21 +245,21 @@ const NetworkPage = () => {
           boxShadow: (theme) =>
             `0 6px 18px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.08)'}`,
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
           gap: 1.5,
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <Typography variant="h5" fontWeight={600}>
-            Network
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            HTTP requests captured from proxy (last 300)
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          <Box
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <Typography variant="h5" fontWeight={600}>
+              Network
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              HTTP requests captured from proxy
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
             sx={(theme) => ({
               display: 'flex',
               alignItems: 'center',
@@ -267,6 +328,30 @@ const NetworkPage = () => {
           </Button>
         </Box>
       </Box>
+      
+        {/* Resource Type Filter Tabs */}
+        <Tabs
+          value={resourceFilter}
+          onChange={(_event, value) => setResourceFilter(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            mt: 1,
+            minHeight: 40,
+            '& .MuiTab-root': {
+              minHeight: 40,
+              fontWeight: 600,
+              fontSize: 13,
+              textTransform: 'none',
+            },
+          }}
+        >
+          {RESOURCE_FILTERS.map((filter) => (
+            <Tab key={filter.value} value={filter.value} label={filter.label} />
+          ))}
+        </Tabs>
+      </Box>
+
       <GlassPanel
         sx={{
           overflow: 'auto',
@@ -326,13 +411,14 @@ const NetworkPage = () => {
                       </Typography>
                     </Tooltip>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 140, justifyContent: 'flex-end' }}>
-                    {evt.source && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 180, justifyContent: 'flex-end' }}>
+                    {evt.resourceType && (
                       <Chip
                         size="small"
-                        label={evt.source}
+                        label={getResourceTypeLabel(evt.resourceType)}
                         variant="filled"
-                        sx={{ borderRadius: 2, textTransform: 'lowercase', fontSize: 10, height: 20 }}
+                        color={getResourceTypeColor(evt.resourceType)}
+                        sx={{ borderRadius: 2, fontSize: 10, height: 20, fontWeight: 500 }}
                       />
                     )}
                     <Chip
@@ -489,6 +575,15 @@ const NetworkPage = () => {
                     variant="filled"
                     sx={{ fontWeight: 600 }}
                   />
+                  {selectedEvent.resourceType && (
+                    <Chip
+                      size="small"
+                      label={getResourceTypeLabel(selectedEvent.resourceType)}
+                      variant="filled"
+                      color={getResourceTypeColor(selectedEvent.resourceType)}
+                      sx={{ fontWeight: 500 }}
+                    />
+                  )}
                   {selectedEvent.durationMs != null && (
                     <Chip
                       size="small"

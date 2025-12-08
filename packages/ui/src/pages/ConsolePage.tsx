@@ -100,6 +100,37 @@ const ConsolePage = () => {
     return byLevel;
   }, [consoleEvents, levelFilter, activeDeviceId, searchQuery, consoleClearedAtMs]);
 
+  const groupedEvents = useMemo(
+    () => {
+      const groups = new Map<
+        string,
+        {
+          event: ConsoleEvent;
+          count: number;
+        }
+      >();
+
+      filteredEvents.forEach((evt) => {
+        const key = `${evt.level}|${evt.origin ?? 'metro'}|${evt.deviceId ?? ''}|${evt.msg}`;
+        const existing = groups.get(key);
+        if (existing) {
+          existing.count += 1;
+          // Prefer the latest timestamp for the representative event
+          const prevTs = Date.parse(existing.event.ts);
+          const currentTs = Date.parse(evt.ts);
+          if (!Number.isNaN(currentTs) && (Number.isNaN(prevTs) || currentTs > prevTs)) {
+            existing.event = evt;
+          }
+        } else {
+          groups.set(key, { event: evt, count: 1 });
+        }
+      });
+
+      return Array.from(groups.values());
+    },
+    [filteredEvents],
+  );
+
   const handleClear = () => {
     if (consoleEvents.length > 0) {
       const last = consoleEvents[consoleEvents.length - 1];
@@ -238,13 +269,13 @@ const ConsolePage = () => {
           p: { xs: 1.5, md: 2 },
         }}
       >
-        {filteredEvents.length === 0 ? (
+        {groupedEvents.length === 0 ? (
           <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
             Waiting for console events from proxy…
           </Box>
         ) : (
           <Stack spacing={1}>
-            {filteredEvents.map((evt, idx) => (
+            {groupedEvents.map(({ event: evt, count }, idx) => (
               <Box
                 key={`${evt.ts}-${idx}`}
                 onClick={() => {
@@ -283,14 +314,25 @@ const ConsolePage = () => {
                     {evt.msg}
                   </Typography>
                 </Box>
-                <Chip
-                  size="small"
-                  icon={getLevelIcon(evt.level)}
-                  label={evt.level}
-                  color={levelColor[evt.level] ?? 'default'}
-                  variant="filled"
-                  sx={{ textTransform: 'capitalize', borderRadius: 2 }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  {count > 1 && (
+                    <Chip
+                      size="small"
+                      label={count}
+                      color="info"
+                      variant="filled"
+                      sx={{ minWidth: 32, fontWeight: 600, borderRadius: 2 }}
+                    />
+                  )}
+                  <Chip
+                    size="small"
+                    icon={getLevelIcon(evt.level)}
+                    label={evt.level}
+                    color={levelColor[evt.level] ?? 'default'}
+                    variant="filled"
+                    sx={{ textTransform: 'capitalize', borderRadius: 2 }}
+                  />
+                </Box>
               </Box>
             ))}
           </Stack>
@@ -490,7 +532,7 @@ const ConsolePage = () => {
                           ? 'rgba(0,0,0,0.3)'
                           : 'rgba(0,0,0,0.04)',
                       borderRadius: 1.5,
-                      maxHeight: 300,
+                      maxHeight: 'none',
                       overflow: 'auto',
                     }}
                   >
@@ -531,7 +573,7 @@ const ConsolePage = () => {
                             ? 'rgba(0,0,0,0.3)'
                             : 'rgba(0,0,0,0.04)',
                         borderRadius: 1.5,
-                        maxHeight: 400,
+                        maxHeight: 'none',
                         overflow: 'auto',
                       }}
                     >

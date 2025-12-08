@@ -11,6 +11,20 @@ export const INJECT_NETWORK_SNIPPET = `
 
     function logNetwork(payload) {
       try {
+        // Auto-detect resourceType if not already set
+        if (!payload.resourceType && payload.url) {
+          var contentType = '';
+          if (payload.responseHeaders) {
+            var headers = payload.responseHeaders;
+            for (var key in headers) {
+              if (key.toLowerCase() === 'content-type') {
+                contentType = headers[key];
+                break;
+              }
+            }
+          }
+          payload.resourceType = detectResourceType(payload.url, contentType, payload.source || '');
+        }
         if (typeof console !== 'undefined' && console.log) {
           console.log('__RN_INSPECTOR_NETWORK__:' + JSON.stringify(payload));
         }
@@ -36,19 +50,96 @@ export const INJECT_NETWORK_SNIPPET = `
     }
 
     function truncateBody(text, limit) {
-      limit = limit || 500000;
+      // No truncation - capture full request/response bodies
       if (!text) return text;
       if (typeof text !== 'string') {
         try { text = JSON.stringify(text); } catch (e) { text = String(text); }
       }
-      return text.length > limit ? text.slice(0, limit) + '... [truncated]' : text;
+      return text;
     }
 
     function genId() {
       return Date.now().toString(36) + Math.random().toString(36).slice(2);
     }
 
-    // ============ FETCH SHIM ============
+    function detectResourceType(url, contentType, source) {
+      url = (url || '').toLowerCase();
+      contentType = (contentType || '').toLowerCase();
+      source = (source || '').toLowerCase();
+
+      // WebSocket detection
+      if (source.indexOf('websocket') >= 0 || source.indexOf('ws-') >= 0 || source === 'socket' || url.indexOf('ws://') === 0 || url.indexOf('wss://') === 0) {
+        return 'socket';
+      }
+
+      // Image detection
+      if (source.indexOf('image') >= 0 || source.indexOf('img') >= 0 || contentType.indexOf('image/') >= 0) {
+        return 'img';
+      }
+      var imgExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.heic', '.heif', '.avif'];
+      for (var i = 0; i < imgExts.length; i++) {
+        if (url.indexOf(imgExts[i]) >= 0) return 'img';
+      }
+
+      // Font detection
+      if (contentType.indexOf('font/') >= 0 || contentType.indexOf('application/font') >= 0 || contentType.indexOf('application/x-font') >= 0) {
+        return 'font';
+      }
+      var fontExts = ['.woff', '.woff2', '.ttf', '.otf', '.eot'];
+      for (var j = 0; j < fontExts.length; j++) {
+        if (url.indexOf(fontExts[j]) >= 0) return 'font';
+      }
+
+      // CSS detection
+      if (contentType.indexOf('text/css') >= 0 || url.indexOf('.css') >= 0) {
+        return 'css';
+      }
+
+      // JavaScript detection
+      if (contentType.indexOf('javascript') >= 0 || contentType.indexOf('application/x-javascript') >= 0 || contentType.indexOf('text/javascript') >= 0) {
+        return 'js';
+      }
+      var jsExts = ['.js', '.mjs', '.jsx', '.ts', '.tsx'];
+      for (var k = 0; k < jsExts.length; k++) {
+        if (url.indexOf(jsExts[k]) >= 0) return 'js';
+      }
+
+      // Media detection (audio/video)
+      if (contentType.indexOf('video/') >= 0 || contentType.indexOf('audio/') >= 0) {
+        return 'media';
+      }
+      var mediaExts = ['.mp4', '.webm', '.ogg', '.mp3', '.wav', '.m4a', '.aac', '.flac', '.mov', '.avi', '.mkv', '.m3u8', '.mpd'];
+      for (var m = 0; m < mediaExts.length; m++) {
+        if (url.indexOf(mediaExts[m]) >= 0) return 'media';
+      }
+
+      // Document detection (HTML, XML, PDF, etc.)
+      if (contentType.indexOf('text/html') >= 0 || contentType.indexOf('application/xhtml') >= 0) {
+        return 'doc';
+      }
+      if (contentType.indexOf('application/pdf') >= 0 || contentType.indexOf('application/xml') >= 0 || contentType.indexOf('text/xml') >= 0) {
+        return 'doc';
+      }
+      var docExts = ['.html', '.htm', '.xhtml', '.pdf', '.xml'];
+      for (var d = 0; d < docExts.length; d++) {
+        if (url.indexOf(docExts[d]) >= 0) return 'doc';
+      }
+
+      // Fetch/XHR detection (JSON, form data, API calls)
+      if (contentType.indexOf('application/json') >= 0 || contentType.indexOf('text/plain') >= 0 || contentType.indexOf('application/x-www-form-urlencoded') >= 0 || contentType.indexOf('multipart/form-data') >= 0) {
+        if (source === 'fetch') return 'fetch';
+        if (source === 'xhr') return 'xhr';
+        return 'fetch';
+      }
+
+      // Source-based fallback
+      if (source === 'fetch') return 'fetch';
+      if (source === 'xhr') return 'xhr';
+      if (source.indexOf('native') >= 0 || source === 'rn-native' || source === 'rn-event') return 'fetch';
+
+      return 'other';
+    }
+
     var originalFetch = g.fetch;
     if (typeof originalFetch === 'function') {
       g.fetch = function (input, init) {
@@ -117,7 +208,6 @@ export const INJECT_NETWORK_SNIPPET = `
       };
     }
 
-    // ============ XHR SHIM ============
     var OriginalXHR = g.XMLHttpRequest;
     if (OriginalXHR && typeof OriginalXHR === 'function') {
       g.XMLHttpRequest = function () {
@@ -207,12 +297,10 @@ export const INJECT_NETWORK_SNIPPET = `
       g.XMLHttpRequest.DONE = 4;
     }
 
-    // ============ REACT NATIVE NETWORKING MODULE (Low-level native HTTP) ============
     try {
       var RN = require('react-native');
       var NativeModules = RN && RN.NativeModules;
       
-      // Patch NativeModules.Networking
       if (NativeModules && NativeModules.Networking) {
         var Networking = NativeModules.Networking;
         
@@ -257,7 +345,6 @@ export const INJECT_NETWORK_SNIPPET = `
           };
         }
 
-        // Also patch addListener for response events
         if (typeof Networking.addListener === 'function' && !Networking.__listenerPatched) {
           Networking.__listenerPatched = true;
           var origAddListener = Networking.addListener.bind(Networking);
@@ -287,7 +374,6 @@ export const INJECT_NETWORK_SNIPPET = `
         }
       }
 
-      // Patch ImageLoader for image requests
       if (NativeModules && NativeModules.ImageLoader) {
         var ImageLoader = NativeModules.ImageLoader;
         
@@ -383,7 +469,6 @@ export const INJECT_NETWORK_SNIPPET = `
         }
       }
 
-      // Patch BlobModule for file uploads
       if (NativeModules && NativeModules.BlobModule) {
         var BlobModule = NativeModules.BlobModule;
         if (typeof BlobModule.sendOverSocket === 'function' && !BlobModule.__patched) {
@@ -401,7 +486,6 @@ export const INJECT_NETWORK_SNIPPET = `
         }
       }
 
-      // Patch FileReaderModule
       if (NativeModules && NativeModules.FileReaderModule) {
         var FileReader = NativeModules.FileReaderModule;
         if (typeof FileReader.readAsDataURL === 'function' && !FileReader.__patched) {
@@ -431,7 +515,6 @@ export const INJECT_NETWORK_SNIPPET = `
       }
     } catch (e) {}
 
-    // ============ WEBSOCKET SHIM ============
     try {
       var OriginalWebSocket = g.WebSocket;
       if (OriginalWebSocket && typeof OriginalWebSocket === 'function') {
@@ -488,7 +571,6 @@ export const INJECT_NETWORK_SNIPPET = `
             });
           });
 
-          // Also intercept send
           var origSend = ws.send;
           ws.send = function (data) {
             logNetwork({
@@ -509,7 +591,6 @@ export const INJECT_NETWORK_SNIPPET = `
       }
     } catch (e) {}
 
-    // ============ REACT NATIVE IMAGE COMPONENT ============
     try {
       var Image = require('react-native').Image;
       if (Image) {
@@ -572,11 +653,267 @@ export const INJECT_NETWORK_SNIPPET = `
                 method: 'GET', url: url || '', durationMs: Date.now() - start,
                 error: String(error && error.message ? error.message : error),
                 source: 'Image.getSize'
+      var NativeModules2 = RN2 && RN2.NativeModules;
+      
+      // Firebase Firestore Native Module
+      if (NativeModules2 && NativeModules2.RNFBFirestoreModule && !NativeModules2.RNFBFirestoreModule.__patched) {
+        var Firestore = NativeModules2.RNFBFirestoreModule;
+        Firestore.__patched = true;
+        
+        // Patch common Firestore methods
+        ['documentGet', 'documentSet', 'documentUpdate', 'documentDelete', 'collectionGet', 'queryGet'].forEach(function(methodName) {
+          if (typeof Firestore[methodName] === 'function') {
+            var orig = Firestore[methodName].bind(Firestore);
+            Firestore[methodName] = function() {
+              var id = genId();
+              var start = Date.now();
+              var args = Array.prototype.slice.call(arguments);
+              var path = args[1] || args[0] || '';
+              
+              logNetwork({
+                id: id, phase: 'start', ts: new Date().toISOString(),
+                method: methodName.toUpperCase(), url: 'firestore://' + path, durationMs: 0,
+                requestBody: truncateBody(JSON.stringify(args)),
+                source: 'firestore',
+                resourceType: 'fetch'
               });
-              if (failure) failure(error);
-            });
-          };
-        }
+              
+              var result = orig.apply(Firestore, arguments);
+              if (result && typeof result.then === 'function') {
+                return result.then(function(res) {
+                  logNetwork({
+                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    method: methodName.toUpperCase(), url: 'firestore://' + path, status: 200,
+                    durationMs: Date.now() - start,
+                    responseBody: truncateBody(JSON.stringify(res)),
+                    source: 'firestore',
+                    resourceType: 'fetch'
+                  });
+                  return res;
+                }).catch(function(err) {
+                  logNetwork({
+                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    method: methodName.toUpperCase(), url: 'firestore://' + path,
+                    durationMs: Date.now() - start,
+                    error: String(err && err.message ? err.message : err),
+                    source: 'firestore',
+                    resourceType: 'fetch'
+                  });
+                  throw err;
+                });
+              }
+              return result;
+            };
+          }
+        });
+      }
+      
+      // Firebase Realtime Database Native Module
+      if (NativeModules2 && NativeModules2.RNFBDatabaseModule && !NativeModules2.RNFBDatabaseModule.__patched) {
+        var Database = NativeModules2.RNFBDatabaseModule;
+        Database.__patched = true;
+        
+        ['once', 'set', 'update', 'remove', 'push'].forEach(function(methodName) {
+          if (typeof Database[methodName] === 'function') {
+            var orig = Database[methodName].bind(Database);
+            Database[methodName] = function() {
+              var id = genId();
+              var start = Date.now();
+              var args = Array.prototype.slice.call(arguments);
+              var path = args[1] || args[0] || '';
+　　 　 　 　
+              logNetwork({
+                id: id, phase: 'start', ts: new Date().toISOString(),
+                method: 'RTDB_' + methodName.toUpperCase(), url: 'firebase-rtdb://' + path, durationMs: 0,
+                requestBody: truncateBody(JSON.stringify(args)),
+                source: 'firebase-rtdb',
+                resourceType: 'fetch'
+              });
+　　 　 　 　
+              var result = orig.apply(Database, arguments);
+              if (result && typeof result.then === 'function') {
+                return result.then(function(res) {
+                  logNetwork({
+                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    method: 'RTDB_' + methodName.toUpperCase(), url: 'firebase-rtdb://' + path, status: 200,
+                    durationMs: Date.now() - start,
+                    responseBody: truncateBody(JSON.stringify(res)),
+                    source: 'firebase-rtdb',
+                    resourceType: 'fetch'
+                  });
+                  return res;
+                }).catch(function(err) {
+                  logNetwork({
+                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    method: 'RTDB_' + methodName.toUpperCase(), url: 'firebase-rtdb://' + path,
+                    durationMs: Date.now() - start,
+                    error: String(err && err.message ? err.message : err),
+                    source: 'firebase-rtdb',
+                    resourceType: 'fetch'
+                  });
+                  throw err;
+                });
+              }
+              return result;
+            };
+          }
+        });
+      }
+      
+      // Firebase Auth Native Module
+      if (NativeModules2 && NativeModules2.RNFBAuthModule && !NativeModules2.RNFBAuthModule.__patched) {
+        var Auth = NativeModules2.RNFBAuthModule;
+        Auth.__patched = true;
+        
+        ['signInWithEmailAndPassword', 'createUserWithEmailAndPassword', 'signInAnonymously', 'signOut', 'getCurrentUser'].forEach(function(methodName) {
+          if (typeof Auth[methodName] === 'function') {
+            var orig = Auth[methodName].bind(Auth);
+            Auth[methodName] = function() {
+              var id = genId();
+              var start = Date.now();
+　　 　 　 　
+              logNetwork({
+                id: id, phase: 'start', ts: new Date().toISOString(),
+                method: 'AUTH_' + methodName.toUpperCase(), url: 'firebase-auth://' + methodName, durationMs: 0,
+                source: 'firebase-auth',
+                resourceType: 'fetch'
+              });
+　　 　 　 　
+              var result = orig.apply(Auth, arguments);
+              if (result && typeof result.then === 'function') {
+                return result.then(function(res) {
+                  logNetwork({
+                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    method: 'AUTH_' + methodName.toUpperCase(), url: 'firebase-auth://' + methodName, status: 200,
+                    durationMs: Date.now() - start,
+                    responseBody: res ? '[User data]' : null,
+                    source: 'firebase-auth',
+                    resourceType: 'fetch'
+                  });
+                  return res;
+                }).catch(function(err) {
+                  logNetwork({
+                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    method: 'AUTH_' + methodName.toUpperCase(), url: 'firebase-auth://' + methodName,
+                    durationMs: Date.now() - start,
+                    error: String(err && err.message ? err.message : err),
+                    source: 'firebase-auth',
+                    resourceType: 'fetch'
+                  });
+                  throw err;
+                });
+              }
+              return result;
+            };
+          }
+        });
+      }
+      
+      // Firebase Storage Native Module
+      if (NativeModules2 && NativeModules2.RNFBStorageModule && !NativeModules2.RNFBStorageModule.__patched) {
+        var Storage = NativeModules2.RNFBStorageModule;
+        Storage.__patched = true;
+        
+        ['getDownloadURL', 'putFile', 'putString', 'deleteFile', 'getMetadata'].forEach(function(methodName) {
+          if (typeof Storage[methodName] === 'function') {
+            var orig = Storage[methodName].bind(Storage);
+            Storage[methodName] = function() {
+              var id = genId();
+              var start = Date.now();
+              var args = Array.prototype.slice.call(arguments);
+              var path = args[1] || args[0] || '';
+　　 　 　 　
+              logNetwork({
+                id: id, phase: 'start', ts: new Date().toISOString(),
+                method: 'STORAGE_' + methodName.toUpperCase(), url: 'firebase-storage://' + path, durationMs: 0,
+                source: 'firebase-storage',
+                resourceType: 'fetch'
+              });
+　　 　 　 　
+              var result = orig.apply(Storage, arguments);
+              if (result && typeof result.then === 'function') {
+                return result.then(function(res) {
+                  logNetwork({
+                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    method: 'STORAGE_' + methodName.toUpperCase(), url: 'firebase-storage://' + path, status: 200,
+                    durationMs: Date.now() - start,
+                    responseBody: truncateBody(JSON.stringify(res)),
+                    source: 'firebase-storage',
+                    resourceType: 'fetch'
+                  });
+                  return res;
+                }).catch(function(err) {
+                  logNetwork({
+                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    method: 'STORAGE_' + methodName.toUpperCase(), url: 'firebase-storage://' + path,
+                    durationMs: Date.now() - start,
+                    error: String(err && err.message ? err.message : err),
+                    source: 'firebase-storage',
+                    resourceType: 'fetch'
+                  });
+                  throw err;
+                });
+              }
+              return result;
+            };
+          }
+        });
+      }
+    } catch (e) {}
+
+    // Intercept global Promise-based HTTP libraries (axios instance interception)
+    try {
+      if (g.axios && !g.axios.__patched) {
+        g.axios.__patched = true;
+        var origAxios = g.axios;
+        
+        // Intercept axios.request and similar methods
+        ['request', 'get', 'post', 'put', 'patch', 'delete', 'head', 'options'].forEach(function(method) {
+          if (typeof origAxios[method] === 'function') {
+            var origMethod = origAxios[method].bind(origAxios);
+            origAxios[method] = function() {
+              var id = genId();
+              var start = Date.now();
+              var args = Array.prototype.slice.call(arguments);
+              var config = method === 'request' ? args[0] : (typeof args[0] === 'string' ? { url: args[0] } : args[0]);
+              var url = config && config.url ? config.url : '';
+              var httpMethod = config && config.method ? config.method.toUpperCase() : method.toUpperCase();
+　　 　 　 　
+              logNetwork({
+                id: id, phase: 'start', ts: new Date().toISOString(),
+                method: httpMethod, url: url, durationMs: 0,
+                requestHeaders: config && config.headers ? toPlainHeaders(config.headers) : {},
+                requestBody: config && config.data ? truncateBody(config.data) : undefined,
+                source: 'axios',
+                resourceType: 'fetch'
+              });
+　　 　 　 　
+              return origMethod.apply(origAxios, arguments).then(function(res) {
+                logNetwork({
+                  id: id, phase: 'end', ts: new Date().toISOString(),
+                  method: httpMethod, url: url, status: res && res.status,
+                  durationMs: Date.now() - start,
+                  responseHeaders: res && res.headers ? toPlainHeaders(res.headers) : {},
+                  responseBody: res && res.data ? truncateBody(res.data) : undefined,
+                  source: 'axios',
+                  resourceType: 'fetch'
+                });
+                return res;
+              }).catch(function(err) {
+                logNetwork({
+                  id: id, phase: 'error', ts: new Date().toISOString(),
+                  method: httpMethod, url: url,
+                  durationMs: Date.now() - start,
+                  error: String(err && err.message ? err.message : err),
+                  responseBody: err && err.response && err.response.data ? truncateBody(err.response.data) : undefined,
+                  source: 'axios',
+                  resourceType: 'fetch'
+                });
+                throw err;
+              });
+            };
+          }
+        });
       }
     } catch (e) {}
 
