@@ -7,6 +7,7 @@ export type ConsoleEvent = {
   origin?: string;
   deviceId?: string;
   rawArgs?: unknown[];
+  rawCdpArgs?: unknown[];
 };
 
 export type NetworkHeaders = Record<string, string>;

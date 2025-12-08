@@ -19,6 +19,7 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import GlassPanel from '../ui/GlassPanel';
+import JsonTreeView from '../components/JsonTreeView';
 import type { NetworkEvent, NetworkResourceType } from '../hooks/useProxyStream';
 import { useProxy } from '../context/ProxyContext';
 import SearchIcon from '@mui/icons-material/Search';
@@ -144,6 +145,25 @@ const NetworkPage = () => {
   const isVideoResponse = responseContentType.toLowerCase().includes('video/');
   const isHtmlResponse = responseContentType.toLowerCase().includes('text/html');
   const isTextLikeResponse = !isImageResponse && !isPdfResponse && !isVideoResponse;
+
+  let parsedJsonBody: unknown | null = null;
+  if (selectedEvent && selectedEvent.responseBody != null) {
+    if (typeof selectedEvent.responseBody === 'object') {
+      parsedJsonBody = selectedEvent.responseBody;
+    } else if (typeof selectedEvent.responseBody === 'string') {
+      const trimmed = selectedEvent.responseBody.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          parsedJsonBody = JSON.parse(trimmed);
+        } catch {
+          parsedJsonBody = null;
+        }
+      }
+    }
+  }
+
+  const isJsonResponse =
+    responseContentType.toLowerCase().includes('application/json') || parsedJsonBody !== null;
 
   const mergedNetworkEvents = useMemo(() => {
     const byId = new Map<string, NetworkEvent>();
@@ -896,7 +916,7 @@ const NetworkPage = () => {
                             {showHtmlPreview ? 'Hide HTML preview' : 'Render HTML'}
                           </Button>
                         )}
-                        {selectedEvent && (
+                        {selectedEvent && !isTextLikeResponse && (
                           <Button
                             component="a"
                             href={selectedEvent.url}
@@ -1003,6 +1023,22 @@ const NetworkPage = () => {
                               ? selectedEvent.responseBody
                               : JSON.stringify(selectedEvent.responseBody, null, 2)}
                           </Box>
+                          {isJsonResponse && parsedJsonBody !== null && (
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                background: (theme) =>
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(0,0,0,0.3)'
+                                    : 'rgba(0,0,0,0.04)',
+                                borderRadius: 1.5,
+                                maxHeight: 400,
+                                overflow: 'auto',
+                              }}
+                            >
+                              <JsonTreeView data={parsedJsonBody} defaultExpanded />
+                            </Box>
+                          )}
                           {isHtmlResponse && showHtmlPreview && typeof selectedEvent.responseBody === 'string' && (
                             <Box
                               sx={{

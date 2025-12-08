@@ -466,38 +466,6 @@ function normalizePreviewProperty(prop: any): unknown {
     return prop.value;
   }
 
-  // For arrays, try to expand from preview properties
-  if (prop.subtype === 'array' && prop.preview && Array.isArray(prop.preview.properties)) {
-    try {
-      const arr: unknown[] = [];
-      (prop.preview.properties as any[]).forEach((p) => {
-        const idx = parseInt(p.name, 10);
-        if (!isNaN(idx)) {
-          arr[idx] = normalizePreviewProperty(p);
-        }
-      });
-      return arr;
-    } catch {
-      // Fall back to description if expansion fails
-      return prop.description || `Array(${prop.preview.properties.length})`;
-    }
-  }
-
-  // For objects, try to expand from preview properties
-  if (prop.type === 'object' && prop.preview && Array.isArray(prop.preview.properties)) {
-    try {
-      const obj: Record<string, unknown> = {};
-      (prop.preview.properties as any[]).forEach((p) => {
-        const name = String(p.name ?? '');
-        obj[name] = normalizePreviewProperty(p);
-      });
-      return obj;
-    } catch {
-      // Fall back to description if expansion fails
-      return prop.description || `[${prop.className || 'Object'}]`;
-    }
-  }
-
   if (prop.subtype === 'array' && typeof prop.description === 'string') {
     return prop.description;
   }
@@ -606,6 +574,7 @@ async function handleRuntimeConsole(
       origin: 'devtools',
       deviceId,
       rawArgs,
+      rawCdpArgs: argsArray,
     },
   };
   broadcast(evt);

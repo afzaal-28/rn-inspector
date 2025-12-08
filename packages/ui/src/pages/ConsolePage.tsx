@@ -581,6 +581,47 @@ const ConsolePage = () => {
                     </Box>
                   </Box>
                 )}
+                 {selectedEvent.rawCdpArgs && selectedEvent.rawCdpArgs.length > 0 && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      background: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.02)'
+                          : 'rgba(0,0,0,0.01)',
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        background: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(255,255,255,0.04)'
+                            : 'rgba(0,0,0,0.02)',
+                        transform: 'translateY(-1px)',
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Typography variant="overline" color="text.secondary">
+                        Raw CDP
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        p: 2,
+                        background: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(0,0,0,0.3)'
+                            : 'rgba(0,0,0,0.04)',
+                        borderRadius: 1.5,
+                        maxHeight: 'none',
+                        overflow: 'auto',
+                      }}
+                    >
+                      <JsonTreeView data={selectedEvent.rawCdpArgs} defaultExpanded />
+                    </Box>
+                  </Box>
+                )}
               </Box>
             </Box>
           )}
