@@ -625,7 +625,6 @@ export const INJECT_NETWORK_SNIPPET = `
             });
           };
         }
-
         if (typeof Image.getSize === 'function' && !Image.__getSizePatched) {
           Image.__getSizePatched = true;
           var origImgGetSize = Image.getSize;
@@ -653,13 +652,23 @@ export const INJECT_NETWORK_SNIPPET = `
                 method: 'GET', url: url || '', durationMs: Date.now() - start,
                 error: String(error && error.message ? error.message : error),
                 source: 'Image.getSize'
+              });
+              if (failure) failure(error);
+            });
+          };
+        }
+      }
+    } catch (e) {}
+
+    try {
+      var RN2 = require('react-native');
       var NativeModules2 = RN2 && RN2.NativeModules;
-      
+
       // Firebase Firestore Native Module
       if (NativeModules2 && NativeModules2.RNFBFirestoreModule && !NativeModules2.RNFBFirestoreModule.__patched) {
         var Firestore = NativeModules2.RNFBFirestoreModule;
         Firestore.__patched = true;
-        
+
         // Patch common Firestore methods
         ['documentGet', 'documentSet', 'documentUpdate', 'documentDelete', 'collectionGet', 'queryGet'].forEach(function(methodName) {
           if (typeof Firestore[methodName] === 'function') {
