@@ -326,13 +326,21 @@ const NetworkPage = () => {
                       </Typography>
                     </Tooltip>
                   </Box>
-                  <Box sx={{ minWidth: 90, textAlign: 'right' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 140, justifyContent: 'flex-end' }}>
+                    {evt.source && (
+                      <Chip
+                        size="small"
+                        label={evt.source}
+                        variant="filled"
+                        sx={{ borderRadius: 2, textTransform: 'lowercase', fontSize: 10, height: 20 }}
+                      />
+                    )}
                     <Chip
                       size="small"
                       label={evt.status != null ? evt.status : 'Pending'}
                       color={getStatusColor(evt.status)}
                       variant="filled"
-                      sx={{ mr: evt.error ? 0.5 : 0, borderRadius: 2, textTransform: 'none' }}
+                      sx={{ borderRadius: 2, textTransform: 'none' }}
                     />
                     {evt.error && (
                       <Typography component="span" variant="caption" color="text.secondary">

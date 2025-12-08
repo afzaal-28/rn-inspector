@@ -8,6 +8,14 @@
 - Attaching to **DevTools** targets (one or many devices/emulators).
 - Streaming **console logs** and **network requests** into a rich, glassy web UI.
 
+---
+
+## What's new in 0.2.3
+
+- **Console**: Removed all truncation limits for nested objects; logs now show full payloads.
+- **Network**: Much broader capture on RN CLI/Expo—hooks into `fetch`, `XHR`, native `Networking`, `ImageLoader`, `Image` component methods, WebSockets (incl. messages and sends), Blob/FileReader operations.
+- **Stability**: Higher body limits (up to 500KB) and richer source tagging for requests (fetch/xhr/native/image/websocket/etc.).
+
 This package is the CLI entry point that you install globally.
 
 ---

@@ -25,6 +25,7 @@ export type NetworkEvent = {
   requestBody?: unknown;
   responseBody?: unknown;
   deviceId?: string;
+  source?: 'fetch' | 'xhr' | 'native' | 'image-prefetch' | 'image-getsize' | 'websocket' | string;
 };
 
 export type DeviceInfo = {
