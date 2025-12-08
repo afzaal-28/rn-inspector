@@ -10,7 +10,7 @@
 
 ---
 
-## What's new in 0.2.3
+## What's new in 0.2.4
 
 - **Console**: Removed all truncation limits for nested objects; logs now show full payloads.
 - **Network**: Much broader capture on RN CLI/Expo—hooks into `fetch`, `XHR`, native `Networking`, `ImageLoader`, `Image` component methods, WebSockets (incl. messages and sends), Blob/FileReader operations.
