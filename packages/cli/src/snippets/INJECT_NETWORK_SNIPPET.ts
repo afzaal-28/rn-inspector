@@ -301,7 +301,72 @@ export const INJECT_NETWORK_SNIPPET = `
       var RN = require('react-native');
       var NativeModules = RN && RN.NativeModules;
       
-      if (NativeModules && NativeModules.Networking) {
+      // Enhanced native network module interception
+      if (NativeModules) {
+        // Check for additional HTTP-related native modules dynamically
+        Object.keys(NativeModules).forEach(function(moduleName) {
+          var module = NativeModules[moduleName];
+          if (!module || module.__patched) return;
+          
+          // Look for modules with HTTP-related methods
+          var httpMethods = ['request', 'fetch', 'get', 'post', 'put', 'delete', 'upload', 'download', 'sendRequest'];
+          var hasHttpMethod = httpMethods.some(function(method) {
+            return typeof module[method] === 'function';
+          });
+          
+          if (hasHttpMethod && (moduleName.toLowerCase().indexOf('network') >= 0 || 
+              moduleName.toLowerCase().indexOf('http') >= 0 ||
+              moduleName.toLowerCase().indexOf('fetch') >= 0 ||
+              moduleName.toLowerCase().indexOf('request') >= 0)) {
+            
+            module.__patched = true;
+            httpMethods.forEach(function(methodName) {
+              if (typeof module[methodName] === 'function') {
+                var origMethod = module[methodName].bind(module);
+                module[methodName] = function() {
+                  var id = genId();
+                  var start = Date.now();
+                  var args = Array.prototype.slice.call(arguments);
+                  var url = args[0] || args[1] || '';
+                  var method = methodName.toUpperCase();
+                  
+                  logNetwork({
+                    id: id, phase: 'start', ts: new Date().toISOString(),
+                    method: method, url: url, durationMs: 0,
+                    requestBody: truncateBody(args[2] || args[3]),
+                    source: 'native-' + moduleName
+                  });
+                  
+                  var result = origMethod.apply(module, arguments);
+                  if (result && typeof result.then === 'function') {
+                    return result.then(function(res) {
+                      logNetwork({
+                        id: id, phase: 'end', ts: new Date().toISOString(),
+                        method: method, url: url, status: res && res.status,
+                        durationMs: Date.now() - start,
+                        responseBody: truncateBody(res),
+                        source: 'native-' + moduleName
+                      });
+                      return res;
+                    }).catch(function(err) {
+                      logNetwork({
+                        id: id, phase: 'error', ts: new Date().toISOString(),
+                        method: method, url: url,
+                        durationMs: Date.now() - start,
+                        error: String(err && err.message ? err.message : err),
+                        source: 'native-' + moduleName
+                      });
+                      throw err;
+                    });
+                  }
+                  return result;
+                };
+              }
+            });
+          }
+        });
+
+        // Original Networking module patch
         var Networking = NativeModules.Networking;
         
         if (typeof Networking.sendRequest === 'function' && !Networking.__patched) {

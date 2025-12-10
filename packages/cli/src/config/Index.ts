@@ -10,7 +10,7 @@ export const baseDir: string = typeof __dirname !== 'undefined' ? __dirname : pa
 
 export function getCliVersion(): string {
   try {
-    const pkgPath = path.resolve(baseDir, '../package.json');
+    const pkgPath = path.resolve(baseDir, '../../package.json');
     const raw = fs.readFileSync(pkgPath, 'utf8');
     const pkg = JSON.parse(raw) as { version?: string };
     return pkg.version ?? 'unknown';

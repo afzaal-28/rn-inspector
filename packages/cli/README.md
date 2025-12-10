@@ -1,22 +1,15 @@
 # rn-inspector CLI
 
-> **Warning:** All versions **before `0.2.0`** had known issues (especially on macOS and DevTools reconnect behavior). Please upgrade and use the latest version `0.3.0` or newer. We’re sorry for the inconvenience.
+[![npm version](https://img.shields.io/npm/v/rn-inspector.svg?label=rn-inspector)](https://www.npmjs.com/package/rn-inspector)
+[![npm downloads](https://img.shields.io/npm/dm/rn-inspector.svg)](https://www.npmjs.com/package/rn-inspector)
 
-`rn-inspector` is a small CLI + Web UI that helps you debug **React Native** apps by:
+`rn-inspector` is a focused CLI + Web UI that helps you debug **React Native** apps by:
 
 - Proxying **Metro** messages.
-- Attaching to **DevTools** targets (one or many devices/emulators).
-- Streaming **console logs** and **network requests** into a rich, glassy web UI.
+- Attaching to **DevTools** targets (single or multiple devices/emulators).
+- Streaming **console logs**, **network requests**, and selected **storage state** into a modern, glassy web UI.
 
----
-
-## What's new in the latest version
-
-- **Console**: Removed all truncation limits for nested objects; logs now show full payloads.
-- **Network**: Much broader capture on RN CLI/Expo—hooks into `fetch`, `XHR`, native `Networking`, `ImageLoader`, `Image` component methods, WebSockets (incl. messages and sends), Blob/FileReader operations.
-- **Stability**: Higher body limits (up to 500KB) and richer source tagging for requests (fetch/xhr/native/image/websocket/etc.).
-
-This package is the CLI entry point that you install globally.
+This package is the **CLI entry point** you install globally.
 
 ---
 
@@ -48,7 +41,7 @@ After installing, the `rn-inspector` command is available in your shell.
    - Serve the **UI** at `http://localhost:4173`.
    - Auto-discover any available **DevTools targets** (for connected devices/emulators).
 
-4. Open the UI in your browser (or use the `o` keyboard shortcut, see below), pick a device from the header, and start inspecting **Console** and **Network** events.
+4. Open the UI in your browser (or use the `o` keyboard shortcut), pick a device from the header, and start inspecting **Console** and **Network** events.
 
 ---
 
@@ -60,7 +53,7 @@ rn-inspector \
   [--ui-port 4173 | --ui-port=4173] \
   [--ui-ws-port 9230 | --ui-ws-port=9230] \
   [--devtools-url ws://...] \
-  [--version | -v | version]
+  [--version]
 ```
 
 ### Options
@@ -84,8 +77,8 @@ rn-inspector \
   - Explicit DevTools websocket URL to attach to (for advanced usage).
   - If omitted, `rn-inspector` will **auto-discover** DevTools targets via `http://<host>:<port>/json` on a range of ports (starting around the Metro port) and attach to all matching targets.
 
-- `--version`, `-v`, `version`
-  - Print the `rn-inspector` CLI version and exit without starting the proxy.
+- `--version`
+  - Print the `rn-inspector` CLI version and exit.
 
 ### Environment variables
 
@@ -132,12 +125,10 @@ The UI includes:
   - Live console logs from Metro and DevTools.
   - Level filters (log/info/warn/error).
   - Detail drawer with copy-to-clipboard and timestamps.
-  - Glassy search bar and Clear action in the header to filter and reset the current view.
 
 - **Network** page
   - HTTP requests captured via an injected fetch wrapper / DevTools Network domain.
   - Detail drawer with headers, payload, and response preview (including text, JSON, images, and some binary types).
-  - Glassy search bar and Clear action in the header to filter by URL/method/status and reset the current view.
 
 - **Header controls**
   - Global **device selector** (backed by the `deviceId` tagging in the CLI).

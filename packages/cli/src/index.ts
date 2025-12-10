@@ -6,6 +6,7 @@ import fs from 'fs';
 import serveStatic from 'serve-static';
 import finalhandler from 'finalhandler';
 import { spawn } from 'child_process';
+import chalk from 'chalk';
 import { INJECT_INSPECTOR_SNIPPET } from './snippets/INJECT_INSPECTOR_SNIPPET';
 import { INJECT_NETWORK_SNIPPET } from './snippets/INJECT_NETWORK_SNIPPET';
 import { INJECT_STORAGE_SNIPPET } from './snippets/INJECT_STORAGE_SNIPPET';
@@ -138,6 +139,7 @@ async function discoverDevtoolsTargets(metroPort: number): Promise<DevtoolsTarge
   [9222, 9229, 9230].forEach((p) => candidates.add(p));
 
   const results: DevtoolsTarget[] = [];
+  const seenUrls = new Set<string>(); 
 
   for (const port of candidates) {
     const json = await httpGetJson(host, port, '/json');
@@ -153,6 +155,13 @@ async function discoverDevtoolsTargets(metroPort: number): Promise<DevtoolsTarge
     for (const item of tryList) {
       if (item && typeof (item as any).webSocketDebuggerUrl === 'string') {
         const url = String((item as any).webSocketDebuggerUrl);
+        
+        if (seenUrls.has(url)) {
+          index += 1;
+          continue;
+        }
+        
+        seenUrls.add(url);
         const id = String((item as any).id ?? `${port}-${index}`);
         const title = typeof (item as any).title === 'string' ? (item as any).title : undefined;
         const description =
@@ -165,13 +174,13 @@ async function discoverDevtoolsTargets(metroPort: number): Promise<DevtoolsTarge
 
   if (results.length === 0) {
     console.log(
-      '[rn-inspector] DevTools auto-discovery found no /json targets (falling back to Metro-only mode)',
+      chalk.yellow('[rn-inspector] DevTools auto-discovery found no /json targets (falling back to Metro-only mode)'),
     );
   } else {
-    console.log('[rn-inspector] Discovered DevTools targets:');
+    console.log(chalk.green('[rn-inspector] Discovered DevTools targets:'));
     results.forEach((t, idx) => {
       const label = t.title || t.description || t.id;
-      console.log(`  [${idx}] ${t.webSocketDebuggerUrl} (${label})`);
+      console.log(chalk.cyan(`  [${idx}] ${t.webSocketDebuggerUrl} (${label})`));
     });
   }
 
@@ -793,6 +802,7 @@ function attachDevtoolsBridge(
   devtoolsWsUrl: string,
   broadcast: (message: unknown) => void,
   deviceId: string,
+  devtoolsBridges: Map<string, DevtoolsBridge>,
 ): DevtoolsBridge {
   const state: DevtoolsState = { requests: new Map() };
   let devtoolsWs: WebSocket | null = null;
@@ -811,161 +821,178 @@ function attachDevtoolsBridge(
       return normalizeConsoleArg(arg);
     }
 
-    const id = nextConsoleEvalId++;
-    // Full deep serialization - no truncation, unlimited depth for complete console capture
-    const serializeFn = `function() {
-      try {
-        var seen = new WeakSet();
-        var maxDepth = 50;
-        var maxArrayLength = 10000;
-        var maxObjectKeys = 10000;
-        
-        function serialize(obj, depth) {
-          if (depth > maxDepth) return '[Max depth reached]';
-          if (obj === null) return null;
-          if (obj === undefined) return undefined;
-          
-          var type = typeof obj;
-          if (type === 'string') return obj;
-          if (type === 'number') return isNaN(obj) ? 'NaN' : isFinite(obj) ? obj : (obj > 0 ? 'Infinity' : '-Infinity');
-          if (type === 'boolean') return obj;
-          if (type === 'function') return '[Function: ' + (obj.name || 'anonymous') + ']';
-          if (type === 'symbol') return obj.toString();
-          if (type === 'bigint') return obj.toString() + 'n';
-          if (type !== 'object') return String(obj);
-          
-          if (seen.has(obj)) return '[Circular]';
-          seen.add(obj);
-          
-          try {
-            if (Array.isArray(obj)) {
-              var arr = [];
-              var len = Math.min(obj.length, maxArrayLength);
-              for (var i = 0; i < len; i++) {
-                arr.push(serialize(obj[i], depth + 1));
-              }
-              if (obj.length > maxArrayLength) {
-                arr.push('[... ' + (obj.length - maxArrayLength) + ' more items]');
-              }
-              return arr;
-            }
-            
-            if (obj instanceof Date) return { __type: 'Date', value: obj.toISOString() };
-            if (obj instanceof RegExp) return { __type: 'RegExp', value: obj.toString() };
-            if (obj instanceof Error) return { __type: 'Error', name: obj.name, message: obj.message, stack: obj.stack };
-            if (obj instanceof Promise) return { __type: 'Promise', state: 'pending' };
-            
-            if (obj instanceof Map) {
-              var mapResult = { __type: 'Map', size: obj.size, entries: {} };
-              var mapCount = 0;
-              obj.forEach(function(v, k) {
-                if (mapCount < maxObjectKeys) {
-                  mapResult.entries[String(k)] = serialize(v, depth + 1);
-                  mapCount++;
-                }
-              });
-              return mapResult;
-            }
-            
-            if (obj instanceof Set) {
-              var setResult = { __type: 'Set', size: obj.size, values: [] };
-              var setCount = 0;
-              obj.forEach(function(v) {
-                if (setCount < maxArrayLength) {
-                  setResult.values.push(serialize(v, depth + 1));
-                  setCount++;
-                }
-              });
-              return setResult;
-            }
-            
-            if (obj instanceof WeakMap) return { __type: 'WeakMap' };
-            if (obj instanceof WeakSet) return { __type: 'WeakSet' };
-            
-            if (typeof ArrayBuffer !== 'undefined' && obj instanceof ArrayBuffer) {
-              return { __type: 'ArrayBuffer', byteLength: obj.byteLength };
-            }
-            if (typeof Uint8Array !== 'undefined' && obj instanceof Uint8Array) {
-              return { __type: 'Uint8Array', length: obj.length, data: Array.from(obj.slice(0, 100)) };
-            }
-            if (typeof Blob !== 'undefined' && obj instanceof Blob) {
-              return { __type: 'Blob', size: obj.size, type: obj.type };
-            }
-            
-            var result = {};
-            if (typeof obj.constructor === 'function' && obj.constructor.name && obj.constructor.name !== 'Object') {
-              result.__type = obj.constructor.name;
-            }
-            
-            // Use both Object.keys and getOwnPropertyNames for complete enumeration
-            var keys = Object.keys(obj);
-            try {
-              var propNames = Object.getOwnPropertyNames(obj);
-              for (var p = 0; p < propNames.length; p++) {
-                if (keys.indexOf(propNames[p]) === -1) keys.push(propNames[p]);
-              }
-            } catch (e) {}
-            
-            var keyCount = Math.min(keys.length, maxObjectKeys);
-            for (var j = 0; j < keyCount; j++) {
-              var key = keys[j];
-              try {
-                var descriptor = Object.getOwnPropertyDescriptor(obj, key);
-                if (descriptor && typeof descriptor.get === 'function') {
-                  result[key] = '[Getter]';
-                } else {
-                  result[key] = serialize(obj[key], depth + 1);
-                }
-              } catch (e) {
-                result[key] = '[Error: ' + (e.message || 'Access denied') + ']';
-              }
-            }
-            if (keys.length > maxObjectKeys) {
-              result['...'] = '[' + (keys.length - maxObjectKeys) + ' more properties]';
-            }
-            return result;
-          } finally {
-            seen.delete(obj);
-          }
-        }
-        return serialize(this, 0);
-      } catch (e) { return { __error: e.message, __stack: e.stack }; }
-    }`;
-    const payload = {
-      id,
-      method: 'Runtime.callFunctionOn',
-      params: {
-        objectId: arg.objectId,
-        functionDeclaration: serializeFn,
-        returnByValue: true,
-        awaitPromise: true,
-      },
-    };
+    // Use Runtime.getProperties recursively for deeper object inspection
+    return await getDeepObjectProperties(ws, arg.objectId, 0);
+  };
 
-    return new Promise<unknown>((resolve) => {
-      pendingConsoleEvals.set(id, (value: unknown) => {
-        if (value === null || typeof value === 'undefined') {
-          resolve(normalizeConsoleArg(arg));
-        } else {
+  // Recursive function to get deep object properties using Runtime.getProperties
+  const getDeepObjectProperties = async (ws: WebSocket, objectId: string, depth: number): Promise<unknown> => {
+    const MAX_DEPTH = 20; // Increased depth for better inspection
+    const MAX_PROPERTIES = 500; // Limit properties per level to prevent huge objects
+    
+    if (depth > MAX_DEPTH) {
+      return { __type: 'Object', __depth_limit: 'Max depth reached' };
+    }
+
+    try {
+      const id = nextConsoleEvalId++;
+      const result = await new Promise<any>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          pendingConsoleEvals.delete(id);
+          reject(new Error('Runtime.getProperties timeout'));
+        }, 3000);
+
+        pendingConsoleEvals.set(id, (value: unknown) => {
+          clearTimeout(timeout);
           resolve(value);
-        }
+        });
+
+        ws.send(JSON.stringify({
+          id,
+          method: 'Runtime.getProperties',
+          params: {
+            objectId,
+            ownProperties: true,
+            accessorPropertiesOnly: false,
+            generatePreview: true,
+          },
+        }));
       });
-      try {
-        ws.send(JSON.stringify(payload));
-      } catch {
-        pendingConsoleEvals.delete(id);
-        resolve(normalizeConsoleArg(arg));
-        return;
+
+      if (!result || !Array.isArray(result.result)) {
+        return normalizeConsoleArg({ objectId });
       }
 
-      // Increased timeout to 5 seconds for deep object serialization
-      setTimeout(() => {
-        if (pendingConsoleEvals.has(id)) {
-          pendingConsoleEvals.delete(id);
-          resolve(normalizeConsoleArg(arg));
+      const properties: Record<string, unknown> = {};
+      const processed = new Set<string>();
+      
+      for (let i = 0; i < Math.min(result.result.length, MAX_PROPERTIES); i++) {
+        const prop = result.result[i];
+        if (!prop || !prop.name) continue;
+        
+        const name = String(prop.name);
+        if (processed.has(name)) continue; // Avoid duplicates
+        processed.add(name);
+
+        try {
+          if (prop.value) {
+            const value = prop.value;
+            
+            // Handle different value types
+            if (value.type === 'undefined') {
+              properties[name] = undefined;
+            } else if (value.type === 'object' && value.subtype === 'null') {
+              properties[name] = null;
+            } else if (value.type === 'boolean' || value.type === 'number' || value.type === 'string') {
+              properties[name] = value.value;
+            } else if (value.type === 'bigint') {
+              properties[name] = value.unserializableValue ? value.unserializableValue : String(value.value);
+            } else if (value.type === 'symbol') {
+              properties[name] = value.description || '[Symbol]';
+            } else if (value.type === 'function') {
+              properties[name] = `[Function: ${value.description || 'anonymous'}]`;
+            } else if (value.type === 'object') {
+              // Handle special object types
+              if (value.subtype === 'array') {
+                if (value.objectId && depth < MAX_DEPTH - 1) {
+                  const arrayProps = await getDeepObjectProperties(ws, value.objectId, depth + 1);
+                  // Convert the properties object back to an array
+                  if (typeof arrayProps === 'object' && arrayProps !== null) {
+                    const propsObj = arrayProps as Record<string, unknown>;
+                    
+                    // Get array length from the current array's properties, not the parent result
+                    const arrayLength = (propsObj['length'] as number) || 0;
+                    
+                    const resultArray: unknown[] = [];
+                    
+                    // Extract numeric indices in order
+                    for (let i = 0; i < arrayLength; i++) {
+                      const key = String(i);
+                      if (propsObj[key] !== undefined) {
+                        resultArray.push(propsObj[key]);
+                      }
+                    }
+                    
+                    properties[name] = resultArray;
+                  } else {
+                    properties[name] = [];
+                  }
+                } else {
+                  // Use preview for deeper arrays
+                  properties[name] = Array.isArray(value.preview?.properties) 
+                    ? value.preview.properties.map((p: any) => p.value)
+                    : [];
+                }
+              } else if (value.subtype === 'date') {
+                properties[name] = { __type: 'Date', value: value.description };
+              } else if (value.subtype === 'regexp') {
+                properties[name] = { __type: 'RegExp', value: value.description };
+              } else if (value.subtype === 'error') {
+                properties[name] = { 
+                  __type: 'Error', 
+                  name: value.className || 'Error',
+                  message: value.description || '',
+                  stack: value.preview?.properties?.find((p: any) => p.name === 'stack')?.value
+                };
+              } else if (value.subtype === 'map') {
+                if (value.objectId && depth < MAX_DEPTH - 1) {
+                  const mapProps = await getDeepObjectProperties(ws, value.objectId, depth + 1);
+                  properties[name] = { __type: 'Map', entries: mapProps };
+                } else {
+                  properties[name] = { __type: 'Map', size: value.preview?.properties?.find((p: any) => p.name === 'size')?.value || 0 };
+                }
+              } else if (value.subtype === 'set') {
+                if (value.objectId && depth < MAX_DEPTH - 1) {
+                  const setProps = await getDeepObjectProperties(ws, value.objectId, depth + 1);
+                  properties[name] = { __type: 'Set', values: setProps };
+                } else {
+                  properties[name] = { __type: 'Set', size: value.preview?.properties?.find((p: any) => p.name === 'size')?.value || 0 };
+                }
+              } else if (value.subtype === 'typedarray') {
+                properties[name] = { 
+                  __type: value.className || 'TypedArray', 
+                  length: value.preview?.properties?.find((p: any) => p.name === 'length')?.value || 0 
+                };
+              } else if (value.subtype === 'node' || value.subtype === 'window') {
+                properties[name] = { __type: value.subtype, description: value.description };
+              } else {
+                // Regular object - recurse deeper
+                if (value.objectId && depth < MAX_DEPTH - 1) {
+                  properties[name] = await getDeepObjectProperties(ws, value.objectId, depth + 1);
+                } else {
+                  // Use preview for deeper objects
+                  properties[name] = value.preview ? {
+                    __type: value.className || 'Object',
+                    __preview: value.preview.description || value.description,
+                    __overflow: value.preview.overflow
+                  } : { __type: value.className || 'Object' };
+                }
+              }
+            } else {
+              properties[name] = value.description || value.unserializableValue || '[Unknown]';
+            }
+          } else if (prop.get || prop.set) {
+            // Handle accessor properties
+            properties[name] = {
+              __type: 'Accessor',
+              get: prop.get ? `[Getter: ${prop.get.description || 'anonymous'}]` : undefined,
+              set: prop.set ? `[Setter: ${prop.set.description || 'anonymous'}]` : undefined
+            };
+          }
+        } catch (err) {
+          properties[name] = `[Error: ${err instanceof Error ? err.message : String(err)}]`;
         }
-      }, 5000);
-    });
+      }
+
+      // Add metadata about truncation
+      if (result.result.length > MAX_PROPERTIES) {
+        properties['...'] = `[${result.result.length - MAX_PROPERTIES} more properties]`;
+      }
+
+      return properties;
+    } catch (err) {
+      return { __error: `Failed to get properties: ${err instanceof Error ? err.message : String(err)}` };
+    }
   };
 
   const connect = () => {
@@ -1046,10 +1073,24 @@ function attachDevtoolsBridge(
       if (msg && typeof msg.id === 'number' && pendingConsoleEvals.has(msg.id)) {
         const resolve = pendingConsoleEvals.get(msg.id)!;
         pendingConsoleEvals.delete(msg.id);
-        const value =
-          msg && msg.result && typeof msg.result.value !== 'undefined'
-            ? msg.result.value
-            : null;
+        
+        // Handle different response types: Runtime.getProperties vs Runtime.callFunctionOn
+        let value = null;
+        if (msg && msg.result) {
+          // Runtime.getProperties response: {result: [...]}
+          if (Array.isArray(msg.result)) {
+            value = msg.result;
+          }
+          // Runtime.callFunctionOn response: {result: {value: ...}}
+          else if (typeof msg.result.value !== 'undefined') {
+            value = msg.result.value;
+          }
+          // Fallback to entire result if structure is unexpected
+          else {
+            value = msg.result;
+          }
+        }
+        
         resolve(value);
         return;
       }
@@ -1084,7 +1125,9 @@ function attachDevtoolsBridge(
     });
 
     ws.on('close', () => {
-      console.warn('[rn-inspector] DevTools websocket closed');
+      console.warn(chalk.yellow('[rn-inspector] DevTools websocket closed'));
+      // Clean up the bridge from the devtoolsBridges Map to prevent stale connections
+      devtoolsBridges.delete(deviceId);
       try {
         broadcast({
           type: 'meta',
@@ -1191,17 +1234,28 @@ async function startProxy(opts: ProxyOptions = {}) {
   const uiPort = opts.uiWsPort ?? DEFAULT_UI_WS_PORT;
 
   const targetWsUrl = `ws://${host}:${metroPort}/message`;
-  console.log(`[rn-inspector] Connecting to ${targetWsUrl} ...`);
+  console.log(chalk.cyan(`[rn-inspector] Connecting to ${targetWsUrl} ...`));
 
   const metroWs = new WebSocket(targetWsUrl);
 
+  metroWs.on('error', (err: Error) => {
+    if (err.message.includes('ECONNREFUSED')) {
+      console.error(chalk.red(`[rn-inspector] Error: Could not connect to Metro server on port ${metroPort}`));
+      console.error(chalk.yellow(`[rn-inspector] Make sure your React Native app is running and Metro is started`));
+      console.error(chalk.cyan(`[rn-inspector] Try: npx react-native start or npx expo start`));
+      process.exit(1);
+    } else {
+      console.error(chalk.red(`[rn-inspector] Metro WebSocket error:`), err);
+    }
+  });
+
   metroWs.on('open', () => {
-    console.log('[rn-inspector] Connected to Metro websocket');
+    console.log(chalk.green(`[rn-inspector] Connected to Metro websocket`));
   });
 
   const uiWss = new WebSocketServer({ port: uiPort });
   uiWss.on('listening', () => {
-    console.log(`[rn-inspector] UI WebSocket server on ws://${host}:${uiPort}/inspector`);
+    console.log(chalk.blue(`[rn-inspector] UI WebSocket server on ws://${host}:${uiPort}/inspector`));
   });
 
   let currentDevices: { id: string; label: string; url?: string }[] = [];
@@ -1222,7 +1276,7 @@ async function startProxy(opts: ProxyOptions = {}) {
       if (opts.devtoolsWsUrl) {
         const deviceId = 'devtools-explicit';
         console.log(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`);
-        const bridge = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId);
+        const bridge = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId, devtoolsBridges);
         devtoolsBridges.set(deviceId, bridge);
 
         currentDevices = [
@@ -1263,7 +1317,7 @@ async function startProxy(opts: ProxyOptions = {}) {
 
           devices.forEach((d, index) => {
             const target = targets[index];
-            const bridge = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id);
+            const bridge = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id, devtoolsBridges);
             devtoolsBridges.set(d.id, bridge);
           });
         } else {
@@ -1539,32 +1593,32 @@ export async function main() {
 
   if (showVersion) {
     const version = getCliVersion();
-    console.log(version);
+    console.log(chalk.cyan(version));
     return;
   }
 
   const devtoolsWsUrl = explicitDevtoolsWsUrl;
 
   console.log(
-    `[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`,
+    chalk.magenta(`[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`),
   );
   if (devtoolsWsUrl) {
-    console.log(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`);
+    console.log(chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`));
   }
   await startProxy({ metroPort, uiWsPort, devtoolsWsUrl });
 
-  console.log('[rn-inspector] serving UI assets...');
+  console.log(chalk.blue('[rn-inspector] serving UI assets...'));
   startStaticUi(uiPort);
 
   const uiUrl = `http://localhost:${uiPort}`;
   console.log(
-    `[rn-inspector] open ${uiUrl} (UI connects to ws://localhost:${uiWsPort ?? DEFAULT_UI_WS_PORT}/inspector)`,
+    chalk.green(`[rn-inspector] open ${uiUrl} (UI connects to ws://localhost:${uiWsPort ?? DEFAULT_UI_WS_PORT}/inspector)`),
   );
 
   registerKeyHandlers(uiUrl);
 }
 
 main().catch((err) => {
-  console.error('[rn-inspector] CLI failed:', err);
+  console.error(chalk.red('[rn-inspector] CLI failed:'), err);
   process.exit(1);
 });

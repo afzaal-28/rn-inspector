@@ -1,6 +1,6 @@
 {
   "name": "rn-inspector",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "CLI and web UI to inspect React Native console, Redux, AsyncStorage, and network traffic via Metro and DevTools.",
   "private": false,
   "type": "commonjs",
@@ -21,7 +21,8 @@
   "dependencies": {
     "serve-static": "^1.15.0",
     "finalhandler": "^1.2.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "chalk": "^5.3.0"
   },
   "devDependencies": {
     "@types/ws": "^8.5.10",
