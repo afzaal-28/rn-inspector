@@ -129,6 +129,48 @@ function httpGetJson(host: string, port: number, path: string): Promise<unknown 
   });
 }
 
+function dedupeDevtoolsTargets(targets: DevtoolsTarget[]): DevtoolsTarget[] {
+  const map = new Map<string, DevtoolsTarget>();
+
+  targets.forEach((t) => {
+    let deviceKey = t.id;
+    let page = 0;
+    try {
+      const urlObj = new URL(t.webSocketDebuggerUrl);
+      const deviceParam = urlObj.searchParams.get('device');
+      const pageParam = urlObj.searchParams.get('page');
+      if (deviceParam) deviceKey = deviceParam;
+      if (pageParam) {
+        const parsed = Number(pageParam);
+        if (!Number.isNaN(parsed)) page = parsed;
+      }
+    } catch {
+      // ignore URL parse errors, fall back to id
+    }
+
+    if (!deviceKey) deviceKey = t.title || t.description || t.webSocketDebuggerUrl;
+
+    if (!deviceKey) return;
+
+    const existing = map.get(deviceKey);
+    const existingPage = existing
+      ? (() => {
+          try {
+            const p = new URL(existing.webSocketDebuggerUrl).searchParams.get('page');
+            return p ? Number(p) : 0;
+          } catch {
+            return 0;
+          }
+        })()
+      : -1;
+    if (!existing || page <= existingPage) {
+      map.set(deviceKey, t);
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 async function discoverDevtoolsTargets(metroPort: number): Promise<DevtoolsTarget[]> {
   const host = '127.0.0.1';
   const candidates = new Set<number>();
@@ -172,19 +214,28 @@ async function discoverDevtoolsTargets(metroPort: number): Promise<DevtoolsTarge
     }
   }
 
-  if (results.length === 0) {
+  const deduped = dedupeDevtoolsTargets(results);
+
+  if (deduped.length === 0) {
     console.log(
       chalk.yellow('[rn-inspector] DevTools auto-discovery found no /json targets (falling back to Metro-only mode)'),
     );
   } else {
+    if (deduped.length < results.length) {
+      console.log(
+        chalk.yellow(
+          `[rn-inspector] Deduped DevTools targets (kept ${deduped.length} of ${results.length}) — likely duplicate entries for the same device`,
+        ),
+      );
+    }
     console.log(chalk.green('[rn-inspector] Discovered DevTools targets:'));
-    results.forEach((t, idx) => {
+    deduped.forEach((t, idx) => {
       const label = t.title || t.description || t.id;
       console.log(chalk.cyan(`  [${idx}] ${t.webSocketDebuggerUrl} (${label})`));
     });
   }
 
-  return results;
+  return deduped;
 }
 type NetworkResourceType = 'fetch' | 'xhr' | 'doc' | 'css' | 'js' | 'font' | 'img' | 'media' | 'socket' | 'other';
 
