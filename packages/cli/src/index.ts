@@ -3,9 +3,10 @@ import http, { IncomingMessage, ServerResponse } from "http";
 import WebSocket, { RawData, WebSocketServer } from "ws";
 import path from "path";
 import fs from "fs";
+import readline from "readline";
 import serveStatic from "serve-static";
 import finalhandler from "finalhandler";
-import { spawn, exec } from "child_process";
+import { spawn } from "child_process";
 import chalk from "chalk";
 import { discoverDevtoolsTargets } from "./devtools/discovery";
 import { attachDevtoolsBridge } from "./devtools/bridge";
@@ -32,6 +33,7 @@ import {
   METRO_WS_PATH,
   UI_STATIC_INDEX,
   UI_WS_PATH,
+  baseDir,
   getCliVersion,
   getMetroPort,
   getUiStaticDir,
@@ -151,13 +153,21 @@ async function startProxy(opts: ProxyOptions = {}) {
   };
 
   const devtoolsBridges = new Map<string, DevtoolsBridge>();
-  const mirrorIntervals = new Map<string, NodeJS.Timeout>();
+  const mirrorProcesses = new Map<
+    string,
+    { proc: ReturnType<typeof spawn>; rl: readline.Interface }
+  >();
 
   const stopMirror = (deviceId: string) => {
-    const timer = mirrorIntervals.get(deviceId);
-    if (timer) {
-      clearInterval(timer);
-      mirrorIntervals.delete(deviceId);
+    const entry = mirrorProcesses.get(deviceId);
+    if (entry) {
+      try {
+        entry.rl.close();
+      } catch {}
+      try {
+        entry.proc.kill();
+      } catch {}
+      mirrorProcesses.delete(deviceId);
     }
   };
 
@@ -177,57 +187,87 @@ async function startProxy(opts: ProxyOptions = {}) {
     });
   };
 
+  const resolveMirrorBinary = () => {
+    const platform = process.platform;
+    const binName = platform === "win32" ? "mirror.exe" : "mirror";
+    const packageRoot = path.resolve(baseDir, "..");
+    const srcBin = path.join(packageRoot, "src", "bin", platform, binName);
+    const distBin = path.join(packageRoot, "dist", "bin", platform, binName);
+
+    if (fs.existsSync(distBin)) return distBin;
+    if (fs.existsSync(srcBin)) return srcBin;
+    return distBin;
+  };
+
   const startMirror = (
     deviceId: string,
     platformHint?: "android" | "ios" | "ios-sim" | "ios-device",
   ) => {
     stopMirror(deviceId);
 
-    const platform =
-      platformHint || (deviceId.includes("emulator") ? "android" : "android");
+    const binaryPath = resolveMirrorBinary();
+    if (!binaryPath || !fs.existsSync(binaryPath)) {
+      broadcastMirror({
+        deviceId,
+        error:
+          `Mirror binary not found at ${binaryPath}. Build the Rust mirror binary and place it in cli/src/bin/<platform>.`,
+      });
+      return;
+    }
 
-    const interval = setInterval(() => {
-      if (platform === "android") {
-        const cmd = deviceId
-          ? `adb -s ${deviceId} exec-out screencap -p`
-          : "adb exec-out screencap -p";
-        exec(
-          cmd,
-          { encoding: "buffer", maxBuffer: 5 * 1024 * 1024 },
-          (err, stdout) => {
-            if (err || !stdout) {
-              broadcastMirror({
-                deviceId,
-                error: err ? err.message : "No frame",
-              });
-              return;
-            }
-            const frame = `data:image/png;base64,${stdout.toString("base64")}`;
-            broadcastMirror({ deviceId, frame });
-          },
-        );
-      } else {
-        // iOS sim/device snapshot via simctl (requires Xcode tools)
-        const cmd = "xcrun simctl io booted screenshot -";
-        exec(
-          cmd,
-          { encoding: "buffer", maxBuffer: 5 * 1024 * 1024 },
-          (err, stdout) => {
-            if (err || !stdout) {
-              broadcastMirror({
-                deviceId,
-                error: err ? err.message : "No frame",
-              });
-              return;
-            }
-            const frame = `data:image/png;base64,${stdout.toString("base64")}`;
-            broadcastMirror({ deviceId, frame });
-          },
-        );
+    const args: string[] = [];
+    if (deviceId) args.push("--device", deviceId);
+    if (platformHint) args.push("--platform", platformHint);
+
+    const proc = spawn(binaryPath, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const rl = readline.createInterface({ input: proc.stdout });
+
+    rl.on("line", (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      try {
+        const payload = JSON.parse(trimmed) as {
+          type?: string;
+          data?: string;
+          mime?: string;
+          error?: string;
+        };
+        if (payload.type === "frame" && payload.data) {
+          const mime = payload.mime || "image/png";
+          const frame = `data:${mime};base64,${payload.data}`;
+          broadcastMirror({ deviceId, frame });
+        } else if (payload.type === "error") {
+          broadcastMirror({ deviceId, error: payload.error || "Mirror error" });
+        }
+      } catch (err) {
+        broadcastMirror({
+          deviceId,
+          error: `Mirror protocol error: ${err instanceof Error ? err.message : String(err)}`,
+        });
       }
-    }, 1200);
+    });
 
-    mirrorIntervals.set(deviceId, interval);
+    proc.stderr.on("data", (chunk) => {
+      const msg = chunk.toString().trim();
+      if (msg) {
+        broadcastMirror({ deviceId, error: msg });
+      }
+    });
+
+    proc.on("close", (code) => {
+      mirrorProcesses.delete(deviceId);
+      try {
+        rl.close();
+      } catch {}
+      if (code && code !== 0) {
+        broadcastMirror({ deviceId, error: `Mirror process exited (${code})` });
+      }
+    });
+
+    mirrorProcesses.set(deviceId, { proc, rl });
   };
 
   const attachDevtools = async () => {
@@ -430,7 +470,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             } else {
               devtoolsBridges.forEach((bridge) => {
-                sendMutation(bridge);
+                sendMutation({ ...bridge, requestId: `${requestId}-${bridge.deviceId}` } as any);
               });
             }
           }

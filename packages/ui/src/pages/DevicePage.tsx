@@ -231,13 +231,13 @@ export default function DevicePage() {
             }}
           >
             {`Requirements:
-- Android: adb in PATH (optionally scrcpy installed for higher FPS)
-- iOS Simulator: Xcode command-line tools; device booted
-- iOS Device: trust + Xcode tools; may need pairing dialog
+- Build the Rust mirror binary in packages/cli/src/bin/mirror-rs
+- Copy binaries to packages/cli/src/bin/<platform>
+- Run a device-side companion (MediaProjection / ReplayKit) that streams frames
 
 Notes:
-- Mirror uses snapshot streaming (~1.2s interval) for reliability.
-- Errors from adb/xcrun are surfaced in the UI panel below.`}
+- Mirror uses a live video stream (no screenshot polling)
+- Errors from the mirror binary are surfaced in the UI panel below.`}
           </Paper>
         </GlassPanel>
 

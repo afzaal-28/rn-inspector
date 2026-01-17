@@ -123,24 +123,34 @@ export const INJECT_STORAGE_SNIPPET = `
 
     function parsePath(path) {
       if (!path) return [];
-      if (Array.isArray(path)) return path;
-      var normalized = String(path)
+      if (Array.isArray(path)) return path.map(function(part) { return String(part); });
+      var pathStr = String(path).trim();
+      if (!pathStr) return [];
+      var normalized = pathStr
         .replace(/\[(\d+)\]/g, '.$1')
         .replace(/^\./, '');
-      return normalized.split('.').filter(function(part) { return part.length; });
+      return normalized
+        .split('.')
+        .filter(function(part) { return part.length > 0; })
+        .map(function(part) { return String(part); });
     }
 
     function setAtPath(obj, pathParts, value) {
-      if (!pathParts.length) return value;
+      if (!pathParts || pathParts.length === 0) return value;
+      if (!obj || typeof obj !== 'object') {
+        obj = {};
+      }
       var current = obj;
       for (var i = 0; i < pathParts.length - 1; i++) {
         var key = pathParts[i];
-        if (current[key] === null || typeof current[key] !== 'object') {
-          current[key] = {};
+        var isNextIndex = i + 1 < pathParts.length && /^\d+$/.test(pathParts[i + 1]);
+        if (current[key] === null || current[key] === undefined || typeof current[key] !== 'object') {
+          current[key] = isNextIndex ? [] : {};
         }
         current = current[key];
       }
-      current[pathParts[pathParts.length - 1]] = value;
+      var lastKey = pathParts[pathParts.length - 1];
+      current[lastKey] = value;
       return obj;
     }
 
@@ -183,60 +193,84 @@ export const INJECT_STORAGE_SNIPPET = `
       var pathParts = parsePath(path);
 
       if (target === 'asyncStorage') {
+        var AsyncStorage = getAsyncStorage();
+        if (!AsyncStorage || typeof AsyncStorage.getAllKeys !== 'function') {
+          result.asyncStorage = { error: 'AsyncStorage not available' };
+          result.redux = fetchReduxState();
+          result.ts = new Date().toISOString();
+          sendStorageResult(result);
+          return;
+        }
+
         fetchAsyncStorage(function(asyncResult) {
-          if (!asyncResult || asyncResult.error) {
-            result.asyncStorage = asyncResult || { error: 'AsyncStorage not available' };
+          if (asyncResult && asyncResult.error) {
+            result.asyncStorage = asyncResult;
             result.redux = fetchReduxState();
             result.ts = new Date().toISOString();
             sendStorageResult(result);
             return;
           }
 
-          var rootKey = pathParts.shift();
+          var allData = asyncResult || {};
+          var pathPartsCopy = pathParts.slice();
+          var rootKey = pathPartsCopy.shift();
+          
           if (!rootKey) {
-            result.asyncStorage = { error: 'Invalid path' };
+            result.asyncStorage = { error: 'Invalid path: root key required' };
             result.redux = fetchReduxState();
             result.ts = new Date().toISOString();
             sendStorageResult(result);
             return;
           }
 
-          var rootValue = asyncResult[rootKey];
+          var rootValue = allData[rootKey];
+          var shouldDelete = false;
+
           if (op === 'set') {
-            if (pathParts.length === 0) {
+            if (pathPartsCopy.length === 0) {
               rootValue = value;
             } else {
-              if (rootValue === null || typeof rootValue !== 'object') {
-                rootValue = {};
+              if (rootValue === null || rootValue === undefined || typeof rootValue !== 'object') {
+                rootValue = /^\d+$/.test(pathPartsCopy[0]) ? [] : {};
               }
-              setAtPath(rootValue, pathParts, value);
+              rootValue = setAtPath(rootValue, pathPartsCopy, value);
             }
           } else if (op === 'delete') {
-            if (pathParts.length === 0) {
-              rootValue = undefined;
-            } else if (rootValue && typeof rootValue === 'object') {
-              deleteAtPath(rootValue, pathParts);
+            if (pathPartsCopy.length === 0) {
+              shouldDelete = true;
+            } else {
+              if (rootValue && typeof rootValue === 'object') {
+                var deleted = deleteAtPath(rootValue, pathPartsCopy);
+                if (!deleted) {
+                  result.asyncStorage = { error: 'Path not found for deletion' };
+                  result.redux = fetchReduxState();
+                  result.ts = new Date().toISOString();
+                  sendStorageResult(result);
+                  return;
+                }
+              } else {
+                result.asyncStorage = { error: 'Cannot delete from non-object value' };
+                result.redux = fetchReduxState();
+                result.ts = new Date().toISOString();
+                sendStorageResult(result);
+                return;
+              }
             }
-          }
-
-          var AsyncStorage = getAsyncStorage();
-          if (!AsyncStorage || typeof AsyncStorage.setItem !== 'function') {
-            result.asyncStorage = { error: 'AsyncStorage not available' };
-            result.redux = fetchReduxState();
-            result.ts = new Date().toISOString();
-            sendStorageResult(result);
-            return;
           }
 
           var persistPromise;
-          if (op === 'delete' && pathParts.length === 0) {
+          if (shouldDelete) {
             persistPromise = AsyncStorage.removeItem(String(rootKey));
           } else {
             var serializedValue;
             try {
               serializedValue = JSON.stringify(rootValue);
             } catch (e) {
-              serializedValue = String(rootValue);
+              result.asyncStorage = { error: 'Failed to serialize value: ' + e.message };
+              result.redux = fetchReduxState();
+              result.ts = new Date().toISOString();
+              sendStorageResult(result);
+              return;
             }
             persistPromise = AsyncStorage.setItem(String(rootKey), serializedValue);
           }
@@ -251,7 +285,7 @@ export const INJECT_STORAGE_SNIPPET = `
               });
             })
             .catch(function(e) {
-              result.asyncStorage = { error: e.message };
+              result.asyncStorage = { error: 'AsyncStorage operation failed: ' + e.message };
               result.redux = fetchReduxState();
               result.ts = new Date().toISOString();
               sendStorageResult(result);
@@ -262,36 +296,90 @@ export const INJECT_STORAGE_SNIPPET = `
 
       if (target === 'redux') {
         var store = getReduxStore();
-        if (!store) {
-          result.redux = { error: 'Redux store not found' };
-          result.asyncStorage = { error: 'AsyncStorage not available' };
-          result.ts = new Date().toISOString();
-          sendStorageResult(result);
+        if (!store || typeof store.getState !== 'function') {
+          result.redux = { error: 'Redux store not found or invalid' };
+          fetchAsyncStorage(function(nextAsync) {
+            result.asyncStorage = nextAsync;
+            result.ts = new Date().toISOString();
+            sendStorageResult(result);
+          });
           return;
         }
 
-        var currentState = store.getState();
-        var nextState;
+        try {
+          var currentState = store.getState();
+          var nextState;
 
-        if (op === 'set') {
-          nextState = setAtPath(JSON.parse(JSON.stringify(currentState)), pathParts, value);
-        } else if (op === 'delete') {
-          nextState = JSON.parse(JSON.stringify(currentState));
-          deleteAtPath(nextState, pathParts);
-        } else {
-          nextState = currentState;
+          if (op === 'set') {
+            if (pathParts.length === 0) {
+              nextState = value;
+            } else {
+              var clonedState = JSON.parse(JSON.stringify(currentState));
+              nextState = setAtPath(clonedState, pathParts, value);
+            }
+          } else if (op === 'delete') {
+            if (pathParts.length === 0) {
+              result.redux = { error: 'Cannot delete entire Redux state' };
+              fetchAsyncStorage(function(nextAsync) {
+                result.asyncStorage = nextAsync;
+                result.ts = new Date().toISOString();
+                sendStorageResult(result);
+              });
+              return;
+            }
+            var clonedState = JSON.parse(JSON.stringify(currentState));
+            var deleted = deleteAtPath(clonedState, pathParts);
+            if (!deleted) {
+              result.redux = { error: 'Path not found in Redux state' };
+              fetchAsyncStorage(function(nextAsync) {
+                result.asyncStorage = nextAsync;
+                result.ts = new Date().toISOString();
+                sendStorageResult(result);
+              });
+              return;
+            }
+            nextState = clonedState;
+          } else {
+            nextState = currentState;
+          }
+
+          if (typeof store.dispatch === 'function') {
+            try {
+              store.dispatch({ type: '__RN_INSPECTOR_REDUX_SET_STATE__', payload: nextState });
+            } catch (dispatchError) {
+              result.redux = { error: 'Redux dispatch failed: ' + dispatchError.message + '. Ensure your reducer handles __RN_INSPECTOR_REDUX_SET_STATE__' };
+              fetchAsyncStorage(function(nextAsync) {
+                result.asyncStorage = nextAsync;
+                result.ts = new Date().toISOString();
+                sendStorageResult(result);
+              });
+              return;
+            }
+          } else {
+            result.redux = { error: 'Redux store.dispatch is not a function' };
+            fetchAsyncStorage(function(nextAsync) {
+              result.asyncStorage = nextAsync;
+              result.ts = new Date().toISOString();
+              sendStorageResult(result);
+            });
+            return;
+          }
+
+          var finalState = store.getState();
+          result.redux = safeSerialize(finalState, 20);
+          fetchAsyncStorage(function(nextAsync) {
+            result.asyncStorage = nextAsync;
+            result.ts = new Date().toISOString();
+            sendStorageResult(result);
+          });
+        } catch (e) {
+          result.redux = { error: 'Redux mutation error: ' + e.message };
+          fetchAsyncStorage(function(nextAsync) {
+            result.asyncStorage = nextAsync;
+            result.ts = new Date().toISOString();
+            sendStorageResult(result);
+          });
         }
-
-        if (typeof store.dispatch === 'function') {
-          store.dispatch({ type: '__RN_INSPECTOR_REDUX_SET_STATE__', payload: nextState });
-        }
-
-        result.redux = safeSerialize(nextState, 20);
-        fetchAsyncStorage(function(nextAsync) {
-          result.asyncStorage = nextAsync;
-          result.ts = new Date().toISOString();
-          sendStorageResult(result);
-        });
         return;
       }
 

@@ -6,6 +6,9 @@ import {
   Collapse,
   TextField,
   Button,
+  Popper,
+  Paper,
+  ClickAwayListener,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -20,13 +23,13 @@ type JsonTreeViewProps = {
   depth?: number;
   maxDepth?: number;
   searchQuery?: string;
-  parentPath?: string;
+  parentPath?: string[];
   parentValue?: unknown;
   storageTarget?: "asyncStorage" | "redux";
   onMutate?: (payload: {
     target: "asyncStorage" | "redux";
     op: "set" | "delete";
-    path: string;
+    path: string | string[];
     value?: unknown;
   }) => void;
 };
@@ -67,15 +70,28 @@ const parseInputValue = (raw: string): unknown => {
   }
 };
 
-const buildPath = (parentPath: string | undefined, name?: string): string => {
-  if (!name) return parentPath || "";
-  if (!parentPath) return name;
+const buildPath = (
+  parentPath: string[] | undefined,
+  name?: string,
+): string[] => {
+  const base = parentPath ? [...parentPath] : [];
+  if (!name) return base;
   const indexMatch = name.match(/^\[(\d+)\]$/);
   const normalizedName = indexMatch ? indexMatch[1] : name;
-  const isIndex = /^\d+$/.test(normalizedName);
-  return isIndex
-    ? `${parentPath}[${normalizedName}]`
-    : `${parentPath}.${normalizedName}`;
+  return [...base, normalizedName];
+};
+
+const formatPathLabel = (pathParts: string[]): string => {
+  if (!pathParts.length) return "<root>";
+  return pathParts
+    .map((part, index) => {
+      if (/^\d+$/.test(part)) return `[${part}]`;
+      const safeKey = part.replace(/"/g, '\\"');
+      const isSimple = /^[A-Za-z_$][\w$]*$/.test(part);
+      if (index === 0) return isSimple ? part : `["${safeKey}"]`;
+      return isSimple ? `.${part}` : `["${safeKey}"]`;
+    })
+    .join("");
 };
 
 const isExpandable = (value: unknown): boolean => {
@@ -129,13 +145,15 @@ const JsonTreeNode = memo(function JsonTreeNode({
   );
   const [editingValue, setEditingValue] = useState(false);
   const [valueDraft, setValueDraft] = useState("");
-  const [addingChild, setAddingChild] = useState(false);
+  const [editAnchorEl, setEditAnchorEl] = useState<HTMLElement | null>(null);
+  const [addAnchorEl, setAddAnchorEl] = useState<HTMLElement | null>(null);
+  const [addMode, setAddMode] = useState<"child" | "sibling" | null>(null);
   const [childKeyDraft, setChildKeyDraft] = useState("");
   const [childValueDraft, setChildValueDraft] = useState("");
-  const [addingSibling, setAddingSibling] = useState(false);
   const [siblingValueDraft, setSiblingValueDraft] = useState("");
 
   const currentPath = buildPath(parentPath, name);
+  const currentPathLabel = formatPathLabel(currentPath);
   const canMutate = Boolean(
     onMutate && storageTarget && (name !== undefined || depth === 0),
   );
@@ -158,47 +176,39 @@ const JsonTreeNode = memo(function JsonTreeNode({
     event.stopPropagation();
     setValueDraft(JSON.stringify(data, null, 2));
     setEditingValue(true);
+    setEditAnchorEl(event.currentTarget as HTMLElement);
+  };
+
+  const handleEditClose = () => {
+    setEditingValue(false);
+    setEditAnchorEl(null);
   };
 
   const handleDelete = (event: MouseEvent) => {
     event.stopPropagation();
-    if (!onMutate || !storageTarget || !currentPath || !canDelete) return;
+    if (!onMutate || !storageTarget || !currentPath.length || !canDelete) return;
     onMutate({ target: storageTarget, op: "delete", path: currentPath });
   };
 
   const handleAddChild = (event: MouseEvent) => {
     event.stopPropagation();
-    setAddingChild(true);
+    setAddMode("child");
+    setAddAnchorEl(event.currentTarget as HTMLElement);
     setChildKeyDraft("");
     setChildValueDraft("");
     setExpanded(true);
   };
 
-  const handleEditSave = () => {
-    if (!onMutate || !storageTarget || !currentPath) return;
-    onMutate({
-      target: storageTarget,
-      op: "set",
-      path: currentPath,
-      value: parseInputValue(valueDraft),
-    });
-    setEditingValue(false);
-  };
-
   const handleAddSave = () => {
-    if (!onMutate || !storageTarget || !currentPath) return;
+    if (!onMutate || !storageTarget) return;
     const isArray = Array.isArray(data);
-    let childPath = "";
+    let childPath: string[] = [];
     if (isArray) {
       const nextIndex = Array.isArray(data) ? data.length : 0;
-      childPath = currentPath
-        ? `${currentPath}[${nextIndex}]`
-        : `[${nextIndex}]`;
+      childPath = [...currentPath, String(nextIndex)];
     } else {
       if (!childKeyDraft.trim()) return;
-      childPath = currentPath
-        ? `${currentPath}.${childKeyDraft.trim()}`
-        : childKeyDraft.trim();
+      childPath = [...currentPath, childKeyDraft.trim()];
     }
     onMutate({
       target: storageTarget,
@@ -206,12 +216,14 @@ const JsonTreeNode = memo(function JsonTreeNode({
       path: childPath,
       value: parseInputValue(childValueDraft),
     });
-    setAddingChild(false);
+    setAddMode(null);
+    setAddAnchorEl(null);
   };
 
   const handleAddSibling = (event: MouseEvent) => {
     event.stopPropagation();
-    setAddingSibling(true);
+    setAddMode("sibling");
+    setAddAnchorEl(event.currentTarget as HTMLElement);
     setSiblingValueDraft("");
   };
 
@@ -224,15 +236,151 @@ const JsonTreeNode = memo(function JsonTreeNode({
     const index = nameMatch ? Number(nameMatch[1]) : null;
     if (index === null || Number.isNaN(index)) return;
     parentArray.splice(index, 0, parseInputValue(siblingValueDraft));
-    const parentArrayPath = parentPath || "";
+    const parentArrayPath = parentPath || [];
     onMutate({
       target: storageTarget,
       op: "set",
       path: parentArrayPath,
       value: parentArray,
     });
-    setAddingSibling(false);
+    setAddMode(null);
+    setAddAnchorEl(null);
   };
+
+  const handleEditSave = () => {
+    if (!onMutate || !storageTarget) return;
+    onMutate({
+      target: storageTarget,
+      op: "set",
+      path: currentPath,
+      value: parseInputValue(valueDraft),
+    });
+    handleEditClose();
+  };
+
+  const editPopper = (
+    <Popper
+      open={editingValue && Boolean(editAnchorEl)}
+      anchorEl={editAnchorEl}
+      placement="bottom-start"
+      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
+      sx={{ zIndex: 1300 }}
+    >
+      <ClickAwayListener onClickAway={handleEditClose}>
+        <Paper
+          elevation={6}
+          sx={{
+            p: 1.5,
+            minWidth: 280,
+            maxWidth: 360,
+            borderRadius: 1.5,
+            background: (theme) => theme.palette.background.paper,
+            border: (theme) => `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <TextField
+            size="small"
+            label="Value (JSON)"
+            value={valueDraft}
+            onChange={(e) => setValueDraft(e.target.value)}
+            multiline
+            minRows={3}
+            sx={{ minWidth: 260, mt: 1 }}
+            helperText={`Path: ${currentPathLabel}`}
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
+            <Button size="small" variant="text" onClick={handleEditSave}>
+              Save
+            </Button>
+            <Button size="small" variant="text" onClick={handleEditClose}>
+              Cancel
+            </Button>
+          </Box>
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
+  );
+
+  const addPopper = (
+    <Popper
+      open={Boolean(addMode) && Boolean(addAnchorEl)}
+      anchorEl={addAnchorEl}
+      placement="bottom-start"
+      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
+      sx={{ zIndex: 1300 }}
+    >
+      <ClickAwayListener
+        onClickAway={() => {
+          setAddMode(null);
+          setAddAnchorEl(null);
+        }}
+      >
+        <Paper
+          elevation={6}
+          sx={{
+            p: 1.5,
+            minWidth: 280,
+            maxWidth: 360,
+            borderRadius: 1.5,
+            background: (theme) => theme.palette.background.paper,
+            border: (theme) => `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {addMode === "child" && !Array.isArray(data) && (
+              <TextField
+                size="small"
+                label="Key"
+                placeholder="e.g. settings"
+                value={childKeyDraft}
+                onChange={(e) => setChildKeyDraft(e.target.value)}
+                sx={{ minWidth: 180 }}
+              />
+            )}
+            <TextField
+              size="small"
+              label="Value (JSON)"
+              placeholder='"hello", 123, { "a": 1 }'
+              value={addMode === "sibling" ? siblingValueDraft : childValueDraft}
+              onChange={(e) =>
+                addMode === "sibling"
+                  ? setSiblingValueDraft(e.target.value)
+                  : setChildValueDraft(e.target.value)
+              }
+              multiline
+              minRows={3}
+              sx={{ minWidth: 260 }}
+              helperText={`Parent: ${
+                addMode === "sibling"
+                  ? formatPathLabel(parentPath ? [...parentPath] : [])
+                  : formatPathLabel(currentPath)
+              }`}
+            />
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+              <Button
+                size="small"
+                variant="text"
+                onClick={addMode === "sibling" ? handleSiblingSave : handleAddSave}
+              >
+                Save
+              </Button>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  setAddMode(null);
+                  setAddAnchorEl(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
+  );
+
 
   if (depth > maxDepth) {
     return (
@@ -286,109 +434,58 @@ const JsonTreeNode = memo(function JsonTreeNode({
               </Typography>
             </>
           )}
-          {editingValue ? (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                flexWrap: "wrap",
-              }}
-            >
-              <TextField
-                size="small"
-                value={valueDraft}
-                onChange={(e) => setValueDraft(e.target.value)}
-                multiline
-                minRows={2}
-                sx={{ minWidth: 220 }}
-              />
-              <Button size="small" variant="contained" onClick={handleEditSave}>
-                Save
-              </Button>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => setEditingValue(false)}
-              >
-                Cancel
-              </Button>
-            </Box>
-          ) : (
-            <Typography
-              component="span"
-              sx={{
-                fontFamily: "monospace",
-                fontSize: 12,
-                color: getValueColor(data),
-                backgroundColor:
-                  q &&
-                  typeof data === "string" &&
-                  data.toLowerCase().includes(q)
-                    ? "rgba(255, 193, 7, 0.25)"
-                    : "transparent",
-                wordBreak: "break-word",
-              }}
-            >
-              {formatValue(data)}
-            </Typography>
-          )}
-          {canMutate && !editingValue && (
+          <Typography
+            component="span"
+            sx={{
+              fontFamily: "monospace",
+              fontSize: 12,
+              color: getValueColor(data),
+              backgroundColor:
+                q &&
+                typeof data === "string" &&
+                data.toLowerCase().includes(q)
+                  ? "rgba(255, 193, 7, 0.25)"
+                  : "transparent",
+              wordBreak: "break-word",
+              opacity: editingValue ? 0.4 : 1,
+            }}
+          >
+            {formatValue(data)}
+          </Typography>
+          {canMutate && (
             <Box
               sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}
             >
-              <IconButton size="small" onClick={handleEditStart}>
+              <IconButton
+                size="small"
+                onClick={handleEditStart}
+                disabled={editingValue}
+              >
                 <EditIcon sx={{ fontSize: 16 }} />
               </IconButton>
               {isArrayItem && (
-                <IconButton size="small" onClick={handleAddSibling}>
+                <IconButton
+                  size="small"
+                  onClick={handleAddSibling}
+                  disabled={editingValue}
+                >
                   <AddCircleOutlineIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               )}
               {canDelete && (
-                <IconButton size="small" onClick={handleDelete}>
+                <IconButton
+                  size="small"
+                  onClick={handleDelete}
+                  disabled={editingValue}
+                >
                   <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               )}
             </Box>
           )}
         </Box>
-        {addingSibling && isArrayItem && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              pl: depth > 0 ? 4 : 2,
-              py: 1,
-              flexWrap: "wrap",
-            }}
-          >
-            <TextField
-              size="small"
-              label="Sibling value"
-              value={siblingValueDraft}
-              onChange={(e) => setSiblingValueDraft(e.target.value)}
-              multiline
-              minRows={2}
-              sx={{ minWidth: 240 }}
-            />
-            <Button
-              size="small"
-              variant="contained"
-              onClick={handleSiblingSave}
-            >
-              Insert
-            </Button>
-            <Button
-              size="small"
-              variant="text"
-              onClick={() => setAddingSibling(false)}
-            >
-              Cancel
-            </Button>
-          </Box>
-        )}
+        {editPopper}
+        {addPopper}
       </>
     );
   }
@@ -490,78 +587,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
           </Box>
         )}
       </Box>
-      {editingValue && (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            pl: 4,
-            py: 1,
-            flexWrap: "wrap",
-          }}
-        >
-          <TextField
-            size="small"
-            value={valueDraft}
-            onChange={(e) => setValueDraft(e.target.value)}
-            multiline
-            minRows={2}
-            sx={{ minWidth: 240 }}
-          />
-          <Button size="small" variant="contained" onClick={handleEditSave}>
-            Save
-          </Button>
-          <Button
-            size="small"
-            variant="text"
-            onClick={() => setEditingValue(false)}
-          >
-            Cancel
-          </Button>
-        </Box>
-      )}
-      {addingChild && (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            pl: 4,
-            py: 1,
-            flexWrap: "wrap",
-          }}
-        >
-          {!isArray && (
-            <TextField
-              size="small"
-              label="Key"
-              value={childKeyDraft}
-              onChange={(e) => setChildKeyDraft(e.target.value)}
-              sx={{ minWidth: 160 }}
-            />
-          )}
-          <TextField
-            size="small"
-            label="Value"
-            value={childValueDraft}
-            onChange={(e) => setChildValueDraft(e.target.value)}
-            multiline
-            minRows={2}
-            sx={{ minWidth: 240 }}
-          />
-          <Button size="small" variant="contained" onClick={handleAddSave}>
-            Add
-          </Button>
-          <Button
-            size="small"
-            variant="text"
-            onClick={() => setAddingChild(false)}
-          >
-            Cancel
-          </Button>
-        </Box>
-      )}
+      {editingValue ? editPopper : null}
+      {addPopper}
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <Box sx={{ borderLeft: "1px solid", borderColor: "divider", ml: 1 }}>
           {entries.map(([key, value]) => (

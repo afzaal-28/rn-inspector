@@ -100,7 +100,7 @@ export type ProxyEvent =
 export type StorageMutationPayload = {
   target: "asyncStorage" | "redux";
   op: "set" | "delete";
-  path: string;
+  path: string | string[];
   value?: unknown;
   deviceId?: string;
 };
@@ -482,9 +482,9 @@ export function useProxyStream(endpoint?: string) {
     devtoolsStatus,
     reconnectDevtools,
     fetchStorage,
+    mutateStorage,
     fetchUI,
     startMirror,
     stopMirror,
-    mutateStorage,
   };
 }
