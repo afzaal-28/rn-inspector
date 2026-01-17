@@ -155,7 +155,7 @@ In your React Native app (for example in `App.tsx`):
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Make AsyncStorage visible to rn-inspector storage helper
-(global as any).AsyncStorage = AsyncStorage;
+global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
 ```
 
 Once this is set and the app is running with DevTools debugging enabled, the Storage page's **AsyncStorage** panel will show your keys and values.

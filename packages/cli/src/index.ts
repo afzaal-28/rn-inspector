@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import serveStatic from 'serve-static';
 import finalhandler from 'finalhandler';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import chalk from 'chalk';
 import { discoverDevtoolsTargets } from './devtools/discovery';
 import { attachDevtoolsBridge } from './devtools/bridge';
@@ -19,6 +19,9 @@ import {
   ENV_METRO_PORT,
   CONTROL_CMD_FETCH_STORAGE,
   CONTROL_CMD_FETCH_UI,
+  CONTROL_CMD_MUTATE_STORAGE,
+  CONTROL_CMD_START_MIRROR,
+  CONTROL_CMD_STOP_MIRROR,
   CONTROL_CMD_RECONNECT,
   CONTROL_MSG_TYPE,
   DEVICE_ID_ALL,
@@ -132,6 +135,60 @@ async function startProxy(opts: ProxyOptions = {}) {
   };
 
   const devtoolsBridges = new Map<string, DevtoolsBridge>();
+  const mirrorIntervals = new Map<string, NodeJS.Timeout>();
+
+  const stopMirror = (deviceId: string) => {
+    const timer = mirrorIntervals.get(deviceId);
+    if (timer) {
+      clearInterval(timer);
+      mirrorIntervals.delete(deviceId);
+    }
+  };
+
+  const broadcastMirror = (payload: { deviceId: string; frame?: string; error?: string }) => {
+    broadcast({
+      type: 'mirror',
+      payload: {
+        deviceId: payload.deviceId,
+        frame: payload.frame ?? null,
+        error: payload.error,
+        ts: new Date().toISOString(),
+      },
+    });
+  };
+
+  const startMirror = (deviceId: string, platformHint?: 'android' | 'ios' | 'ios-sim' | 'ios-device') => {
+    stopMirror(deviceId);
+
+    const platform = platformHint || (deviceId.includes('emulator') ? 'android' : 'android');
+
+    const interval = setInterval(() => {
+      if (platform === 'android') {
+        const cmd = deviceId ? `adb -s ${deviceId} exec-out screencap -p` : 'adb exec-out screencap -p';
+        exec(cmd, { encoding: 'buffer', maxBuffer: 5 * 1024 * 1024 }, (err, stdout) => {
+          if (err || !stdout) {
+            broadcastMirror({ deviceId, error: err ? err.message : 'No frame' });
+            return;
+          }
+          const frame = `data:image/png;base64,${stdout.toString('base64')}`;
+          broadcastMirror({ deviceId, frame });
+        });
+      } else {
+        // iOS sim/device snapshot via simctl (requires Xcode tools)
+        const cmd = 'xcrun simctl io booted screenshot -';
+        exec(cmd, { encoding: 'buffer', maxBuffer: 5 * 1024 * 1024 }, (err, stdout) => {
+          if (err || !stdout) {
+            broadcastMirror({ deviceId, error: err ? err.message : 'No frame' });
+            return;
+          }
+          const frame = `data:image/png;base64,${stdout.toString('base64')}`;
+          broadcastMirror({ deviceId, frame });
+        });
+      }
+    }, 1200);
+
+    mirrorIntervals.set(deviceId, interval);
+  };
 
   const attachDevtools = async () => {
     try {
@@ -262,6 +319,61 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_MUTATE_STORAGE) {
+          const requestId = msg.requestId || `storage-mutate-${Date.now()}`;
+          const targetDeviceId = msg.deviceId;
+          const payload = {
+            requestId,
+            target: msg.target,
+            op: msg.op,
+            path: msg.path,
+            value: msg.value,
+          } as {
+            requestId: string;
+            target: 'asyncStorage' | 'redux';
+            op: 'set' | 'delete';
+            path: string;
+            value?: unknown;
+          };
+
+          const sendMutation = (bridge: DevtoolsBridge) => {
+            bridge.requestStorageMutation(payload);
+          };
+
+          if (targetDeviceId && targetDeviceId !== DEVICE_ID_ALL) {
+            const bridge = devtoolsBridges.get(targetDeviceId);
+            if (bridge) {
+              sendMutation(bridge);
+            } else {
+              broadcast({
+                type: 'storage',
+                payload: {
+                  requestId,
+                  asyncStorage: { error: `Device ${targetDeviceId} not found` },
+                  redux: { error: `Device ${targetDeviceId} not found` },
+                  deviceId: targetDeviceId,
+                  ts: new Date().toISOString(),
+                },
+              });
+            }
+          } else {
+            if (devtoolsBridges.size === 0) {
+              broadcast({
+                type: 'storage',
+                payload: {
+                  requestId,
+                  asyncStorage: { error: 'No devices connected' },
+                  redux: { error: 'No devices connected' },
+                  deviceId: DEVICE_ID_ALL,
+                  ts: new Date().toISOString(),
+                },
+              });
+            } else {
+              devtoolsBridges.forEach((bridge) => {
+                sendMutation(bridge);
+              });
+            }
+          }
         } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_FETCH_UI) {
           const requestId = msg.requestId || `ui-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
@@ -303,6 +415,17 @@ async function startProxy(opts: ProxyOptions = {}) {
               }
             }
           }
+        }
+        // Screen mirror start/stop
+        else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_START_MIRROR) {
+          const targetDeviceId: string = msg.deviceId || currentDevices[0]?.id || '';
+          if (!targetDeviceId) return;
+          const platform: 'android' | 'ios' | 'ios-sim' | 'ios-device' | undefined = msg.platform;
+          startMirror(targetDeviceId, platform);
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_STOP_MIRROR) {
+          const targetDeviceId: string = msg.deviceId || currentDevices[0]?.id || '';
+          if (!targetDeviceId) return;
+          stopMirror(targetDeviceId);
         }
       } catch {
       }

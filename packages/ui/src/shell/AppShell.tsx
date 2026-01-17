@@ -22,6 +22,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import LanIcon from '@mui/icons-material/Lan';
 import StorageIcon from '@mui/icons-material/Storage';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -36,6 +37,7 @@ const navItems = [
   { label: 'Console', icon: <TerminalIcon fontSize="small" />, path: '/', disabled: false },
   { label: 'Network', icon: <NetworkCheckIcon fontSize="small" />, path: '/network', disabled: false },
   { label: 'Storage', icon: <StorageIcon fontSize="small" />, path: '/storage', disabled: false },
+  { label: 'Device', icon: <PhoneIphoneIcon fontSize="small" />, path: '/device', disabled: false },
   { label: 'Inspector', icon: <LanIcon fontSize="small" />, path: '/inspector', disabled: true },
   { label: 'Sessions', icon: <StorageIcon fontSize="small" />, path: '/sessions', disabled: true },
   { label: 'Settings', icon: <SettingsIcon fontSize="small" />, path: '/settings', disabled: true },

@@ -18,7 +18,7 @@ import JsonTreeView from '../components/JsonTreeView';
 import { useProxy } from '../context/ProxyContext';
 
 export default function StoragePage() {
-  const { storageData, fetchStorage, devices, activeDeviceId, status } = useProxy();
+  const { storageData, fetchStorage, devices, activeDeviceId, status, mutateStorage } = useProxy();
   const [loading, setLoading] = useState(false);
   const [asyncInput, setAsyncInput] = useState('');
   const [reduxInput, setReduxInput] = useState('');
@@ -181,6 +181,33 @@ export default function StoragePage() {
             )}
           </Box>
         )}
+        <Box
+          sx={{
+            mt: 1,
+            p: 1.5,
+            borderRadius: 1.5,
+            background: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.04)',
+            border: (theme) => `1px dashed ${theme.palette.divider}`,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            Editing requires these globals in your React Native app:
+          </Typography>
+          <Box component="pre" sx={{ fontSize: 12, fontFamily: 'monospace', m: 0 }}>
+            {`// AsyncStorage access
+import AsyncStorage from '@react-native-async-storage/async-storage';
+global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
+
+// Redux access
+global.__RN_INSPECTOR_REDUX_STORE__ = store;
+
+// Reducer hook (allow state replacement)
+if (action.type === '__RN_INSPECTOR_REDUX_SET_STATE__') {
+  return action.payload;
+}`}
+          </Box>
+        </Box>
       </Box>
 
       {/* Storage Panels */}
@@ -277,6 +304,7 @@ export default function StoragePage() {
                     }}
                   >
                     {`// in your app:
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // preferred alias
 global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
 
@@ -285,7 +313,13 @@ global.AsyncStorage = AsyncStorage;`}
                   </Box>
                 </Box>
               ) : filteredAsyncStorage && Object.keys(filteredAsyncStorage).length > 0 ? (
-                <JsonTreeView data={filteredAsyncStorage} defaultExpanded searchQuery={asyncSearchQuery} />
+                <JsonTreeView
+                  data={filteredAsyncStorage}
+                  defaultExpanded
+                  searchQuery={asyncSearchQuery}
+                  storageTarget="asyncStorage"
+                  onMutate={mutateStorage}
+                />
               ) : (
                 <Typography color="text.secondary" sx={{ p: 2 }}>
                   {asyncSearchQuery ? 'No matching keys found' : 'AsyncStorage is empty'}
@@ -384,7 +418,13 @@ global.AsyncStorage = AsyncStorage;`}
                   </Box>
                 </Box>
               ) : filteredRedux && Object.keys(filteredRedux).length > 0 ? (
-                <JsonTreeView data={filteredRedux} defaultExpanded searchQuery={reduxSearchQuery} />
+                <JsonTreeView
+                  data={filteredRedux}
+                  defaultExpanded
+                  searchQuery={reduxSearchQuery}
+                  storageTarget="redux"
+                  onMutate={mutateStorage}
+                />
               ) : (
                 <Typography color="text.secondary" sx={{ p: 2 }}>
                   {reduxSearchQuery ? 'No matching keys found' : 'Redux state is empty or not available'}

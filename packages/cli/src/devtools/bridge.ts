@@ -405,5 +405,44 @@ export function attachDevtoolsBridge(
     );
   };
 
-  return { ws, deviceId, requestStorage, requestUI };
+  const requestStorageMutation = (payload: {
+    requestId: string;
+    target: 'asyncStorage' | 'redux';
+    op: 'set' | 'delete';
+    path: string;
+    value?: unknown;
+  }) => {
+    if (!devtoolsWs || devtoolsWs.readyState !== WebSocket.OPEN) {
+      broadcast({
+        type: 'storage',
+        payload: {
+          requestId: payload.requestId,
+          asyncStorage: { error: 'DevTools not connected' },
+          redux: { error: 'DevTools not connected' },
+          deviceId,
+          ts: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
+    const evalId = nextStorageRequestId++;
+    const encoded = JSON.stringify(payload).replace(/\\/g, '\\\\').replace(/`/g, '\\`');
+    devtoolsWs.send(
+      JSON.stringify({
+        id: evalId,
+        method: 'Runtime.evaluate',
+        params: {
+          expression:
+            `(typeof __RN_INSPECTOR_MUTATE_STORAGE__ === 'function')` +
+            ` ? __RN_INSPECTOR_MUTATE_STORAGE__(JSON.parse(\`${encoded}\`))` +
+            ` : console.log('__RN_INSPECTOR_STORAGE__:' + JSON.stringify({ requestId: '${payload.requestId}', asyncStorage: { error: 'Storage mutation helper not injected' }, redux: { error: 'Storage mutation helper not injected' } }))`,
+          includeCommandLineAPI: false,
+          awaitPromise: false,
+        },
+      }),
+    );
+  };
+
+  return { ws, deviceId, requestStorage, requestUI, requestStorageMutation };
 }

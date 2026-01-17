@@ -5,6 +5,7 @@ import NetworkPage from '../pages/NetworkPage';
 import SessionsPage from '../pages/SessionsPage';
 import SettingsPage from '../pages/SettingsPage';
 import StoragePage from '../pages/StoragePage';
+import DevicePage from '../pages/DevicePage';
 import InspectorPage from '../pages/InspectorPage';
 import NotFoundPage from '../pages/NotFoundPage';
 
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
       { path: 'sessions', element: <SessionsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'storage', element: <StoragePage /> },
+      { path: 'device', element: <DevicePage /> },
       { path: 'inspector', element: <InspectorPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

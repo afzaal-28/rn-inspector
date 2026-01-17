@@ -75,12 +75,28 @@ export type InspectorEvent = {
   ts: string;
 };
 
+export type MirrorEvent = {
+  deviceId: string;
+  frame: string | null;
+  error?: string;
+  ts: string;
+};
+
 export type ProxyEvent =
   | { type: 'console'; payload: ConsoleEvent }
   | { type: 'network'; payload: NetworkEvent }
   | { type: 'storage'; payload: StorageEvent }
   | { type: 'inspector'; payload: InspectorEvent }
+  | { type: 'mirror'; payload: MirrorEvent }
   | { type: 'meta'; payload: Record<string, unknown> };
+
+export type StorageMutationPayload = {
+  target: 'asyncStorage' | 'redux';
+  op: 'set' | 'delete';
+  path: string;
+  value?: unknown;
+  deviceId?: string;
+};
 
 export function useProxyStream(endpoint?: string) {
   const url = endpoint || 'ws://localhost:9230/inspector';
@@ -89,6 +105,7 @@ export function useProxyStream(endpoint?: string) {
   const [networkEvents, setNetworkEvents] = useState<NetworkEvent[]>([]);
   const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(new Map());
   const [inspectorData, setInspectorData] = useState<Map<string, InspectorEvent>>(new Map());
+  const [mirrorData, setMirrorData] = useState<Map<string, MirrorEvent>>(new Map());
   const [status, setStatus] = useState<'connecting' | 'open' | 'closed' | 'error'>('connecting');
 
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
@@ -119,12 +136,42 @@ export function useProxyStream(endpoint?: string) {
         next.set(deviceId, storagePayload);
         return next;
       });
+      if (typeof storagePayload.requestId === 'string' && storagePayload.requestId.startsWith('storage-mutate')) {
+        const asyncError =
+          storagePayload.asyncStorage &&
+          typeof storagePayload.asyncStorage === 'object' &&
+          'error' in storagePayload.asyncStorage
+            ? (storagePayload.asyncStorage as any).error
+            : null;
+        const reduxError =
+          storagePayload.redux &&
+          typeof storagePayload.redux === 'object' &&
+          'error' in storagePayload.redux
+            ? (storagePayload.redux as any).error
+            : null;
+        if (typeof window !== 'undefined' && typeof window.showNotification === 'function') {
+          if (asyncError || reduxError) {
+            const message = asyncError || reduxError || 'Storage mutation failed.';
+            window.showNotification(message, 'error');
+          } else {
+            window.showNotification('Storage updated successfully.', 'success');
+          }
+        }
+      }
     } else if (parsed.type === 'inspector') {
       const inspectorPayload = parsed.payload as InspectorEvent;
       const deviceId = inspectorPayload.deviceId || 'unknown';
       setInspectorData((prev) => {
         const next = new Map(prev);
         next.set(deviceId, inspectorPayload);
+        return next;
+      });
+    } else if (parsed.type === 'mirror') {
+      const mirrorPayload = parsed.payload as MirrorEvent;
+      const deviceId = mirrorPayload.deviceId || 'unknown';
+      setMirrorData((prev) => {
+        const next = new Map(prev);
+        next.set(deviceId, mirrorPayload);
         return next;
       });
     } else if (parsed.type === 'meta') {
@@ -285,6 +332,26 @@ export function useProxyStream(endpoint?: string) {
     }
   };
 
+  const mutateStorage = (payload: StorageMutationPayload) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'control',
+          command: 'mutate-storage',
+          deviceId: payload.deviceId || activeDeviceId,
+          requestId: `storage-mutate-${Date.now()}`,
+          target: payload.target,
+          op: payload.op,
+          path: payload.path,
+          value: payload.value,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
   const fetchStorage = (deviceId?: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     try {
@@ -317,11 +384,43 @@ export function useProxyStream(endpoint?: string) {
     }
   };
 
+  const startMirror = (platform?: 'android' | 'ios' | 'ios-sim' | 'ios-device', deviceId?: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'control',
+          command: 'start-mirror',
+          deviceId: deviceId || activeDeviceId,
+          platform,
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const stopMirror = (deviceId?: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'control',
+          command: 'stop-mirror',
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  };
+
   return {
     consoleEvents,
     networkEvents,
     storageData,
     inspectorData,
+    mirrorData,
     status,
     stats,
     reconnect,
@@ -332,5 +431,8 @@ export function useProxyStream(endpoint?: string) {
     reconnectDevtools,
     fetchStorage,
     fetchUI,
+    startMirror,
+    stopMirror,
+    mutateStorage,
   };
 }

@@ -50,4 +50,11 @@ export type DevtoolsBridge = {
   deviceId: string;
   requestStorage: (requestId: string) => void;
   requestUI: (requestId: string) => void;
+  requestStorageMutation: (payload: {
+    requestId: string;
+    target: 'asyncStorage' | 'redux';
+    op: 'set' | 'delete';
+    path: string;
+    value?: unknown;
+  }) => void;
 };
