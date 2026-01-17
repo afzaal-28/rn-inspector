@@ -214,3 +214,9 @@ This CLI is part of the **RN Inspector Monorepo**:
 - GitHub: <https://github.com/afzaal-28/rn-inspector>
 
 Please open issues or pull requests in that repository for bugs, feature requests, or contributions.
+
+---
+
+## License
+
+Licensed under the [MIT License](../../LICENSE).

@@ -48,7 +48,9 @@ export const INJECT_STORAGE_SNIPPET = `
       
       try {
         var AsyncStorage = null;
-        if (g.AsyncStorage) {
+        if (g.__RN_INSPECTOR_ASYNC_STORAGE__) {
+          AsyncStorage = g.__RN_INSPECTOR_ASYNC_STORAGE__;
+        } else if (g.AsyncStorage) {
           AsyncStorage = g.AsyncStorage;
         } else {
           try {

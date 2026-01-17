@@ -37,6 +37,7 @@
   "bugs": {
     "url": "https://github.com/afzaal-28/rn-inspector/issues"
   },
+  "license": "MIT",
   "author": "afzaal-28",
   "keywords": [
     "react-native",

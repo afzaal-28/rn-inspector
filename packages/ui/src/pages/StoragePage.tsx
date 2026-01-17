@@ -7,6 +7,7 @@ import {
   Chip,
   TextField,
   InputAdornment,
+  LinearProgress,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
@@ -19,8 +20,56 @@ import { useProxy } from '../context/ProxyContext';
 export default function StoragePage() {
   const { storageData, fetchStorage, devices, activeDeviceId, status } = useProxy();
   const [loading, setLoading] = useState(false);
+  const [asyncInput, setAsyncInput] = useState('');
+  const [reduxInput, setReduxInput] = useState('');
   const [asyncSearchQuery, setAsyncSearchQuery] = useState('');
   const [reduxSearchQuery, setReduxSearchQuery] = useState('');
+  const searchingAsync = asyncInput !== asyncSearchQuery;
+  const searchingRedux = reduxInput !== reduxSearchQuery;
+
+  // debounce search inputs to avoid heavy updates on each keystroke
+  useEffect(() => {
+    const handle = setTimeout(() => setAsyncSearchQuery(asyncInput), 220);
+    return () => clearTimeout(handle);
+  }, [asyncInput]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setReduxSearchQuery(reduxInput), 220);
+    return () => clearTimeout(handle);
+  }, [reduxInput]);
+
+  const filterByQuery = (data: any, query: string): any => {
+    const q = query.toLowerCase();
+
+    const recurse = (value: any, keyMatch: boolean): any => {
+      const isPrimitive = value === null || typeof value !== 'object';
+      if (isPrimitive) {
+        const matchesValue =
+          typeof value === 'string' ? value.toLowerCase().includes(q) : false;
+        return keyMatch || matchesValue ? value : undefined;
+      }
+
+      if (Array.isArray(value)) {
+        const mapped = value
+          .map((item, idx) => recurse(item, keyMatch || `${idx}`.includes(q)))
+          .filter((v) => v !== undefined);
+        return mapped.length ? mapped : undefined;
+      }
+
+      const result: Record<string, any> = {};
+      for (const [k, v] of Object.entries(value)) {
+        const childKeyMatch = keyMatch || k.toLowerCase().includes(q);
+        const child = recurse(v, childKeyMatch);
+        if (child !== undefined) {
+          result[k] = child;
+        }
+      }
+
+      return Object.keys(result).length ? result : undefined;
+    };
+
+    return recurse(data, false) ?? null;
+  };
 
   // Get storage for the active device
   const currentStorage = useMemo(() => {
@@ -55,15 +104,7 @@ export default function StoragePage() {
       return currentStorage?.asyncStorage;
     }
     if (!asyncSearchQuery.trim()) return currentStorage.asyncStorage;
-    
-    const query = asyncSearchQuery.toLowerCase();
-    const filtered: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(currentStorage.asyncStorage)) {
-      if (key.toLowerCase().includes(query)) {
-        filtered[key] = value;
-      }
-    }
-    return filtered;
+    return filterByQuery(currentStorage.asyncStorage, asyncSearchQuery);
   }, [currentStorage?.asyncStorage, asyncSearchQuery]);
 
   const filteredRedux = useMemo(() => {
@@ -71,15 +112,7 @@ export default function StoragePage() {
       return currentStorage?.redux;
     }
     if (!reduxSearchQuery.trim()) return currentStorage.redux;
-    
-    const query = reduxSearchQuery.toLowerCase();
-    const filtered: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(currentStorage.redux)) {
-      if (key.toLowerCase().includes(query)) {
-        filtered[key] = value;
-      }
-    }
-    return filtered;
+    return filterByQuery(currentStorage.redux, reduxSearchQuery);
   }, [currentStorage?.redux, reduxSearchQuery]);
 
   const hasAsyncStorageError = currentStorage?.asyncStorage && 
@@ -181,8 +214,8 @@ export default function StoragePage() {
               <TextField
                 size="small"
                 placeholder="Search keys..."
-                value={asyncSearchQuery}
-                onChange={(e) => setAsyncSearchQuery(e.target.value)}
+                value={asyncInput}
+                onChange={(e) => setAsyncInput(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -207,8 +240,14 @@ export default function StoragePage() {
                     ? 'rgba(0,0,0,0.2)'
                     : 'rgba(0,0,0,0.03)',
                 borderRadius: 1.5,
+                position: 'relative',
               }}
             >
+              {searchingAsync && (
+                <LinearProgress
+                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: 999 }}
+                />
+              )}
               {!currentStorage ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                   <Typography color="text.secondary">
@@ -222,7 +261,7 @@ export default function StoragePage() {
                   </Typography>
 
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                    To enable async-storage inspection, expose it globally in your app, for example:
+                    To enable async-storage inspection, expose it globally in your app. Either alias or direct global works:
                   </Typography>
                   <Box
                     component="pre"
@@ -238,11 +277,15 @@ export default function StoragePage() {
                     }}
                   >
                     {`// in your app:
-(global as any).AsyncStorage = AsyncStorage;`}
+// preferred alias
+global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
+
+// legacy support
+global.AsyncStorage = AsyncStorage;`}
                   </Box>
                 </Box>
               ) : filteredAsyncStorage && Object.keys(filteredAsyncStorage).length > 0 ? (
-                <JsonTreeView data={filteredAsyncStorage} defaultExpanded />
+                <JsonTreeView data={filteredAsyncStorage} defaultExpanded searchQuery={asyncSearchQuery} />
               ) : (
                 <Typography color="text.secondary" sx={{ p: 2 }}>
                   {asyncSearchQuery ? 'No matching keys found' : 'AsyncStorage is empty'}
@@ -275,8 +318,8 @@ export default function StoragePage() {
               <TextField
                 size="small"
                 placeholder="Search keys..."
-                value={reduxSearchQuery}
-                onChange={(e) => setReduxSearchQuery(e.target.value)}
+                value={reduxInput}
+                onChange={(e) => setReduxInput(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -301,8 +344,15 @@ export default function StoragePage() {
                     ? 'rgba(0,0,0,0.2)'
                     : 'rgba(0,0,0,0.03)',
                 borderRadius: 1.5,
+                position: 'relative',
               }}
             >
+              {searchingRedux && (
+                <LinearProgress
+                  color="secondary"
+                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: 999 }}
+                />
+              )}
               {!currentStorage ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                   <Typography color="text.secondary">
@@ -334,7 +384,7 @@ export default function StoragePage() {
                   </Box>
                 </Box>
               ) : filteredRedux && Object.keys(filteredRedux).length > 0 ? (
-                <JsonTreeView data={filteredRedux} defaultExpanded />
+                <JsonTreeView data={filteredRedux} defaultExpanded searchQuery={reduxSearchQuery} />
               ) : (
                 <Typography color="text.secondary" sx={{ p: 2 }}>
                   {reduxSearchQuery ? 'No matching keys found' : 'Redux state is empty or not available'}

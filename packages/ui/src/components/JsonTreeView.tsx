@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
 import { Box, IconButton, Typography, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -9,6 +9,7 @@ type JsonTreeViewProps = {
   defaultExpanded?: boolean;
   depth?: number;
   maxDepth?: number;
+  searchQuery?: string;
 };
 
 const getValueColor = (value: unknown): string => {
@@ -50,8 +51,41 @@ const JsonTreeNode = memo(function JsonTreeNode({
   defaultExpanded = false,
   depth = 0,
   maxDepth = 10,
+  searchQuery = '',
 }: JsonTreeViewProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded && depth < 2);
+  const q = searchQuery.trim().toLowerCase();
+
+  const hasMatch = useCallback(
+    (value: unknown, keyName?: string): boolean => {
+      if (!q) return false;
+
+      if (typeof keyName === 'string' && keyName.toLowerCase().includes(q)) return true;
+
+      if (value === null || value === undefined) return false;
+      const t = typeof value;
+      if (t === 'string') return (value as string).toLowerCase().includes(q);
+      if (t === 'number' || t === 'boolean' || t === 'bigint')
+        return String(value).toLowerCase().includes(q);
+      if (Array.isArray(value)) return value.some((item) => hasMatch(item));
+      if (t === 'object')
+        return Object.entries(value as Record<string, unknown>).some(([k, v]) => hasMatch(v, k));
+      return false;
+    },
+    [q],
+  );
+
+  const expandable = isExpandable(data);
+  const selfOrDescendantMatch = q ? hasMatch(data, name) : false;
+
+  const [expanded, setExpanded] = useState((defaultExpanded && depth < 2) || selfOrDescendantMatch);
+
+  useEffect(() => {
+    if (!q) {
+      setExpanded(defaultExpanded && depth < 2);
+    } else if (selfOrDescendantMatch) {
+      setExpanded(true);
+    }
+  }, [q, selfOrDescendantMatch, defaultExpanded, depth]);
 
   const handleToggle = useCallback(() => {
     setExpanded((prev) => !prev);
@@ -67,8 +101,6 @@ const JsonTreeNode = memo(function JsonTreeNode({
       </Typography>
     );
   }
-
-  const expandable = isExpandable(data);
 
   // Render primitive values
   if (!expandable) {
@@ -86,7 +118,12 @@ const JsonTreeNode = memo(function JsonTreeNode({
           <>
             <Typography
               component="span"
-              sx={{ fontFamily: 'monospace', fontSize: 12, color: '#9cdcfe' }}
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: '#9cdcfe',
+                backgroundColor: q && name?.toLowerCase().includes(q) ? 'rgba(255, 193, 7, 0.25)' : 'transparent',
+              }}
             >
               {name}
             </Typography>
@@ -104,6 +141,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
             fontFamily: 'monospace',
             fontSize: 12,
             color: getValueColor(data),
+            backgroundColor:
+              q && typeof data === 'string' && data.toLowerCase().includes(q) ? 'rgba(255, 193, 7, 0.25)' : 'transparent',
             wordBreak: 'break-word',
           }}
         >
@@ -143,7 +182,12 @@ const JsonTreeNode = memo(function JsonTreeNode({
           <>
             <Typography
               component="span"
-              sx={{ fontFamily: 'monospace', fontSize: 12, color: '#9cdcfe' }}
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: '#9cdcfe',
+                backgroundColor: q && (name?.toLowerCase().includes(q) || selfOrDescendantMatch) ? 'rgba(255, 193, 7, 0.25)' : 'transparent',
+              }}
             >
               {name}
             </Typography>
@@ -179,6 +223,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
               name={key}
               depth={depth + 1}
               maxDepth={maxDepth}
+              searchQuery={searchQuery}
             />
           ))}
         </Box>
@@ -192,8 +237,8 @@ export default function JsonTreeView({
   name,
   defaultExpanded = true,
   maxDepth = 10,
+  searchQuery = '',
 }: JsonTreeViewProps) {
-  // Handle array of args (common case for console.log)
   if (Array.isArray(data) && name === undefined) {
     return (
       <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>
@@ -205,6 +250,7 @@ export default function JsonTreeView({
             defaultExpanded={defaultExpanded}
             depth={0}
             maxDepth={maxDepth}
+            searchQuery={searchQuery}
           />
         ))}
       </Box>
@@ -219,6 +265,7 @@ export default function JsonTreeView({
         defaultExpanded={defaultExpanded}
         depth={0}
         maxDepth={maxDepth}
+        searchQuery={searchQuery}
       />
     </Box>
   );
