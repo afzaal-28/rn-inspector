@@ -14,6 +14,18 @@ export type DevtoolsTarget = {
   webSocketDebuggerUrl: string;
 };
 
+export type NetworkResourceType =
+  | 'fetch'
+  | 'xhr'
+  | 'doc'
+  | 'css'
+  | 'js'
+  | 'font'
+  | 'img'
+  | 'media'
+  | 'socket'
+  | 'other';
+
 export type TrackedRequest = {
   method: string;
   url: string;
@@ -25,6 +37,8 @@ export type TrackedRequest = {
   responseHeaders?: Record<string, string>;
   requestBody?: unknown;
   responseBody?: unknown;
+  source?: string;
+  resourceType?: NetworkResourceType;
 };
 
 export type DevtoolsState = {
