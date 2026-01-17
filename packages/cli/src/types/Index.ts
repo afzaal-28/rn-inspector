@@ -1,4 +1,4 @@
-import type WebSocket from 'ws';
+import type WebSocket from "ws";
 
 export type ProxyOptions = {
   metroPort?: number;
@@ -15,16 +15,16 @@ export type DevtoolsTarget = {
 };
 
 export type NetworkResourceType =
-  | 'fetch'
-  | 'xhr'
-  | 'doc'
-  | 'css'
-  | 'js'
-  | 'font'
-  | 'img'
-  | 'media'
-  | 'socket'
-  | 'other';
+  | "fetch"
+  | "xhr"
+  | "doc"
+  | "css"
+  | "js"
+  | "font"
+  | "img"
+  | "media"
+  | "socket"
+  | "other";
 
 export type TrackedRequest = {
   method: string;
@@ -52,8 +52,8 @@ export type DevtoolsBridge = {
   requestUI: (requestId: string) => void;
   requestStorageMutation: (payload: {
     requestId: string;
-    target: 'asyncStorage' | 'redux';
-    op: 'set' | 'delete';
+    target: "asyncStorage" | "redux";
+    op: "set" | "delete";
     path: string;
     value?: unknown;
   }) => void;

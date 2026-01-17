@@ -1,4 +1,8 @@
-import type { DevtoolsState, NetworkResourceType, TrackedRequest } from '../types/Index';
+import type {
+  DevtoolsState,
+  NetworkResourceType,
+  TrackedRequest,
+} from "../types/Index";
 
 export function tryParseJson(text: string): unknown {
   try {
@@ -8,11 +12,13 @@ export function tryParseJson(text: string): unknown {
   }
 }
 
-export function mapConsoleLevel(type: string | undefined): 'log' | 'info' | 'warn' | 'error' {
-  if (type === 'error') return 'error';
-  if (type === 'warning' || type === 'warn') return 'warn';
-  if (type === 'info') return 'info';
-  return 'log';
+export function mapConsoleLevel(
+  type: string | undefined,
+): "log" | "info" | "warn" | "error" {
+  if (type === "error") return "error";
+  if (type === "warning" || type === "warn") return "warn";
+  if (type === "info") return "info";
+  return "log";
 }
 
 export function handleInjectedStorageFromConsole(
@@ -20,13 +26,16 @@ export function handleInjectedStorageFromConsole(
   broadcast: (message: unknown) => void,
   deviceId?: string,
 ): boolean {
-  if (!params || !Array.isArray(params.args) || params.args.length === 0) return false;
+  if (!params || !Array.isArray(params.args) || params.args.length === 0)
+    return false;
   const first = params.args[0];
-  const raw = typeof first.value === 'string' ? first.value : undefined;
-  if (!raw || !raw.startsWith('__RN_INSPECTOR_STORAGE__')) return false;
+  const raw = typeof first.value === "string" ? first.value : undefined;
+  if (!raw || !raw.startsWith("__RN_INSPECTOR_STORAGE__")) return false;
 
-  const rest = raw.slice('__RN_INSPECTOR_STORAGE__'.length);
-  const trimmed = rest.trim().startsWith(':') ? rest.trim().slice(1).trim() : rest.trim();
+  const rest = raw.slice("__RN_INSPECTOR_STORAGE__".length);
+  const trimmed = rest.trim().startsWith(":")
+    ? rest.trim().slice(1).trim()
+    : rest.trim();
 
   let payload: any;
   try {
@@ -36,7 +45,7 @@ export function handleInjectedStorageFromConsole(
   }
 
   broadcast({
-    type: 'storage',
+    type: "storage",
     payload: {
       requestId: payload.requestId,
       asyncStorage: payload.asyncStorage,
@@ -55,13 +64,16 @@ export function handleInjectedUIFromConsole(
   broadcast: (message: unknown) => void,
   deviceId?: string,
 ): boolean {
-  if (!params || !Array.isArray(params.args) || params.args.length === 0) return false;
+  if (!params || !Array.isArray(params.args) || params.args.length === 0)
+    return false;
   const first = params.args[0];
-  const raw = typeof first.value === 'string' ? first.value : undefined;
-  if (!raw || !raw.startsWith('__RN_INSPECTOR_UI__')) return false;
+  const raw = typeof first.value === "string" ? first.value : undefined;
+  if (!raw || !raw.startsWith("__RN_INSPECTOR_UI__")) return false;
 
-  const rest = raw.slice('__RN_INSPECTOR_UI__'.length);
-  const trimmed = rest.trim().startsWith(':') ? rest.trim().slice(1).trim() : rest.trim();
+  const rest = raw.slice("__RN_INSPECTOR_UI__".length);
+  const trimmed = rest.trim().startsWith(":")
+    ? rest.trim().slice(1).trim()
+    : rest.trim();
 
   let payload: any;
   try {
@@ -71,7 +83,7 @@ export function handleInjectedUIFromConsole(
   }
 
   broadcast({
-    type: 'inspector',
+    type: "inspector",
     payload: {
       requestId: payload.requestId,
       hierarchy: payload.hierarchy,
@@ -91,13 +103,16 @@ export function handleInjectedNetworkFromConsole(
   broadcast: (message: unknown) => void,
   deviceId?: string,
 ): boolean {
-  if (!params || !Array.isArray(params.args) || params.args.length === 0) return false;
+  if (!params || !Array.isArray(params.args) || params.args.length === 0)
+    return false;
   const first = params.args[0];
-  const raw = typeof first.value === 'string' ? first.value : undefined;
-  if (!raw || !raw.startsWith('__RN_INSPECTOR_NETWORK__')) return false;
+  const raw = typeof first.value === "string" ? first.value : undefined;
+  if (!raw || !raw.startsWith("__RN_INSPECTOR_NETWORK__")) return false;
 
-  const rest = raw.slice('__RN_INSPECTOR_NETWORK__'.length);
-  const trimmed = rest.trim().startsWith(':') ? rest.trim().slice(1).trim() : rest.trim();
+  const rest = raw.slice("__RN_INSPECTOR_NETWORK__".length);
+  const trimmed = rest.trim().startsWith(":")
+    ? rest.trim().slice(1).trim()
+    : rest.trim();
 
   let payload: any;
   try {
@@ -106,29 +121,37 @@ export function handleInjectedNetworkFromConsole(
     return true;
   }
 
-  const id = String(payload.id ?? '');
+  const id = String(payload.id ?? "");
   if (!id) return true;
 
   const phase = payload.phase;
   const map = state.requests;
 
-  if (phase === 'start') {
+  if (phase === "start") {
     const req: TrackedRequest = {
-      method: String(payload.method || 'GET'),
-      url: String(payload.url || ''),
+      method: String(payload.method || "GET"),
+      url: String(payload.url || ""),
       startTimeMs: Date.now(),
-      requestHeaders: payload.requestHeaders as Record<string, string> | undefined,
+      requestHeaders: payload.requestHeaders as
+        | Record<string, string>
+        | undefined,
       requestBody: payload.requestBody,
-      source: typeof payload.source === 'string' ? payload.source : undefined,
-      resourceType: typeof payload.resourceType === 'string' ? (payload.resourceType as NetworkResourceType) : undefined,
+      source: typeof payload.source === "string" ? payload.source : undefined,
+      resourceType:
+        typeof payload.resourceType === "string"
+          ? (payload.resourceType as NetworkResourceType)
+          : undefined,
     };
     map.set(id, req);
-    const ts = typeof payload.ts === 'string' ? payload.ts : new Date(req.startTimeMs).toISOString();
+    const ts =
+      typeof payload.ts === "string"
+        ? payload.ts
+        : new Date(req.startTimeMs).toISOString();
     broadcast({
-      type: 'network',
+      type: "network",
       payload: {
         id,
-        phase: 'start',
+        phase: "start",
         ts,
         method: req.method,
         url: req.url,
@@ -144,19 +167,28 @@ export function handleInjectedNetworkFromConsole(
         resourceType: req.resourceType,
       },
     });
-  } else if (phase === 'response') {
+  } else if (phase === "response") {
     const existing = map.get(id);
     if (!existing) return true;
-    existing.status = typeof payload.status === 'number' ? payload.status : existing.status;
-    existing.responseHeaders = payload.responseHeaders as Record<string, string> | undefined;
+    existing.status =
+      typeof payload.status === "number" ? payload.status : existing.status;
+    existing.responseHeaders = payload.responseHeaders as
+      | Record<string, string>
+      | undefined;
     existing.responseBody = payload.responseBody;
-    existing.durationMs = typeof payload.durationMs === 'number' ? payload.durationMs : existing.durationMs;
-    const ts = typeof payload.ts === 'string' ? payload.ts : new Date(existing.startTimeMs).toISOString();
+    existing.durationMs =
+      typeof payload.durationMs === "number"
+        ? payload.durationMs
+        : existing.durationMs;
+    const ts =
+      typeof payload.ts === "string"
+        ? payload.ts
+        : new Date(existing.startTimeMs).toISOString();
     broadcast({
-      type: 'network',
+      type: "network",
       payload: {
         id,
-        phase: 'response',
+        phase: "response",
         ts,
         method: existing.method,
         url: existing.url,
@@ -172,15 +204,23 @@ export function handleInjectedNetworkFromConsole(
         resourceType: existing.resourceType,
       },
     });
-  } else if (phase === 'end' || phase === 'error') {
+  } else if (phase === "end" || phase === "error") {
     const existing = map.get(id);
     if (!existing) return true;
-    existing.durationMs = typeof payload.durationMs === 'number' ? payload.durationMs : existing.durationMs;
-    existing.status = typeof payload.status === 'number' ? payload.status : existing.status;
-    existing.error = typeof payload.error === 'string' ? payload.error : existing.error;
-    const ts = typeof payload.ts === 'string' ? payload.ts : new Date(existing.startTimeMs).toISOString();
+    existing.durationMs =
+      typeof payload.durationMs === "number"
+        ? payload.durationMs
+        : existing.durationMs;
+    existing.status =
+      typeof payload.status === "number" ? payload.status : existing.status;
+    existing.error =
+      typeof payload.error === "string" ? payload.error : existing.error;
+    const ts =
+      typeof payload.ts === "string"
+        ? payload.ts
+        : new Date(existing.startTimeMs).toISOString();
     broadcast({
-      type: 'network',
+      type: "network",
       payload: {
         id,
         phase: payload.phase,
@@ -205,11 +245,17 @@ export function handleInjectedNetworkFromConsole(
   return true;
 }
 
-function normalizeHeaders(input: Record<string, unknown> | undefined): Record<string, string> | undefined {
+function normalizeHeaders(
+  input: Record<string, unknown> | undefined,
+): Record<string, string> | undefined {
   if (!input) return undefined;
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(input)) {
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
       out[key] = String(value);
     }
   }
@@ -221,46 +267,68 @@ function detectResourceTypeFromCDP(
   contentType: string | undefined,
   cdpResourceType: string | undefined,
 ): NetworkResourceType {
-  const urlLower = (url || '').toLowerCase();
-  const ctLower = (contentType || '').toLowerCase();
-  const cdpType = (cdpResourceType || '').toLowerCase();
+  const urlLower = (url || "").toLowerCase();
+  const ctLower = (contentType || "").toLowerCase();
+  const cdpType = (cdpResourceType || "").toLowerCase();
 
-  if (cdpType === 'websocket') return 'socket';
-  if (cdpType === 'image') return 'img';
-  if (cdpType === 'font') return 'font';
-  if (cdpType === 'stylesheet') return 'css';
-  if (cdpType === 'script') return 'js';
-  if (cdpType === 'media') return 'media';
-  if (cdpType === 'document') return 'doc';
-  if (cdpType === 'xhr') return 'xhr';
-  if (cdpType === 'fetch') return 'fetch';
+  if (cdpType === "websocket") return "socket";
+  if (cdpType === "image") return "img";
+  if (cdpType === "font") return "font";
+  if (cdpType === "stylesheet") return "css";
+  if (cdpType === "script") return "js";
+  if (cdpType === "media") return "media";
+  if (cdpType === "document") return "doc";
+  if (cdpType === "xhr") return "xhr";
+  if (cdpType === "fetch") return "fetch";
 
-  if (ctLower.includes('image/')) return 'img';
-  if (ctLower.includes('font/') || ctLower.includes('application/font')) return 'font';
-  if (ctLower.includes('text/css')) return 'css';
-  if (ctLower.includes('javascript') || ctLower.includes('text/javascript')) return 'js';
-  if (ctLower.includes('video/') || ctLower.includes('audio/')) return 'media';
-  if (ctLower.includes('text/html') || ctLower.includes('application/xhtml')) return 'doc';
-  if (ctLower.includes('application/json')) return 'fetch';
+  if (ctLower.includes("image/")) return "img";
+  if (ctLower.includes("font/") || ctLower.includes("application/font"))
+    return "font";
+  if (ctLower.includes("text/css")) return "css";
+  if (ctLower.includes("javascript") || ctLower.includes("text/javascript"))
+    return "js";
+  if (ctLower.includes("video/") || ctLower.includes("audio/")) return "media";
+  if (ctLower.includes("text/html") || ctLower.includes("application/xhtml"))
+    return "doc";
+  if (ctLower.includes("application/json")) return "fetch";
 
-  const imgExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp', '.avif'];
-  for (const ext of imgExts) if (urlLower.includes(ext)) return 'img';
+  const imgExts = [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".ico",
+    ".bmp",
+    ".avif",
+  ];
+  for (const ext of imgExts) if (urlLower.includes(ext)) return "img";
 
-  const fontExts = ['.woff', '.woff2', '.ttf', '.otf', '.eot'];
-  for (const ext of fontExts) if (urlLower.includes(ext)) return 'font';
+  const fontExts = [".woff", ".woff2", ".ttf", ".otf", ".eot"];
+  for (const ext of fontExts) if (urlLower.includes(ext)) return "font";
 
-  if (urlLower.includes('.css')) return 'css';
+  if (urlLower.includes(".css")) return "css";
 
-  const jsExts = ['.js', '.mjs', '.jsx', '.ts', '.tsx'];
-  for (const ext of jsExts) if (urlLower.includes(ext)) return 'js';
+  const jsExts = [".js", ".mjs", ".jsx", ".ts", ".tsx"];
+  for (const ext of jsExts) if (urlLower.includes(ext)) return "js";
 
-  const mediaExts = ['.mp4', '.webm', '.ogg', '.mp3', '.wav', '.m4a', '.m3u8', '.mpd'];
-  for (const ext of mediaExts) if (urlLower.includes(ext)) return 'media';
+  const mediaExts = [
+    ".mp4",
+    ".webm",
+    ".ogg",
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".m3u8",
+    ".mpd",
+  ];
+  for (const ext of mediaExts) if (urlLower.includes(ext)) return "media";
 
-  const docExts = ['.html', '.htm', '.pdf', '.xml'];
-  for (const ext of docExts) if (urlLower.includes(ext)) return 'doc';
+  const docExts = [".html", ".htm", ".pdf", ".xml"];
+  for (const ext of docExts) if (urlLower.includes(ext)) return "doc";
 
-  return 'other';
+  return "other";
 }
 
 export function handleNetworkEvent(
@@ -274,40 +342,45 @@ export function handleNetworkEvent(
   const id = String(params.requestId);
   const map = state.requests;
 
-  if (method === 'Network.requestWillBeSent') {
+  if (method === "Network.requestWillBeSent") {
     const request = params.request ?? {};
     const nowMs =
-      typeof params.wallTime === 'number'
+      typeof params.wallTime === "number"
         ? params.wallTime * 1000
-        : typeof params.timestamp === 'number'
-        ? params.timestamp * 1000
-        : Date.now();
+        : typeof params.timestamp === "number"
+          ? params.timestamp * 1000
+          : Date.now();
     const hadExisting = map.has(id);
-    const existing: TrackedRequest =
-      map.get(id) ?? {
-        method: String(request.method || 'GET'),
-        url: String(request.url || ''),
-        startTimeMs: nowMs,
-      };
+    const existing: TrackedRequest = map.get(id) ?? {
+      method: String(request.method || "GET"),
+      url: String(request.url || ""),
+      startTimeMs: nowMs,
+    };
     existing.method = String(request.method || existing.method);
     existing.url = String(request.url || existing.url);
     existing.startTimeMs = nowMs;
-    const reqHeaders = normalizeHeaders(request.headers as Record<string, unknown> | undefined);
+    const reqHeaders = normalizeHeaders(
+      request.headers as Record<string, unknown> | undefined,
+    );
     if (reqHeaders) existing.requestHeaders = reqHeaders;
-    if (typeof request.postData === 'string') {
+    if (typeof request.postData === "string") {
       existing.requestBody = tryParseJson(request.postData);
     }
-    const cdpType = typeof params.type === 'string' ? params.type : undefined;
-    existing.resourceType = detectResourceTypeFromCDP(existing.url, undefined, cdpType);
-    existing.source = cdpType?.toLowerCase() === 'xhr' ? 'xhr' : 'fetch';
+    const cdpType = typeof params.type === "string" ? params.type : undefined;
+    existing.resourceType = detectResourceTypeFromCDP(
+      existing.url,
+      undefined,
+      cdpType,
+    );
+    existing.source = cdpType?.toLowerCase() === "xhr" ? "xhr" : "fetch";
     map.set(id, existing);
     if (!hadExisting) {
       const ts = new Date(existing.startTimeMs).toISOString();
       broadcast({
-        type: 'network',
+        type: "network",
         payload: {
           id,
-          phase: 'start',
+          phase: "start",
           ts,
           method: existing.method,
           url: existing.url,
@@ -324,28 +397,34 @@ export function handleNetworkEvent(
         },
       });
     }
-  } else if (method === 'Network.responseReceived') {
+  } else if (method === "Network.responseReceived") {
     const response = params.response ?? {};
-    const existing: TrackedRequest =
-      map.get(id) ?? {
-        method: 'GET',
-        url: String(response.url || ''),
-        startTimeMs: Date.now(),
-      };
-    if (typeof response.status === 'number') existing.status = response.status;
-    const respHeaders = normalizeHeaders(response.headers as Record<string, unknown> | undefined);
+    const existing: TrackedRequest = map.get(id) ?? {
+      method: "GET",
+      url: String(response.url || ""),
+      startTimeMs: Date.now(),
+    };
+    if (typeof response.status === "number") existing.status = response.status;
+    const respHeaders = normalizeHeaders(
+      response.headers as Record<string, unknown> | undefined,
+    );
     if (respHeaders) existing.responseHeaders = respHeaders;
-    const contentType = respHeaders?.['content-type'] || respHeaders?.['Content-Type'];
+    const contentType =
+      respHeaders?.["content-type"] || respHeaders?.["Content-Type"];
     if (contentType && !existing.resourceType) {
-      existing.resourceType = detectResourceTypeFromCDP(existing.url, contentType, undefined);
+      existing.resourceType = detectResourceTypeFromCDP(
+        existing.url,
+        contentType,
+        undefined,
+      );
     }
     map.set(id, existing);
     const ts = new Date(existing.startTimeMs).toISOString();
     broadcast({
-      type: 'network',
+      type: "network",
       payload: {
         id,
-        phase: 'response',
+        phase: "response",
         ts,
         method: existing.method,
         url: existing.url,
@@ -361,19 +440,28 @@ export function handleNetworkEvent(
         resourceType: existing.resourceType,
       },
     });
-  } else if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {
+  } else if (
+    method === "Network.loadingFinished" ||
+    method === "Network.loadingFailed"
+  ) {
     const existing = map.get(id);
     if (!existing) return;
-    const endMs = typeof params.timestamp === 'number' ? params.timestamp * 1000 : Date.now();
+    const endMs =
+      typeof params.timestamp === "number"
+        ? params.timestamp * 1000
+        : Date.now();
     existing.durationMs = endMs - existing.startTimeMs;
-    if (method === 'Network.loadingFailed' && typeof params.errorText === 'string') {
+    if (
+      method === "Network.loadingFailed" &&
+      typeof params.errorText === "string"
+    ) {
       existing.error = params.errorText;
     }
     const event = {
-      type: 'network',
+      type: "network",
       payload: {
         id,
-        phase: method === 'Network.loadingFailed' ? 'error' : 'end',
+        phase: method === "Network.loadingFailed" ? "error" : "end",
         ts: new Date(existing.startTimeMs).toISOString(),
         method: existing.method,
         url: existing.url,
@@ -395,51 +483,53 @@ export function handleNetworkEvent(
 }
 
 export function stringifyConsoleArgs(args: any[] | undefined): string {
-  if (!Array.isArray(args) || args.length === 0) return '';
+  if (!Array.isArray(args) || args.length === 0) return "";
   return args
     .map((arg) => {
-      if (!arg) return 'undefined';
-      if (typeof arg.value !== 'undefined') return String(arg.value);
+      if (!arg) return "undefined";
+      if (typeof arg.value !== "undefined") return String(arg.value);
       if (arg.preview && Array.isArray(arg.preview.properties)) {
         try {
           const parts = (arg.preview.properties as any[]).map((p) => {
-            const name = String(p.name ?? '');
-            const value = typeof p.value !== 'undefined' ? String(p.value) : String(p.type ?? '');
+            const name = String(p.name ?? "");
+            const value =
+              typeof p.value !== "undefined"
+                ? String(p.value)
+                : String(p.type ?? "");
             return `${name}: ${value}`;
           });
-          return `{ ${parts.join(', ')} }`;
-        } catch {
-        }
+          return `{ ${parts.join(", ")} }`;
+        } catch {}
       }
-      if (typeof arg.description === 'string') return arg.description;
+      if (typeof arg.description === "string") return arg.description;
       try {
         return JSON.stringify(arg);
       } catch {
         return String(arg);
       }
     })
-    .join(' ');
+    .join(" ");
 }
 
 export function stringifyConsoleValues(values: unknown[] | undefined): string {
-  if (!Array.isArray(values) || values.length === 0) return '';
+  if (!Array.isArray(values) || values.length === 0) return "";
   return values
     .map((v) => {
-      if (typeof v === 'string') return v;
+      if (typeof v === "string") return v;
       try {
         return JSON.stringify(v);
       } catch {
         return String(v);
       }
     })
-    .join(' ');
+    .join(" ");
 }
 
 export function normalizePreviewProperty(prop: any): unknown {
   if (!prop) return null;
 
-  if (typeof prop.value !== 'undefined') {
-    if (typeof prop.value === 'string') {
+  if (typeof prop.value !== "undefined") {
+    if (typeof prop.value === "string") {
       try {
         return JSON.parse(prop.value);
       } catch {
@@ -449,11 +539,11 @@ export function normalizePreviewProperty(prop: any): unknown {
     return prop.value;
   }
 
-  if (prop.subtype === 'array' && typeof prop.description === 'string') {
+  if (prop.subtype === "array" && typeof prop.description === "string") {
     return prop.description;
   }
 
-  if (typeof prop.type !== 'undefined') {
+  if (typeof prop.type !== "undefined") {
     return `[${prop.type}]`;
   }
 
@@ -463,8 +553,8 @@ export function normalizePreviewProperty(prop: any): unknown {
 export function normalizeConsoleArg(arg: any): unknown {
   if (!arg) return null;
 
-  if (typeof arg.value !== 'undefined') {
-    if (typeof arg.value === 'string') {
+  if (typeof arg.value !== "undefined") {
+    if (typeof arg.value === "string") {
       try {
         return JSON.parse(arg.value);
       } catch {
@@ -474,7 +564,7 @@ export function normalizeConsoleArg(arg: any): unknown {
     return arg.value;
   }
 
-  if (arg.subtype === 'array' && arg.preview) {
+  if (arg.subtype === "array" && arg.preview) {
     const preview = arg.preview;
     if (Array.isArray(preview.properties)) {
       try {
@@ -486,11 +576,10 @@ export function normalizeConsoleArg(arg: any): unknown {
           }
         });
         if (preview.overflow) {
-          arr.push('...[truncated]');
+          arr.push("...[truncated]");
         }
         return arr;
-      } catch {
-      }
+      } catch {}
     }
   }
 
@@ -498,18 +587,17 @@ export function normalizeConsoleArg(arg: any): unknown {
     try {
       const out: Record<string, unknown> = {};
       (arg.preview.properties as any[]).forEach((p) => {
-        const name = String(p.name ?? '');
+        const name = String(p.name ?? "");
         out[name] = normalizePreviewProperty(p);
       });
       if (arg.preview.overflow) {
-        out['...'] = '[truncated]';
+        out["..."] = "[truncated]";
       }
       return out;
-    } catch {
-    }
+    } catch {}
   }
 
-  if (typeof arg.description === 'string') return arg.description;
+  if (typeof arg.description === "string") return arg.description;
 
   try {
     return JSON.parse(JSON.stringify(arg));
@@ -525,7 +613,8 @@ export async function handleRuntimeConsole(
   evaluateConsoleArg?: (arg: any) => Promise<unknown>,
 ) {
   if (!params) return;
-  const tsMs = typeof params.timestamp === 'number' ? params.timestamp * 1000 : Date.now();
+  const tsMs =
+    typeof params.timestamp === "number" ? params.timestamp * 1000 : Date.now();
   const argsArray = Array.isArray(params.args) ? params.args : [];
 
   let rawArgs: unknown[];
@@ -543,15 +632,20 @@ export async function handleRuntimeConsole(
     rawArgs = argsArray.map((a: any) => normalizeConsoleArg(a));
   }
 
-  const msg = evaluateConsoleArg && rawArgs.length ? stringifyConsoleValues(rawArgs) : stringifyConsoleArgs(argsArray);
+  const msg =
+    evaluateConsoleArg && rawArgs.length
+      ? stringifyConsoleValues(rawArgs)
+      : stringifyConsoleArgs(argsArray);
 
   const evt = {
-    type: 'console',
+    type: "console",
     payload: {
       ts: new Date(tsMs).toISOString(),
-      level: mapConsoleLevel(typeof params.type === 'string' ? params.type : undefined),
+      level: mapConsoleLevel(
+        typeof params.type === "string" ? params.type : undefined,
+      ),
       msg,
-      origin: 'devtools',
+      origin: "devtools",
       deviceId,
       rawArgs,
       rawCdpArgs: argsArray,
@@ -560,18 +654,26 @@ export async function handleRuntimeConsole(
   broadcast(evt);
 }
 
-export function handleLogEntry(params: any, broadcast: (message: unknown) => void, deviceId?: string) {
+export function handleLogEntry(
+  params: any,
+  broadcast: (message: unknown) => void,
+  deviceId?: string,
+) {
   if (!params || !params.entry) return;
   const entry = params.entry;
-  const tsMs = typeof entry.timestamp === 'number' ? entry.timestamp * 1000 : Date.now();
-  const message = typeof entry.text === 'string' ? entry.text : JSON.stringify(entry);
+  const tsMs =
+    typeof entry.timestamp === "number" ? entry.timestamp * 1000 : Date.now();
+  const message =
+    typeof entry.text === "string" ? entry.text : JSON.stringify(entry);
   const evt = {
-    type: 'console',
+    type: "console",
     payload: {
       ts: new Date(tsMs).toISOString(),
-      level: mapConsoleLevel(typeof entry.level === 'string' ? entry.level : undefined),
+      level: mapConsoleLevel(
+        typeof entry.level === "string" ? entry.level : undefined,
+      ),
       msg: message,
-      origin: 'devtools',
+      origin: "devtools",
       deviceId,
     },
   };

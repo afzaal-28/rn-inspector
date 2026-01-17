@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   AppBar,
   Box,
@@ -17,42 +17,92 @@ import {
   Chip,
   Popper,
   ClickAwayListener,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import LanIcon from '@mui/icons-material/Lan';
-import StorageIcon from '@mui/icons-material/Storage';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SettingsIcon from '@mui/icons-material/Settings';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
-import { useProxy } from '../context/ProxyContext';
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import TerminalIcon from "@mui/icons-material/Terminal";
+import LanIcon from "@mui/icons-material/Lan";
+import StorageIcon from "@mui/icons-material/Storage";
+import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
+import SettingsIcon from "@mui/icons-material/Settings";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
+import { useProxy } from "../context/ProxyContext";
 
 const drawerWidth = 220;
 
 const navItems = [
-  { label: 'Console', icon: <TerminalIcon fontSize="small" />, path: '/', disabled: false },
-  { label: 'Network', icon: <NetworkCheckIcon fontSize="small" />, path: '/network', disabled: false },
-  { label: 'Storage', icon: <StorageIcon fontSize="small" />, path: '/storage', disabled: false },
-  { label: 'Device', icon: <PhoneIphoneIcon fontSize="small" />, path: '/device', disabled: false },
-  { label: 'Inspector', icon: <LanIcon fontSize="small" />, path: '/inspector', disabled: true },
-  { label: 'Sessions', icon: <StorageIcon fontSize="small" />, path: '/sessions', disabled: true },
-  { label: 'Settings', icon: <SettingsIcon fontSize="small" />, path: '/settings', disabled: true },
-  { label: 'Application', icon: <LanIcon fontSize="small" />, path: '/application', disabled: true },
-  { label: 'Components', icon: <TerminalIcon fontSize="small" />, path: '/components', disabled: true },
-  { label: 'Preview', icon: <LanIcon fontSize="small" />, path: '/preview', disabled: true },
+  {
+    label: "Console",
+    icon: <TerminalIcon fontSize="small" />,
+    path: "/",
+    disabled: false,
+  },
+  {
+    label: "Network",
+    icon: <NetworkCheckIcon fontSize="small" />,
+    path: "/network",
+    disabled: false,
+  },
+  {
+    label: "Storage",
+    icon: <StorageIcon fontSize="small" />,
+    path: "/storage",
+    disabled: false,
+  },
+  {
+    label: "Device",
+    icon: <PhoneIphoneIcon fontSize="small" />,
+    path: "/device",
+    disabled: false,
+  },
+  {
+    label: "Inspector",
+    icon: <LanIcon fontSize="small" />,
+    path: "/inspector",
+    disabled: true,
+  },
+  {
+    label: "Sessions",
+    icon: <StorageIcon fontSize="small" />,
+    path: "/sessions",
+    disabled: true,
+  },
+  {
+    label: "Settings",
+    icon: <SettingsIcon fontSize="small" />,
+    path: "/settings",
+    disabled: true,
+  },
+  {
+    label: "Application",
+    icon: <LanIcon fontSize="small" />,
+    path: "/application",
+    disabled: true,
+  },
+  {
+    label: "Components",
+    icon: <TerminalIcon fontSize="small" />,
+    path: "/components",
+    disabled: true,
+  },
+  {
+    label: "Preview",
+    icon: <LanIcon fontSize="small" />,
+    path: "/preview",
+    disabled: true,
+  },
 ];
 
 const heartbeatPatterns: string[] = [
   // idle / flat
-  '0,12 24,12 48,12 72,12 96,12 120,12',
+  "0,12 24,12 48,12 72,12 96,12 120,12",
   // normal activity
-  '0,12 12,12 22,12 32,4 44,20 56,8 70,16 84,10 100,12 120,12',
+  "0,12 12,12 22,12 32,4 44,20 56,8 70,16 84,10 100,12 120,12",
   // high activity (sharper spikes)
-  '0,12 10,12 20,2 30,22 40,6 50,20 60,4 72,22 84,8 96,14 108,12 120,12',
+  "0,12 10,12 20,2 30,22 40,6 50,20 60,4 72,22 84,8 96,14 108,12 120,12",
 ];
 
 export default function AppShell() {
@@ -75,12 +125,16 @@ export default function AppShell() {
     reconnect,
   } = useProxy();
 
-  const effectiveDevtoolsStatus: 'unknown' | 'open' | 'closed' | 'error' =
-    devtoolsStatus === 'unknown' && devices.length > 0 ? 'open' : devtoolsStatus;
+  const effectiveDevtoolsStatus: "unknown" | "open" | "closed" | "error" =
+    devtoolsStatus === "unknown" && devices.length > 0
+      ? "open"
+      : devtoolsStatus;
 
   const [heartbeatPatternIndex, setHeartbeatPatternIndex] = useState(0);
   const lastActivityRef = useRef({ console: 0, network: 0 });
-  const [deviceAnchorEl, setDeviceAnchorEl] = useState<HTMLElement | null>(null);
+  const [deviceAnchorEl, setDeviceAnchorEl] = useState<HTMLElement | null>(
+    null,
+  );
   const deviceMenuOpen = Boolean(deviceAnchorEl);
 
   useEffect(() => {
@@ -112,8 +166,12 @@ export default function AppShell() {
   }, [stats.consoleCount, stats.networkCount]);
 
   const activePath = useMemo(() => {
-    const found = navItems.find((item) => (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)));
-    return found?.path ?? '/';
+    const found = navItems.find((item) =>
+      item.path === "/"
+        ? location.pathname === "/"
+        : location.pathname.startsWith(item.path),
+    );
+    return found?.path ?? "/";
   }, [location.pathname]);
 
   const heartbeatPoints = heartbeatPatterns[heartbeatPatternIndex];
@@ -134,9 +192,9 @@ export default function AppShell() {
   const drawer = (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
         gap: 1,
         py: 1.5,
         px: 1,
@@ -148,21 +206,21 @@ export default function AppShell() {
           borderRadius: 2,
           background: theme.palette.custom.glassBg,
           border: `1px solid ${theme.palette.custom.glassBorder}`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
         })}
       >
         <Box
           component="img"
           src="/banner.png"
-          sx={{ width: '100%', height: 'auto', display: 'block' }}
+          sx={{ width: "100%", height: "auto", display: "block" }}
         />
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ textAlign: 'center', mt: -1, mb: 1 }}
+          sx={{ textAlign: "center", mt: -1, mb: 1 }}
         >
           DevTools for React Native
         </Typography>
@@ -172,8 +230,8 @@ export default function AppShell() {
         sx={{
           flex: 1,
           py: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
+          overflowY: "auto",
+          overflowX: "hidden",
           pr: 0.5,
         }}
       >
@@ -192,14 +250,14 @@ export default function AppShell() {
               mx: 0.5,
               my: 0.25,
               px: 1.5,
-              '&.Mui-selected': {
+              "&.Mui-selected": {
                 backgroundColor: theme.palette.action.selected,
                 color: theme.palette.primary.main,
-                '& .MuiListItemIcon-root': {
+                "& .MuiListItemIcon-root": {
                   color: theme.palette.primary.main,
                 },
               },
-              '&:hover': {
+              "&:hover": {
                 backgroundColor: theme.palette.action.hover,
               },
             })}
@@ -220,17 +278,21 @@ export default function AppShell() {
             px: 1.25,
             py: 0.25,
             minHeight: 36,
-            '&:hover': {
+            "&:hover": {
               backgroundColor: theme.palette.action.hover,
             },
           })}
         >
-          <ListItemIcon sx={{ minWidth: 32, mr: 0.5, color: 'text.secondary' }}>
-            {mode === 'light' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+          <ListItemIcon sx={{ minWidth: 32, mr: 0.5, color: "text.secondary" }}>
+            {mode === "light" ? (
+              <LightModeIcon fontSize="small" />
+            ) : (
+              <DarkModeIcon fontSize="small" />
+            )}
           </ListItemIcon>
           <ListItemText
-            primary={`Theme: ${mode === 'light' ? 'Light' : 'Dark'}`}
-            primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+            primary={`Theme: ${mode === "light" ? "Light" : "Dark"}`}
+            primaryTypographyProps={{ variant: "body2", fontWeight: 500 }}
           />
         </ListItemButton>
       </List>
@@ -238,7 +300,7 @@ export default function AppShell() {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar
         position="fixed"
@@ -247,30 +309,49 @@ export default function AppShell() {
           ml: { sm: `${drawerWidth}px` },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           background: theme.palette.custom.glassBg,
-          backdropFilter: 'blur(18px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+          backdropFilter: "blur(18px) saturate(160%)",
+          WebkitBackdropFilter: "blur(18px) saturate(160%)",
           borderBottom: `1px solid ${theme.palette.divider}`,
           boxShadow: theme.palette.custom.glassShadow,
         })}
       >
-        <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+        <Toolbar
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              minWidth: 0,
+            }}
+          >
             <IconButton
               color="inherit"
               edge="start"
               onClick={() => setMobileOpen(!mobileOpen)}
-              sx={{ mr: 1, display: { sm: 'none' } }}
+              sx={{ mr: 1, display: { sm: "none" } }}
             >
               <MenuIcon />
             </IconButton>
-            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <Typography variant="h6" noWrap component="div" fontWeight={700} color='text.primary'>
+            <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+              <Typography
+                variant="h6"
+                noWrap
+                component="div"
+                fontWeight={700}
+                color="text.primary"
+              >
                 RN Inspector
               </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Box
               onClick={handleDeviceToggle}
               sx={(theme) => ({
@@ -280,16 +361,16 @@ export default function AppShell() {
                 py: 0.5,
                 borderRadius: 999,
                 border: `1px solid ${theme.palette.divider}`,
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 gap: 0.75,
-                cursor: 'pointer',
+                cursor: "pointer",
                 backgroundColor: theme.palette.background.paper,
-                '&:hover': {
+                "&:hover": {
                   backgroundColor:
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(255,255,255,0.04)'
-                      : 'rgba(0,0,0,0.03)',
+                    theme.palette.mode === "dark"
+                      ? "rgba(255,255,255,0.04)"
+                      : "rgba(0,0,0,0.03)",
                 },
               })}
             >
@@ -302,7 +383,9 @@ export default function AppShell() {
                 color="text.primary"
                 sx={{ flex: 1, fontWeight: 500 }}
               >
-                {(devices.find((d) => d.id === activeDeviceId)?.label ?? activeDeviceId) || 'No device selected'}
+                {(devices.find((d) => d.id === activeDeviceId)?.label ??
+                  activeDeviceId) ||
+                  "No device selected"}
               </Typography>
             </Box>
 
@@ -310,7 +393,7 @@ export default function AppShell() {
               open={deviceMenuOpen}
               anchorEl={deviceAnchorEl}
               placement="bottom-start"
-              modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
+              modifiers={[{ name: "offset", options: { offset: [0, 4] } }]}
               sx={(theme) => ({ zIndex: theme.zIndex.tooltip })}
             >
               <ClickAwayListener onClickAway={() => setDeviceAnchorEl(null)}>
@@ -318,7 +401,7 @@ export default function AppShell() {
                   sx={(theme) => ({
                     minWidth: 220,
                     maxHeight: 320,
-                    overflowY: 'auto',
+                    overflowY: "auto",
                     borderRadius: 1.5,
                     border: `1px solid ${theme.palette.divider}`,
                     backgroundColor: theme.palette.background.paper,
@@ -339,22 +422,28 @@ export default function AppShell() {
               </ClickAwayListener>
             </Popper>
 
-            <Tooltip title={captureConsole ? 'Pause capturing console logs' : 'Start capturing console logs'}>
+            <Tooltip
+              title={
+                captureConsole
+                  ? "Pause capturing console logs"
+                  : "Start capturing console logs"
+              }
+            >
               <Chip
                 size="small"
                 label="Console"
-                color={captureConsole ? 'success' : 'default'}
-                variant='filled'
+                color={captureConsole ? "success" : "default"}
+                variant="filled"
                 onClick={() => setCaptureConsole(!captureConsole)}
-                sx={{ cursor: 'pointer' }}
+                sx={{ cursor: "pointer" }}
               />
             </Tooltip>
 
             <Tooltip
               title={
-                status === 'open'
-                  ? 'Proxy websocket connected'
-                  : 'Proxy disconnected. Click to try reconnecting.'
+                status === "open"
+                  ? "Proxy websocket connected"
+                  : "Proxy disconnected. Click to try reconnecting."
               }
             >
               <Chip
@@ -362,54 +451,73 @@ export default function AppShell() {
                 label={`WS: ${status}${
                   stats.networkCount || stats.consoleCount
                     ? ` • ${stats.consoleCount} logs / ${stats.networkCount} reqs`
-                    : ''
+                    : ""
                 }`}
-                color={status === 'open' ? 'success' : status === 'connecting' ? 'warning' : 'default'}
-                variant='filled'
-                onClick={status === 'open' ? undefined : reconnect}
-                sx={{ cursor: status === 'open' ? 'default' : 'pointer' }}
-              />
-            </Tooltip>
-
-            <Tooltip title={captureNetwork ? 'Pause capturing network requests' : 'Start capturing network requests'}>
-              <Chip
-                size="small"
-                label="Network"
-                color={captureNetwork ? 'success' : 'default'}
-                variant='filled'
-                onClick={() => setCaptureNetwork(!captureNetwork)}
-                sx={{ cursor: 'pointer' }}
+                color={
+                  status === "open"
+                    ? "success"
+                    : status === "connecting"
+                      ? "warning"
+                      : "default"
+                }
+                variant="filled"
+                onClick={status === "open" ? undefined : reconnect}
+                sx={{ cursor: status === "open" ? "default" : "pointer" }}
               />
             </Tooltip>
 
             <Tooltip
               title={
-                effectiveDevtoolsStatus === 'open'
-                  ? 'DevTools bridges connected'
-                  : 'DevTools disconnected or errored. Click to try reconnecting.'
+                captureNetwork
+                  ? "Pause capturing network requests"
+                  : "Start capturing network requests"
+              }
+            >
+              <Chip
+                size="small"
+                label="Network"
+                color={captureNetwork ? "success" : "default"}
+                variant="filled"
+                onClick={() => setCaptureNetwork(!captureNetwork)}
+                sx={{ cursor: "pointer" }}
+              />
+            </Tooltip>
+
+            <Tooltip
+              title={
+                effectiveDevtoolsStatus === "open"
+                  ? "DevTools bridges connected"
+                  : "DevTools disconnected or errored. Click to try reconnecting."
               }
             >
               <Chip
                 size="small"
                 label={
-                  effectiveDevtoolsStatus === 'open'
-                    ? 'DevTools: connected'
-                    : effectiveDevtoolsStatus === 'error'
-                    ? 'DevTools: error'
-                    : effectiveDevtoolsStatus === 'closed'
-                    ? 'DevTools: closed'
-                    : 'DevTools: unknown'
+                  effectiveDevtoolsStatus === "open"
+                    ? "DevTools: connected"
+                    : effectiveDevtoolsStatus === "error"
+                      ? "DevTools: error"
+                      : effectiveDevtoolsStatus === "closed"
+                        ? "DevTools: closed"
+                        : "DevTools: unknown"
                 }
                 color={
-                  effectiveDevtoolsStatus === 'open'
-                    ? 'success'
-                    : effectiveDevtoolsStatus === 'error'
-                    ? 'error'
-                    : 'default'
+                  effectiveDevtoolsStatus === "open"
+                    ? "success"
+                    : effectiveDevtoolsStatus === "error"
+                      ? "error"
+                      : "default"
                 }
-                variant='filled'
-                onClick={effectiveDevtoolsStatus === 'open' ? undefined : reconnectDevtools}
-                sx={{ cursor: effectiveDevtoolsStatus === 'open' ? 'default' : 'pointer' }}
+                variant="filled"
+                onClick={
+                  effectiveDevtoolsStatus === "open"
+                    ? undefined
+                    : reconnectDevtools
+                }
+                sx={{
+                  cursor:
+                    effectiveDevtoolsStatus === "open" ? "default" : "pointer",
+                }}
               />
             </Tooltip>
 
@@ -417,8 +525,8 @@ export default function AppShell() {
               sx={(theme) => ({
                 width: 160,
                 height: 28,
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 color: theme.palette.success.main,
               })}
             >
@@ -426,19 +534,19 @@ export default function AppShell() {
                 component="svg"
                 viewBox="0 0 120 24"
                 sx={{
-                  width: '100%',
-                  height: '100%',
-                  color: '#4caf50',
-                  '& .heartbeat-path': {
+                  width: "100%",
+                  height: "100%",
+                  color: "#4caf50",
+                  "& .heartbeat-path": {
                     strokeDasharray: 150,
                     strokeDashoffset: 150,
-                    animation: 'heartbeatMove 1.4s ease-in-out infinite',
+                    animation: "heartbeatMove 1.4s ease-in-out infinite",
                   },
-                  '@keyframes heartbeatMove': {
-                    '0%': { strokeDashoffset: 150, opacity: 0.4 },
-                    '30%': { strokeDashoffset: 90, opacity: 1 },
-                    '60%': { strokeDashoffset: 40, opacity: 0.7 },
-                    '100%': { strokeDashoffset: 0, opacity: 0.4 },
+                  "@keyframes heartbeatMove": {
+                    "0%": { strokeDashoffset: 150, opacity: 0.4 },
+                    "30%": { strokeDashoffset: 90, opacity: 1 },
+                    "60%": { strokeDashoffset: 40, opacity: 0.7 },
+                    "100%": { strokeDashoffset: 0, opacity: 0.4 },
                   },
                 }}
               >
@@ -461,12 +569,12 @@ export default function AppShell() {
                 width: 32,
                 height: 32,
                 borderRadius: 1,
-                objectFit: 'cover',
+                objectFit: "cover",
                 ml: 1,
                 boxShadow: `0 6px 16px ${
-                  theme.palette.mode === 'dark'
-                    ? theme.palette.common.black + '55'
-                    : theme.palette.grey[500] + '55'
+                  theme.palette.mode === "dark"
+                    ? theme.palette.common.black + "55"
+                    : theme.palette.grey[500] + "55"
                 }`,
               })}
             />
@@ -474,20 +582,24 @@ export default function AppShell() {
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="navigation">
+      <Box
+        component="nav"
+        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        aria-label="navigation"
+      >
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
           sx={(theme) => ({
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
+            display: { xs: "block", sm: "none" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
               width: drawerWidth,
               background: theme.palette.custom.glassBg,
-              backdropFilter: 'blur(20px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+              backdropFilter: "blur(20px) saturate(160%)",
+              WebkitBackdropFilter: "blur(20px) saturate(160%)",
               borderRight: `1px solid ${theme.palette.divider}`,
               boxShadow: theme.palette.custom.glassShadow,
             },
@@ -498,17 +610,17 @@ export default function AppShell() {
         <Drawer
           variant="permanent"
           sx={(theme) => ({
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
+            display: { xs: "none", sm: "block" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
               width: drawerWidth,
               background: theme.palette.custom.glassBg,
-              backdropFilter: 'blur(20px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+              backdropFilter: "blur(20px) saturate(160%)",
+              WebkitBackdropFilter: "blur(20px) saturate(160%)",
               borderRight: `1px solid ${theme.palette.divider}`,
               boxShadow: theme.palette.custom.glassShadow,
               borderRadius: 0,
-              overflow: 'hidden',
+              overflow: "hidden",
             },
           })}
           open
@@ -517,7 +629,14 @@ export default function AppShell() {
         </Drawer>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+        }}
+      >
         <Toolbar />
         <Outlet />
       </Box>

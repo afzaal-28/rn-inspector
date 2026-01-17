@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -8,22 +8,29 @@ import {
   TextField,
   InputAdornment,
   LinearProgress,
-} from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import SearchIcon from '@mui/icons-material/Search';
-import StorageIcon from '@mui/icons-material/Storage';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import GlassPanel from '../ui/GlassPanel';
-import JsonTreeView from '../components/JsonTreeView';
-import { useProxy } from '../context/ProxyContext';
+} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SearchIcon from "@mui/icons-material/Search";
+import StorageIcon from "@mui/icons-material/Storage";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import GlassPanel from "../ui/GlassPanel";
+import JsonTreeView from "../components/JsonTreeView";
+import { useProxy } from "../context/ProxyContext";
 
 export default function StoragePage() {
-  const { storageData, fetchStorage, devices, activeDeviceId, status, mutateStorage } = useProxy();
+  const {
+    storageData,
+    fetchStorage,
+    devices,
+    activeDeviceId,
+    status,
+    mutateStorage,
+  } = useProxy();
   const [loading, setLoading] = useState(false);
-  const [asyncInput, setAsyncInput] = useState('');
-  const [reduxInput, setReduxInput] = useState('');
-  const [asyncSearchQuery, setAsyncSearchQuery] = useState('');
-  const [reduxSearchQuery, setReduxSearchQuery] = useState('');
+  const [asyncInput, setAsyncInput] = useState("");
+  const [reduxInput, setReduxInput] = useState("");
+  const [asyncSearchQuery, setAsyncSearchQuery] = useState("");
+  const [reduxSearchQuery, setReduxSearchQuery] = useState("");
   const searchingAsync = asyncInput !== asyncSearchQuery;
   const searchingRedux = reduxInput !== reduxSearchQuery;
 
@@ -42,10 +49,10 @@ export default function StoragePage() {
     const q = query.toLowerCase();
 
     const recurse = (value: any, keyMatch: boolean): any => {
-      const isPrimitive = value === null || typeof value !== 'object';
+      const isPrimitive = value === null || typeof value !== "object";
       if (isPrimitive) {
         const matchesValue =
-          typeof value === 'string' ? value.toLowerCase().includes(q) : false;
+          typeof value === "string" ? value.toLowerCase().includes(q) : false;
         return keyMatch || matchesValue ? value : undefined;
       }
 
@@ -87,7 +94,7 @@ export default function StoragePage() {
 
   // Auto-fetch on mount and when device changes
   useEffect(() => {
-    if (status === 'open') {
+    if (status === "open") {
       handleRefresh();
     }
   }, [activeDeviceId, status]);
@@ -100,7 +107,10 @@ export default function StoragePage() {
   }, [currentStorage]);
 
   const filteredAsyncStorage = useMemo(() => {
-    if (!currentStorage?.asyncStorage || typeof currentStorage.asyncStorage !== 'object') {
+    if (
+      !currentStorage?.asyncStorage ||
+      typeof currentStorage.asyncStorage !== "object"
+    ) {
       return currentStorage?.asyncStorage;
     }
     if (!asyncSearchQuery.trim()) return currentStorage.asyncStorage;
@@ -108,43 +118,54 @@ export default function StoragePage() {
   }, [currentStorage?.asyncStorage, asyncSearchQuery]);
 
   const filteredRedux = useMemo(() => {
-    if (!currentStorage?.redux || typeof currentStorage.redux !== 'object') {
+    if (!currentStorage?.redux || typeof currentStorage.redux !== "object") {
       return currentStorage?.redux;
     }
     if (!reduxSearchQuery.trim()) return currentStorage.redux;
     return filterByQuery(currentStorage.redux, reduxSearchQuery);
   }, [currentStorage?.redux, reduxSearchQuery]);
 
-  const hasAsyncStorageError = currentStorage?.asyncStorage && 
-    typeof currentStorage.asyncStorage === 'object' && 
-    'error' in currentStorage.asyncStorage;
+  const hasAsyncStorageError =
+    currentStorage?.asyncStorage &&
+    typeof currentStorage.asyncStorage === "object" &&
+    "error" in currentStorage.asyncStorage;
 
-  const hasReduxError = currentStorage?.redux && 
-    typeof currentStorage.redux === 'object' && 
-    'error' in currentStorage.redux;
+  const hasReduxError =
+    currentStorage?.redux &&
+    typeof currentStorage.redux === "object" &&
+    "error" in currentStorage.redux;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {/* Header */}
       <Box
         sx={{
           p: 2,
           borderRadius: 2,
           background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'rgba(255,255,255,0.03)'
-              : 'rgba(0,0,0,0.02)',
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.03)"
+              : "rgba(0,0,0,0.02)",
           border: (theme) => `1px solid ${theme.palette.divider}`,
           boxShadow: (theme) =>
             `0 6px 18px ${
-              theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.08)'
+              theme.palette.mode === "dark"
+                ? "rgba(0,0,0,0.35)"
+                : "rgba(0,0,0,0.08)"
             }`,
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
           gap: 1.5,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
+          }}
+        >
           <Box>
             <Typography variant="h5" fontWeight={600}>
               Storage
@@ -153,20 +174,22 @@ export default function StoragePage() {
               Inspect AsyncStorage and Redux state from connected devices
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Button
               variant="outlined"
-              startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+              startIcon={
+                loading ? <CircularProgress size={16} /> : <RefreshIcon />
+              }
               onClick={handleRefresh}
-              disabled={loading || status !== 'open'}
-              sx={{ borderRadius: 999, textTransform: 'none' }}
+              disabled={loading || status !== "open"}
+              sx={{ borderRadius: 999, textTransform: "none" }}
             >
-              {loading ? 'Fetching...' : 'Refresh'}
+              {loading ? "Fetching..." : "Refresh"}
             </Button>
           </Box>
         </Box>
         {currentStorage && (
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1 }}>
             <Chip
               size="small"
               label={`Last updated: ${new Date(currentStorage.ts).toLocaleTimeString()}`}
@@ -175,7 +198,7 @@ export default function StoragePage() {
             {currentStorage.deviceId && (
               <Chip
                 size="small"
-                label={`Device: ${devices.find(d => d.id === currentStorage.deviceId)?.label || currentStorage.deviceId}`}
+                label={`Device: ${devices.find((d) => d.id === currentStorage.deviceId)?.label || currentStorage.deviceId}`}
                 variant="filled"
               />
             )}
@@ -187,14 +210,23 @@ export default function StoragePage() {
             p: 1.5,
             borderRadius: 1.5,
             background: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.04)',
+              theme.palette.mode === "dark"
+                ? "rgba(0,0,0,0.2)"
+                : "rgba(0,0,0,0.04)",
             border: (theme) => `1px dashed ${theme.palette.divider}`,
           }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 0.5 }}
+          >
             Editing requires these globals in your React Native app:
           </Typography>
-          <Box component="pre" sx={{ fontSize: 12, fontFamily: 'monospace', m: 0 }}>
+          <Box
+            component="pre"
+            sx={{ fontSize: 12, fontFamily: "monospace", m: 0 }}
+          >
             {`// AsyncStorage access
 import AsyncStorage from '@react-native-async-storage/async-storage';
 global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
@@ -213,26 +245,39 @@ if (action.type === '__RN_INSPECTOR_REDUX_SET_STATE__') {
       {/* Storage Panels */}
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
           gap: 2,
         }}
       >
         {/* AsyncStorage Panel */}
-        <Box sx={{ flexBasis: { xs: '100%', md: '50%' }, minHeight: 0, display: 'flex' }}>
+        <Box
+          sx={{
+            flexBasis: { xs: "100%", md: "50%" },
+            minHeight: 0,
+            display: "flex",
+          }}
+        >
           <GlassPanel
             sx={{
-              width: '100%',
-              height: '100%',
+              width: "100%",
+              height: "100%",
               minHeight: 400,
-              display: 'flex',
-              flexDirection: 'column',
+              display: "flex",
+              flexDirection: "column",
               gap: 1.5,
               p: { xs: 1.5, md: 2 },
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <StorageIcon color="primary" />
                 <Typography variant="subtitle1" fontWeight={600}>
                   AsyncStorage
@@ -252,43 +297,65 @@ if (action.type === '__RN_INSPECTOR_REDUX_SET_STATE__') {
                 }}
                 sx={{
                   width: 180,
-                  '& .MuiOutlinedInput-root': { borderRadius: 2 },
+                  "& .MuiOutlinedInput-root": { borderRadius: 2 },
                 }}
               />
             </Box>
-            
+
             <Box
               sx={{
                 flex: 1,
-                overflow: 'auto',
+                overflow: "auto",
                 p: 1.5,
                 background: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(0,0,0,0.2)'
-                    : 'rgba(0,0,0,0.03)',
+                  theme.palette.mode === "dark"
+                    ? "rgba(0,0,0,0.2)"
+                    : "rgba(0,0,0,0.03)",
                 borderRadius: 1.5,
-                position: 'relative',
+                position: "relative",
               }}
             >
               {searchingAsync && (
                 <LinearProgress
-                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: 999 }}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    borderRadius: 999,
+                  }}
                 />
               )}
               {!currentStorage ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                  }}
+                >
                   <Typography color="text.secondary">
-                    {status !== 'open' ? 'Connect to a device to view storage' : 'Click Refresh to fetch storage data'}
+                    {status !== "open"
+                      ? "Connect to a device to view storage"
+                      : "Click Refresh to fetch storage data"}
                   </Typography>
                 </Box>
               ) : hasAsyncStorageError ? (
                 <Box sx={{ p: 2 }}>
                   <Typography color="error.main" variant="body2">
-                    {(currentStorage.asyncStorage as any)?.error || 'Error fetching AsyncStorage'}
+                    {(currentStorage.asyncStorage as any)?.error ||
+                      "Error fetching AsyncStorage"}
                   </Typography>
 
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                    To enable async-storage inspection, expose it globally in your app. Either alias or direct global works:
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mt: 0.5, display: "block" }}
+                  >
+                    To enable async-storage inspection, expose it globally in
+                    your app. Either alias or direct global works:
                   </Typography>
                   <Box
                     component="pre"
@@ -296,11 +363,13 @@ if (action.type === '__RN_INSPECTOR_REDUX_SET_STATE__') {
                       mt: 0.5,
                       p: 1,
                       background: (theme) =>
-                        theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                        theme.palette.mode === "dark"
+                          ? "rgba(0,0,0,0.3)"
+                          : "rgba(0,0,0,0.05)",
                       borderRadius: 1,
                       fontSize: 12,
-                      fontFamily: 'monospace',
-                      overflow: 'auto',
+                      fontFamily: "monospace",
+                      overflow: "auto",
                     }}
                   >
                     {`// in your app:
@@ -312,7 +381,8 @@ global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
 global.AsyncStorage = AsyncStorage;`}
                   </Box>
                 </Box>
-              ) : filteredAsyncStorage && Object.keys(filteredAsyncStorage).length > 0 ? (
+              ) : filteredAsyncStorage &&
+                Object.keys(filteredAsyncStorage).length > 0 ? (
                 <JsonTreeView
                   data={filteredAsyncStorage}
                   defaultExpanded
@@ -322,7 +392,9 @@ global.AsyncStorage = AsyncStorage;`}
                 />
               ) : (
                 <Typography color="text.secondary" sx={{ p: 2 }}>
-                  {asyncSearchQuery ? 'No matching keys found' : 'AsyncStorage is empty'}
+                  {asyncSearchQuery
+                    ? "No matching keys found"
+                    : "AsyncStorage is empty"}
                 </Typography>
               )}
             </Box>
@@ -330,20 +402,33 @@ global.AsyncStorage = AsyncStorage;`}
         </Box>
 
         {/* Redux Panel */}
-        <Box sx={{ flexBasis: { xs: '100%', md: '50%' }, minHeight: 0, display: 'flex' }}>
+        <Box
+          sx={{
+            flexBasis: { xs: "100%", md: "50%" },
+            minHeight: 0,
+            display: "flex",
+          }}
+        >
           <GlassPanel
             sx={{
-              width: '100%',
-              height: '100%',
+              width: "100%",
+              height: "100%",
               minHeight: 400,
-              display: 'flex',
-              flexDirection: 'column',
+              display: "flex",
+              flexDirection: "column",
               gap: 1.5,
               p: { xs: 1.5, md: 2 },
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <AccountTreeIcon color="secondary" />
                 <Typography variant="subtitle1" fontWeight={600}>
                   Redux State
@@ -363,43 +448,65 @@ global.AsyncStorage = AsyncStorage;`}
                 }}
                 sx={{
                   width: 180,
-                  '& .MuiOutlinedInput-root': { borderRadius: 2 },
+                  "& .MuiOutlinedInput-root": { borderRadius: 2 },
                 }}
               />
             </Box>
-            
+
             <Box
               sx={{
                 flex: 1,
-                overflow: 'auto',
+                overflow: "auto",
                 p: 1.5,
                 background: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(0,0,0,0.2)'
-                    : 'rgba(0,0,0,0.03)',
+                  theme.palette.mode === "dark"
+                    ? "rgba(0,0,0,0.2)"
+                    : "rgba(0,0,0,0.03)",
                 borderRadius: 1.5,
-                position: 'relative',
+                position: "relative",
               }}
             >
               {searchingRedux && (
                 <LinearProgress
                   color="secondary"
-                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: 999 }}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    borderRadius: 999,
+                  }}
                 />
               )}
               {!currentStorage ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                  }}
+                >
                   <Typography color="text.secondary">
-                    {status !== 'open' ? 'Connect to a device to view storage' : 'Click Refresh to fetch storage data'}
+                    {status !== "open"
+                      ? "Connect to a device to view storage"
+                      : "Click Refresh to fetch storage data"}
                   </Typography>
                 </Box>
               ) : hasReduxError ? (
                 <Box sx={{ p: 2 }}>
                   <Typography color="error.main" variant="body2">
-                    {(currentStorage.redux as any)?.error || 'Error fetching Redux state'}
+                    {(currentStorage.redux as any)?.error ||
+                      "Error fetching Redux state"}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    To enable Redux inspection, expose your store globally, for example:
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mt: 1, display: "block" }}
+                  >
+                    To enable Redux inspection, expose your store globally, for
+                    example:
                   </Typography>
                   <Box
                     component="pre"
@@ -407,11 +514,13 @@ global.AsyncStorage = AsyncStorage;`}
                       mt: 1,
                       p: 1.5,
                       background: (theme) =>
-                        theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                        theme.palette.mode === "dark"
+                          ? "rgba(0,0,0,0.3)"
+                          : "rgba(0,0,0,0.05)",
                       borderRadius: 1,
                       fontSize: 12,
-                      fontFamily: 'monospace',
-                      overflow: 'auto',
+                      fontFamily: "monospace",
+                      overflow: "auto",
                     }}
                   >
                     {`// In your store configuration:\nwindow.__RN_INSPECTOR_REDUX_STORE__ = store;`}
@@ -427,7 +536,9 @@ global.AsyncStorage = AsyncStorage;`}
                 />
               ) : (
                 <Typography color="text.secondary" sx={{ p: 2 }}>
-                  {reduxSearchQuery ? 'No matching keys found' : 'Redux state is empty or not available'}
+                  {reduxSearchQuery
+                    ? "No matching keys found"
+                    : "Redux state is empty or not available"}
                 </Typography>
               )}
             </Box>

@@ -35,7 +35,6 @@ After installing, the `rn-inspector` command is available in your shell.
    ```
 
 3. By default this will:
-
    - Connect to **Metro** on port `8081`.
    - Start a **WebSocket proxy** for the UI at `ws://localhost:9230/inspector`.
    - Serve the **UI** at `http://localhost:4173`.
@@ -152,7 +151,7 @@ To keep the CLI simple and avoid depending on your bundler setup, you need to ex
 In your React Native app (for example in `App.tsx`):
 
 ```ts
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Make AsyncStorage visible to rn-inspector storage helper
 global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
@@ -165,7 +164,7 @@ Once this is set and the app is running with DevTools debugging enabled, the Sto
 If you use Redux, expose your store after you create it (anywhere in your app setup):
 
 ```ts
-import { createStore } from 'redux';
+import { createStore } from "redux";
 
 const store = createStore(reducer);
 
@@ -203,7 +202,7 @@ If the terminal does not support raw mode (no TTY), these shortcuts are safely d
 - For **DevTools websockets** (one per device):
   - The CLI emits `devtools` **status meta events** (`open`, `closed`, `error`) but does **not** auto-retry reconnecting.
   - The Web UI header exposes a **DevTools status chip**; clicking it sends a control message to the CLI to re-run DevTools discovery and attach again.
-  - When DevTools auto-discovery finds no `/json` targets, the CLI logs a message *and* emits a warning `meta` event so the UI can surface a toast like “DevTools auto-discovery found no /json targets (falling back to Metro-only mode)”.
+  - When DevTools auto-discovery finds no `/json` targets, the CLI logs a message _and_ emits a warning `meta` event so the UI can surface a toast like “DevTools auto-discovery found no /json targets (falling back to Metro-only mode)”.
 
 ---
 

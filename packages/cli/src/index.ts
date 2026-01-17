@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-import http, { IncomingMessage, ServerResponse } from 'http';
-import WebSocket, { RawData, WebSocketServer } from 'ws';
-import path from 'path';
-import fs from 'fs';
-import serveStatic from 'serve-static';
-import finalhandler from 'finalhandler';
-import { spawn, exec } from 'child_process';
-import chalk from 'chalk';
-import { discoverDevtoolsTargets } from './devtools/discovery';
-import { attachDevtoolsBridge } from './devtools/bridge';
-import type { DevtoolsBridge, ProxyOptions } from './types/Index';
+import http, { IncomingMessage, ServerResponse } from "http";
+import WebSocket, { RawData, WebSocketServer } from "ws";
+import path from "path";
+import fs from "fs";
+import serveStatic from "serve-static";
+import finalhandler from "finalhandler";
+import { spawn, exec } from "child_process";
+import chalk from "chalk";
+import { discoverDevtoolsTargets } from "./devtools/discovery";
+import { attachDevtoolsBridge } from "./devtools/bridge";
+import type { DevtoolsBridge, ProxyOptions } from "./types/Index";
 import {
   DEFAULT_HOST,
   DEFAULT_METRO_PORT,
@@ -35,7 +35,7 @@ import {
   getCliVersion,
   getMetroPort,
   getUiStaticDir,
-} from './config/Index';
+} from "./config/Index";
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -55,34 +55,34 @@ function parseArgs() {
     const arg = args[i];
     const next = args[i + 1];
 
-    if (arg === '--version' || arg === '-v' || arg === 'version') {
+    if (arg === "--version" || arg === "-v" || arg === "version") {
       parsed.showVersion = true;
-    } else if (arg === '--port' && next && !next.startsWith('-')) {
+    } else if (arg === "--port" && next && !next.startsWith("-")) {
       const val = Number(next);
       if (!Number.isNaN(val)) parsed.metroPort = val;
       i += 1;
-    } else if (arg.startsWith('--port=')) {
-      const val = Number(arg.split('=')[1]);
+    } else if (arg.startsWith("--port=")) {
+      const val = Number(arg.split("=")[1]);
       if (!Number.isNaN(val)) parsed.metroPort = val;
-    } else if (arg === '--ui-port' && next && !next.startsWith('-')) {
+    } else if (arg === "--ui-port" && next && !next.startsWith("-")) {
       const val = Number(next);
       if (!Number.isNaN(val)) parsed.uiPort = val;
       i += 1;
-    } else if (arg.startsWith('--ui-port=')) {
-      const val = Number(arg.split('=')[1]);
+    } else if (arg.startsWith("--ui-port=")) {
+      const val = Number(arg.split("=")[1]);
       if (!Number.isNaN(val)) parsed.uiPort = val;
-    } else if (arg === '--ui-ws-port' && next && !next.startsWith('-')) {
+    } else if (arg === "--ui-ws-port" && next && !next.startsWith("-")) {
       const val = Number(next);
       if (!Number.isNaN(val)) parsed.uiWsPort = val;
       i += 1;
-    } else if (arg.startsWith('--ui-ws-port=')) {
-      const val = Number(arg.split('=')[1]);
+    } else if (arg.startsWith("--ui-ws-port=")) {
+      const val = Number(arg.split("=")[1]);
       if (!Number.isNaN(val)) parsed.uiWsPort = val;
-    } else if (arg === '--devtools-url' && next && !next.startsWith('-')) {
+    } else if (arg === "--devtools-url" && next && !next.startsWith("-")) {
       if (next) parsed.devtoolsWsUrl = next;
       i += 1;
-    } else if (arg.startsWith('--devtools-url=')) {
-      const val = arg.split('=')[1];
+    } else if (arg.startsWith("--devtools-url=")) {
+      const val = arg.split("=")[1];
       if (val) parsed.devtoolsWsUrl = val;
     }
   }
@@ -103,24 +103,40 @@ async function startProxy(opts: ProxyOptions = {}) {
 
   const metroWs = new WebSocket(targetWsUrl);
 
-  metroWs.on('error', (err: Error) => {
-    if (err.message.includes('ECONNREFUSED')) {
-      console.error(chalk.red(`[rn-inspector] Error: Could not connect to Metro server on port ${metroPort}`));
-      console.error(chalk.yellow(`[rn-inspector] Make sure your React Native app is running and Metro is started`));
-      console.error(chalk.cyan(`[rn-inspector] Try: npx react-native start or npx expo start`));
+  metroWs.on("error", (err: Error) => {
+    if (err.message.includes("ECONNREFUSED")) {
+      console.error(
+        chalk.red(
+          `[rn-inspector] Error: Could not connect to Metro server on port ${metroPort}`,
+        ),
+      );
+      console.error(
+        chalk.yellow(
+          `[rn-inspector] Make sure your React Native app is running and Metro is started`,
+        ),
+      );
+      console.error(
+        chalk.cyan(
+          `[rn-inspector] Try: npx react-native start or npx expo start`,
+        ),
+      );
       process.exit(1);
     } else {
       console.error(chalk.red(`[rn-inspector] Metro WebSocket error:`), err);
     }
   });
 
-  metroWs.on('open', () => {
+  metroWs.on("open", () => {
     console.log(chalk.green(`[rn-inspector] Connected to Metro websocket`));
   });
 
   const uiWss = new WebSocketServer({ port: uiPort });
-  uiWss.on('listening', () => {
-    console.log(chalk.blue(`[rn-inspector] UI WebSocket server on ws://${host}:${uiPort}${UI_WS_PATH}`));
+  uiWss.on("listening", () => {
+    console.log(
+      chalk.blue(
+        `[rn-inspector] UI WebSocket server on ws://${host}:${uiPort}${UI_WS_PATH}`,
+      ),
+    );
   });
 
   let currentDevices: { id: string; label: string; url?: string }[] = [];
@@ -145,9 +161,13 @@ async function startProxy(opts: ProxyOptions = {}) {
     }
   };
 
-  const broadcastMirror = (payload: { deviceId: string; frame?: string; error?: string }) => {
+  const broadcastMirror = (payload: {
+    deviceId: string;
+    frame?: string;
+    error?: string;
+  }) => {
     broadcast({
-      type: 'mirror',
+      type: "mirror",
       payload: {
         deviceId: payload.deviceId,
         frame: payload.frame ?? null,
@@ -157,33 +177,53 @@ async function startProxy(opts: ProxyOptions = {}) {
     });
   };
 
-  const startMirror = (deviceId: string, platformHint?: 'android' | 'ios' | 'ios-sim' | 'ios-device') => {
+  const startMirror = (
+    deviceId: string,
+    platformHint?: "android" | "ios" | "ios-sim" | "ios-device",
+  ) => {
     stopMirror(deviceId);
 
-    const platform = platformHint || (deviceId.includes('emulator') ? 'android' : 'android');
+    const platform =
+      platformHint || (deviceId.includes("emulator") ? "android" : "android");
 
     const interval = setInterval(() => {
-      if (platform === 'android') {
-        const cmd = deviceId ? `adb -s ${deviceId} exec-out screencap -p` : 'adb exec-out screencap -p';
-        exec(cmd, { encoding: 'buffer', maxBuffer: 5 * 1024 * 1024 }, (err, stdout) => {
-          if (err || !stdout) {
-            broadcastMirror({ deviceId, error: err ? err.message : 'No frame' });
-            return;
-          }
-          const frame = `data:image/png;base64,${stdout.toString('base64')}`;
-          broadcastMirror({ deviceId, frame });
-        });
+      if (platform === "android") {
+        const cmd = deviceId
+          ? `adb -s ${deviceId} exec-out screencap -p`
+          : "adb exec-out screencap -p";
+        exec(
+          cmd,
+          { encoding: "buffer", maxBuffer: 5 * 1024 * 1024 },
+          (err, stdout) => {
+            if (err || !stdout) {
+              broadcastMirror({
+                deviceId,
+                error: err ? err.message : "No frame",
+              });
+              return;
+            }
+            const frame = `data:image/png;base64,${stdout.toString("base64")}`;
+            broadcastMirror({ deviceId, frame });
+          },
+        );
       } else {
         // iOS sim/device snapshot via simctl (requires Xcode tools)
-        const cmd = 'xcrun simctl io booted screenshot -';
-        exec(cmd, { encoding: 'buffer', maxBuffer: 5 * 1024 * 1024 }, (err, stdout) => {
-          if (err || !stdout) {
-            broadcastMirror({ deviceId, error: err ? err.message : 'No frame' });
-            return;
-          }
-          const frame = `data:image/png;base64,${stdout.toString('base64')}`;
-          broadcastMirror({ deviceId, frame });
-        });
+        const cmd = "xcrun simctl io booted screenshot -";
+        exec(
+          cmd,
+          { encoding: "buffer", maxBuffer: 5 * 1024 * 1024 },
+          (err, stdout) => {
+            if (err || !stdout) {
+              broadcastMirror({
+                deviceId,
+                error: err ? err.message : "No frame",
+              });
+              return;
+            }
+            const frame = `data:image/png;base64,${stdout.toString("base64")}`;
+            broadcastMirror({ deviceId, frame });
+          },
+        );
       }
     }, 1200);
 
@@ -194,8 +234,15 @@ async function startProxy(opts: ProxyOptions = {}) {
     try {
       if (opts.devtoolsWsUrl) {
         const deviceId = DEVICE_ID_EXPLICIT;
-        console.log(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`);
-        const bridge = attachDevtoolsBridge(opts.devtoolsWsUrl, broadcast, deviceId, devtoolsBridges);
+        console.log(
+          `[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`,
+        );
+        const bridge = attachDevtoolsBridge(
+          opts.devtoolsWsUrl,
+          broadcast,
+          deviceId,
+          devtoolsBridges,
+        );
         devtoolsBridges.set(deviceId, bridge);
 
         currentDevices = [
@@ -207,7 +254,7 @@ async function startProxy(opts: ProxyOptions = {}) {
         ];
 
         broadcast({
-          type: 'meta',
+          type: "meta",
           payload: {
             kind: META_KIND_DEVICES,
             devices: currentDevices,
@@ -236,29 +283,34 @@ async function startProxy(opts: ProxyOptions = {}) {
 
           devices.forEach((d, index) => {
             const target = targets[index];
-            const bridge = attachDevtoolsBridge(target.webSocketDebuggerUrl, broadcast, d.id, devtoolsBridges);
+            const bridge = attachDevtoolsBridge(
+              target.webSocketDebuggerUrl,
+              broadcast,
+              d.id,
+              devtoolsBridges,
+            );
             devtoolsBridges.set(d.id, bridge);
           });
         } else {
           broadcast({
             type: META_MSG_TYPE,
             payload: {
-              source: 'devtools',
-              status: 'closed',
-              level: 'warning',
+              source: "devtools",
+              status: "closed",
+              level: "warning",
               message:
-                'DevTools auto-discovery found no /json targets (falling back to Metro-only mode). Make sure your React Native app is running with debugging enabled.',
+                "DevTools auto-discovery found no /json targets (falling back to Metro-only mode). Make sure your React Native app is running with debugging enabled.",
               ts: new Date().toISOString(),
             },
           });
         }
       }
     } catch (err) {
-      console.error('[rn-inspector] Failed to attach DevTools bridge(s):', err);
+      console.error("[rn-inspector] Failed to attach DevTools bridge(s):", err);
     }
   };
 
-  uiWss.on('connection', (client) => {
+  uiWss.on("connection", (client) => {
     if (currentDevices.length) {
       try {
         client.send(
@@ -271,17 +323,22 @@ async function startProxy(opts: ProxyOptions = {}) {
             },
           }),
         );
-      } catch {
-      }
+      } catch {}
     }
 
-    client.on('message', (data) => {
+    client.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        if (!msg || typeof msg !== 'object') return;
-        if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_RECONNECT) {
+        if (!msg || typeof msg !== "object") return;
+        if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_RECONNECT
+        ) {
           void attachDevtools();
-        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_FETCH_STORAGE) {
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_FETCH_STORAGE
+        ) {
           const requestId = msg.requestId || `storage-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
 
@@ -291,7 +348,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               bridge.requestStorage(requestId);
             } else {
               broadcast({
-                type: 'storage',
+                type: "storage",
                 payload: {
                   requestId,
                   asyncStorage: { error: `Device ${targetDeviceId} not found` },
@@ -304,11 +361,11 @@ async function startProxy(opts: ProxyOptions = {}) {
           } else {
             if (devtoolsBridges.size === 0) {
               broadcast({
-                type: 'storage',
+                type: "storage",
                 payload: {
                   requestId,
-                  asyncStorage: { error: 'No devices connected' },
-                  redux: { error: 'No devices connected' },
+                  asyncStorage: { error: "No devices connected" },
+                  redux: { error: "No devices connected" },
                   deviceId: DEVICE_ID_ALL,
                   ts: new Date().toISOString(),
                 },
@@ -319,7 +376,10 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
-        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_MUTATE_STORAGE) {
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_MUTATE_STORAGE
+        ) {
           const requestId = msg.requestId || `storage-mutate-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
           const payload = {
@@ -330,8 +390,8 @@ async function startProxy(opts: ProxyOptions = {}) {
             value: msg.value,
           } as {
             requestId: string;
-            target: 'asyncStorage' | 'redux';
-            op: 'set' | 'delete';
+            target: "asyncStorage" | "redux";
+            op: "set" | "delete";
             path: string;
             value?: unknown;
           };
@@ -346,7 +406,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               sendMutation(bridge);
             } else {
               broadcast({
-                type: 'storage',
+                type: "storage",
                 payload: {
                   requestId,
                   asyncStorage: { error: `Device ${targetDeviceId} not found` },
@@ -359,11 +419,11 @@ async function startProxy(opts: ProxyOptions = {}) {
           } else {
             if (devtoolsBridges.size === 0) {
               broadcast({
-                type: 'storage',
+                type: "storage",
                 payload: {
                   requestId,
-                  asyncStorage: { error: 'No devices connected' },
-                  redux: { error: 'No devices connected' },
+                  asyncStorage: { error: "No devices connected" },
+                  redux: { error: "No devices connected" },
                   deviceId: DEVICE_ID_ALL,
                   ts: new Date().toISOString(),
                 },
@@ -374,7 +434,10 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
-        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_FETCH_UI) {
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_FETCH_UI
+        ) {
           const requestId = msg.requestId || `ui-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
 
@@ -384,7 +447,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               bridge.requestUI(requestId);
             } else {
               broadcast({
-                type: 'inspector',
+                type: "inspector",
                 payload: {
                   requestId,
                   hierarchy: null,
@@ -398,12 +461,12 @@ async function startProxy(opts: ProxyOptions = {}) {
           } else {
             if (devtoolsBridges.size === 0) {
               broadcast({
-                type: 'inspector',
+                type: "inspector",
                 payload: {
                   requestId,
                   hierarchy: null,
                   screenshot: null,
-                  error: 'No devices connected',
+                  error: "No devices connected",
                   deviceId: DEVICE_ID_ALL,
                   ts: new Date().toISOString(),
                 },
@@ -417,71 +480,97 @@ async function startProxy(opts: ProxyOptions = {}) {
           }
         }
         // Screen mirror start/stop
-        else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_START_MIRROR) {
-          const targetDeviceId: string = msg.deviceId || currentDevices[0]?.id || '';
+        else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_START_MIRROR
+        ) {
+          const targetDeviceId: string =
+            msg.deviceId || currentDevices[0]?.id || "";
           if (!targetDeviceId) return;
-          const platform: 'android' | 'ios' | 'ios-sim' | 'ios-device' | undefined = msg.platform;
+          const platform:
+            | "android"
+            | "ios"
+            | "ios-sim"
+            | "ios-device"
+            | undefined = msg.platform;
           startMirror(targetDeviceId, platform);
-        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_STOP_MIRROR) {
-          const targetDeviceId: string = msg.deviceId || currentDevices[0]?.id || '';
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_STOP_MIRROR
+        ) {
+          const targetDeviceId: string =
+            msg.deviceId || currentDevices[0]?.id || "";
           if (!targetDeviceId) return;
           stopMirror(targetDeviceId);
         }
-      } catch {
-      }
+      } catch {}
     });
   });
 
   await attachDevtools();
 
-  metroWs.on('message', (data: RawData) => {
+  metroWs.on("message", (data: RawData) => {
     const raw = data.toString();
-    const evt = { type: 'console', payload: { ts: new Date().toISOString(), level: 'info', msg: raw, origin: 'metro' } };
+    const evt = {
+      type: "console",
+      payload: {
+        ts: new Date().toISOString(),
+        level: "info",
+        msg: raw,
+        origin: "metro",
+      },
+    };
     broadcast(evt);
   });
 
-  metroWs.on('close', () => {
-    console.warn('[rn-inspector] Metro websocket closed');
+  metroWs.on("close", () => {
+    console.warn("[rn-inspector] Metro websocket closed");
     try {
       broadcast({
-        type: 'meta',
+        type: "meta",
         payload: {
-          source: 'metro',
-          status: 'closed',
-          level: 'error',
-          message: 'Metro websocket closed. Is the Metro bundler still running?',
+          source: "metro",
+          status: "closed",
+          level: "error",
+          message:
+            "Metro websocket closed. Is the Metro bundler still running?",
           ts: new Date().toISOString(),
         },
       });
-    } catch {
-    }
+    } catch {}
   });
 
-  metroWs.on('error', (err: Error) => {
-    console.error('[rn-inspector] Metro websocket error:', err);
+  metroWs.on("error", (err: Error) => {
+    console.error("[rn-inspector] Metro websocket error:", err);
     try {
       broadcast({
-        type: 'meta',
+        type: "meta",
         payload: {
-          source: 'metro',
-          status: 'error',
-          level: 'error',
-          message: 'Metro websocket error. Check Metro bundler status.',
+          source: "metro",
+          status: "error",
+          level: "error",
+          message: "Metro websocket error. Check Metro bundler status.",
           ts: new Date().toISOString(),
         },
       });
-    } catch {
-    }
+    } catch {}
   });
 
-  const server = http.createServer((_req: IncomingMessage, res: ServerResponse) => {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, uiWs: `ws://${host}:${uiPort}${UI_WS_PATH}` }));
-  });
+  const server = http.createServer(
+    (_req: IncomingMessage, res: ServerResponse) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          uiWs: `ws://${host}:${uiPort}${UI_WS_PATH}`,
+        }),
+      );
+    },
+  );
 
   await new Promise<void>((resolve) => server.listen(0, host, resolve));
   const address = server.address();
-  console.log('[rn-inspector] Local proxy health endpoint on', address);
+  console.log("[rn-inspector] Local proxy health endpoint on", address);
 
   return { metroWs, uiWss, server, devtoolsBridges };
 }
@@ -496,9 +585,10 @@ function startStaticUi(staticPort: number) {
       if (err) {
         return done(err as any);
       }
-      if (req.method === 'GET') {
+      if (req.method === "GET") {
         const accept = req.headers.accept;
-        const acceptsHtml = typeof accept === 'string' && accept.includes('text/html');
+        const acceptsHtml =
+          typeof accept === "string" && accept.includes("text/html");
 
         if (acceptsHtml) {
           const indexPath = path.join(staticDir, UI_STATIC_INDEX);
@@ -506,7 +596,7 @@ function startStaticUi(staticPort: number) {
             if (readErr) {
               return done(readErr as any);
             }
-            res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+            res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
             res.end(data);
           });
           return;
@@ -524,57 +614,68 @@ function startStaticUi(staticPort: number) {
 function openInBrowser(url: string) {
   try {
     const platform = process.platform;
-    if (platform === 'win32') {
-      const child = spawn('cmd', ['/c', 'start', '""', url], {
-        stdio: 'ignore',
+    if (platform === "win32") {
+      const child = spawn("cmd", ["/c", "start", '""', url], {
+        stdio: "ignore",
         detached: true,
       });
       child.unref();
-    } else if (platform === 'darwin') {
-      const child = spawn('open', [url], { stdio: 'ignore', detached: true });
+    } else if (platform === "darwin") {
+      const child = spawn("open", [url], { stdio: "ignore", detached: true });
       child.unref();
     } else {
-      const child = spawn('xdg-open', [url], { stdio: 'ignore', detached: true });
+      const child = spawn("xdg-open", [url], {
+        stdio: "ignore",
+        detached: true,
+      });
       child.unref();
     }
   } catch (err) {
-    console.error('[rn-inspector] Failed to open browser:', err);
+    console.error("[rn-inspector] Failed to open browser:", err);
   }
 }
 
 function registerKeyHandlers(uiUrl: string) {
-  if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== 'function') {
+  if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
     return;
   }
 
   try {
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.setEncoding('utf8');
+    process.stdin.setEncoding("utf8");
 
-    console.log("[rn-inspector] Keyboard shortcuts: 'o' = open UI, 'r' = show reload hint, Ctrl+C = quit");
+    console.log(
+      "[rn-inspector] Keyboard shortcuts: 'o' = open UI, 'r' = show reload hint, Ctrl+C = quit",
+    );
 
-    process.stdin.on('data', (chunk: string) => {
+    process.stdin.on("data", (chunk: string) => {
       const key = chunk.toString();
 
-      if (key === 'o' || key === 'O') {
-        console.log('[rn-inspector] Opening UI in browser...');
+      if (key === "o" || key === "O") {
+        console.log("[rn-inspector] Opening UI in browser...");
         openInBrowser(uiUrl);
-      } else if (key === 'r' || key === 'R') {
+      } else if (key === "r" || key === "R") {
         console.log(
-          '[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.',
+          "[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.",
         );
-      } else if (key === '\u0003') {
+      } else if (key === "\u0003") {
         process.exit(0);
       }
     });
   } catch (err) {
-    console.error('[rn-inspector] Failed to register key handlers:', err);
+    console.error("[rn-inspector] Failed to register key handlers:", err);
   }
 }
 
 export async function main() {
-  const { metroPort, uiPort, uiWsPort, devtoolsWsUrl: explicitDevtoolsWsUrl, showVersion } = parseArgs();
+  const {
+    metroPort,
+    uiPort,
+    uiWsPort,
+    devtoolsWsUrl: explicitDevtoolsWsUrl,
+    showVersion,
+  } = parseArgs();
 
   if (showVersion) {
     const version = getCliVersion();
@@ -585,14 +686,18 @@ export async function main() {
   const devtoolsWsUrl = explicitDevtoolsWsUrl;
 
   console.log(
-    chalk.magenta(`[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`),
+    chalk.magenta(
+      `[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`,
+    ),
   );
   if (devtoolsWsUrl) {
-    console.log(chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`));
+    console.log(
+      chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`),
+    );
   }
   await startProxy({ metroPort, uiWsPort, devtoolsWsUrl });
 
-  console.log(chalk.blue('[rn-inspector] serving UI assets...'));
+  console.log(chalk.blue("[rn-inspector] serving UI assets..."));
   startStaticUi(uiPort);
 
   const uiUrl = `http://localhost:${uiPort}`;
@@ -606,6 +711,6 @@ export async function main() {
 }
 
 main().catch((err) => {
-  console.error(chalk.red('[rn-inspector] CLI failed:'), err);
+  console.error(chalk.red("[rn-inspector] CLI failed:"), err);
   process.exit(1);
 });
