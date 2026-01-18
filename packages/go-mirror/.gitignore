@@ -1,0 +1,33 @@
+# Binaries
+go-mirror
+go-mirror.exe
+*.exe
+bin/
+
+# Go build artifacts
+*.o
+*.a
+*.so
+
+# Test binaries
+*.test
+
+# Coverage
+*.out
+coverage.html
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Recordings
+*.h264
+*.mp4
+*.mkv
