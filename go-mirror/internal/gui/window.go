@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 )
 
 type MirrorWindow struct {
@@ -30,7 +32,17 @@ func (w *MirrorWindow) Start(cmd *exec.Cmd) error {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	ffmpegCmd := exec.Command("ffmpeg",
+	ffmpegPath, err := findBundledTool("ffmpeg")
+	if err != nil {
+		return err
+	}
+
+	ffplayPath, err := findBundledTool("ffplay")
+	if err != nil {
+		return err
+	}
+
+	ffmpegCmd := exec.Command(ffmpegPath,
 		"-f", "h264",
 		"-i", "pipe:0",
 		"-c:v", "copy",
@@ -47,7 +59,7 @@ func (w *MirrorWindow) Start(cmd *exec.Cmd) error {
 		return fmt.Errorf("failed to create ffmpeg stdout pipe: %w", err)
 	}
 
-	w.ffplayCmd = exec.Command("ffplay",
+	w.ffplayCmd = exec.Command(ffplayPath,
 		"-window_title", w.title,
 		"-fflags", "nobuffer",
 		"-flags", "low_delay",
@@ -59,7 +71,9 @@ func (w *MirrorWindow) Start(cmd *exec.Cmd) error {
 	)
 	w.ffplayCmd.Stdin = ffmpegOut
 	w.ffplayCmd.Stderr = os.Stderr
-	w.ffplayCmd.Env = append(os.Environ(), "SDL_VIDEODRIVER=x11")
+	if runtime.GOOS == "linux" {
+		w.ffplayCmd.Env = append(os.Environ(), "SDL_VIDEODRIVER=x11")
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start mirror command: %w", err)
@@ -98,4 +112,37 @@ func (w *MirrorWindow) Stop() {
 	if w.ffplayCmd != nil && w.ffplayCmd.Process != nil {
 		w.ffplayCmd.Process.Kill()
 	}
+}
+
+func findBundledTool(tool string) (string, error) {
+	if path, err := exec.LookPath(tool); err == nil {
+		return path, nil
+	}
+
+	currentExe, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("failed to locate %s: %w", tool, err)
+	}
+
+	baseDir := filepath.Dir(currentExe)
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	name := tool + ext
+	candidates := []string{
+		filepath.Join(baseDir, name),
+		filepath.Join(baseDir, "ffmpeg", name),
+		filepath.Join(baseDir, "ffmpeg", "bin", name),
+		filepath.Join(baseDir, "bin", name),
+	}
+
+	for _, candidate := range candidates {
+		info, statErr := os.Stat(candidate)
+		if statErr == nil && !info.IsDir() {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to locate %s: not found in PATH or bundled next to the executable", tool)
 }

@@ -1,244 +1,113 @@
-# go-mirror
+# Go Mirror (Android)
 
-A **cross-platform CLI tool** for **live screen mirroring and streaming** from **Android and iOS simulators/devices** to **Linux, macOS, and Windows**.
+Standalone Android screen mirror with a desktop receiver.
 
-`go-mirror` is written in **Go** and focuses on:
+## Project Layout
 
-* Simple CLI usage
-* Native binaries (no runtime dependencies)
-* Streaming-first architecture (stdout, ffmpeg, WebSocket, files)
-* Reusing proven platform tools (adb, simctl, ReplayKit, MediaProjection)
+- `android/` — Android capture app (Kotlin, MediaProjection + H.264 stream)
+- `desktop/` — Desktop receiver (Go + ffplay GUI window)
 
-> This project is designed as a low-level mirroring engine that can be piped into players, recorders, or future GUI frontends.
+## Android App (Capture)
 
----
+1. Open `android/` in Android Studio.
+2. Run the app on a device (Android 8+).
+3. Enter desktop IP and port (default `7070`).
+4. Tap **Start Screen Capture** and grant permission.
 
-## ✨ Features
+## Desktop Receiver
 
-### Dual Mode Operation
-
-* **GUI Mode**: Interactive device selection + built-in mirroring window
-* **Headless Mode**: Stream to stdout for programmatic integration
-
-### Android
-
-* Live screen mirroring via `adb`
-* H.264 stream output
-* Device auto-detection and selection
-* Low-latency streaming pipeline
-
-### iOS
-
-* Simulator mirroring via `xcrun simctl`
-* H.264 codec support
-* Booted simulator auto-detection
-* Real-device support (planned)
-
-### Streaming & Output
-
-* GUI window rendering (via ffplay)
-* Pipe to stdout for custom applications
-* Save recordings to file
-* Headless / CI-friendly usage
-* WebSocket streaming (planned)
-
----
-
-## 📦 Installation
-
-### Prerequisites
-
-* Go **1.21+**
-* Platform tools:
-
-  * **Android**: `adb` (Android Platform Tools)
-  * **iOS (macOS only)**: Xcode + `xcrun`
-  * **GUI Mode**: `ffplay` (from ffmpeg package)
-  * **Headless Mode**: No additional requirements
-
-### Clone
+Build:
 
 ```bash
-git clone https://github.com/yourname/go-mirror.git
-cd go-mirror
-```
+cd desktop
 
-### Build
-
-```bash
 go build -o go-mirror
 ```
 
----
-
-## 🚀 Usage
-
-### Two Modes of Operation
-
-**1. GUI Mode (Default)**
-- Interactive device selection
-- Built-in mirroring window
-- No piping required
-
-**2. Headless Mode**
-- Stream to stdout for programmatic use
-- Pipe to other applications
-- Use `--headless` flag
-
-### Help
+Build all desktop targets:
 
 ```bash
-go-mirror --help
+cd desktop
+
+# macOS/Linux
+./build.sh
+
+# Windows PowerShell
+./build.ps1
 ```
 
-### GUI Mode – Interactive Mirroring
-
-Simply run without arguments to launch device selector:
+Run GUI window:
 
 ```bash
-go-mirror
+./go-mirror --listen :7070 --title "Android Mirror"
 ```
 
-Or specify platform and device:
+Headless recording:
 
 ```bash
-# Android with GUI window
-go-mirror android --device emulator-5554
-
-# iOS simulator with GUI window
-go-mirror ios --simulator
+./go-mirror --listen :7070 --no-window --record session.h264
 ```
 
-### Headless Mode – Streaming to Stdout
-
-Use `--headless` flag to stream video data:
+MP4 recording (requires ffmpeg bundled or in PATH):
 
 ```bash
-# Android device to ffplay
-go-mirror android --headless | ffplay -
-
-# iOS simulator to ffplay
-go-mirror ios --simulator --headless | ffplay -
-
-# Pipe to your own application
-go-mirror android --headless | your-custom-app
-
-# Save to file
-go-mirror android --output recording.h264
+./go-mirror --listen :7070 --record session.mp4
 ```
 
----
+## Build Android APK
 
-## 🧠 How It Works
-
-### Architecture
-
-* **Android**: Uses `adb exec-out screenrecord` to stream H.264 frames
-* **iOS Simulator**: Uses `xcrun simctl io booted recordVideo` with stdout piping
-* **CLI**: Acts as a controller + stream router
-
-### GUI Mode Flow
-
-```text
-Device → go-mirror → ffplay window
-```
-
-1. User selects device from interactive list
-2. go-mirror starts platform-specific capture
-3. Video stream pipes to ffplay for rendering
-4. Window displays live device screen
-
-### Headless Mode Flow
-
-```text
-Device → go-mirror → stdout → your-app / ffplay / file
-```
-
-1. go-mirror streams H.264 to stdout
-2. Output can be piped to any application
-3. Ideal for automation, recording, or custom processing
-
----
-
-## 📁 Project Structure
-
-```text
-go-mirror/
-├── cmd/
-│   └── go-mirror/
-│       └── main.go          # CLI entry point with GUI/headless modes
-├── internal/
-│   ├── android/
-│   │   └── adb.go           # Android device mirroring
-│   ├── ios/
-│   │   └── simctl.go        # iOS simulator mirroring
-│   ├── gui/
-│   │   ├── selector.go      # Device selection UI
-│   │   ├── window.go        # Mirror window (ffplay)
-│   │   └── player.go        # Video player (alternative)
-│   └── stream/
-│       └── video.go         # Stream utilities
-├── examples/                 # Usage examples
-├── go.mod
-├── Makefile
-└── README.md
-```
-
----
-
-## 🛠 Development
-
-Run locally:
+From the repo root:
 
 ```bash
-go run ./cmd/go-mirror --help
+cd android
+
+# macOS/Linux
+./gradlew assembleRelease
+
+# Windows PowerShell
+./gradlew.bat assembleRelease
 ```
 
-Cross-compile:
+APK output:
 
-```bash
-GOOS=linux GOARCH=amd64 go build -o go-mirror
-GOOS=windows GOARCH=amd64 go build -o go-mirror.exe
-GOOS=darwin GOARCH=amd64 go build -o go-mirror
+```
+android/app/build/outputs/apk/release/app-release.apk
 ```
 
----
+If you see **"Gradle wrapper JAR not found"**, you need to generate the wrapper:
 
-## 🗺 Roadmap
+1. Install **Android Studio** (or Gradle), then open the `android/` folder and let it sync.
+2. Run `gradle wrapper` (or use Android Studio's Gradle tool window) to create:
+   `android/gradle/wrapper/gradle-wrapper.jar`.
 
-* [ ] Android low-latency mode (scrcpy protocol)
-* [ ] iOS real-device mirroring
-* [ ] WebSocket streaming
-* [ ] Recording profiles (mp4 / mkv)
-* [ ] Config file support
-* [ ] GUI frontend (Tauri)
+After the wrapper JAR exists, `gradlew.bat` will work.
 
----
+## Bundling ffplay/ffmpeg
 
-## ⚠️ Limitations
+To make the desktop binary fully standalone, place `ffplay` and `ffmpeg` in:
 
-* iOS real-device mirroring requires macOS and Xcode
-* DRM-protected screens cannot be captured
-* Audio streaming is not supported yet
+```
+tools/ffmpeg/<os-arch>/
+```
 
----
+Supported folders:
 
-## 📜 License
+- `tools/ffmpeg/windows-amd64/`
+- `tools/ffmpeg/darwin-amd64/`
+- `tools/ffmpeg/darwin-arm64/`
+- `tools/ffmpeg/linux-amd64/`
+- `tools/ffmpeg/linux-arm64/`
 
-MIT License
+The build scripts will copy those binaries into `desktop/dist/` so the app runs without PATH.
 
----
+You can also place `ffplay` and `ffmpeg` next to the desktop binary or in one of these locations:
 
-## 🤝 Contributing
+- `./ffplay` / `./ffmpeg`
+- `./ffmpeg/ffplay`
+- `./ffmpeg/bin/ffplay`
+- `./bin/ffplay`
 
-Pull requests are welcome.
+## Notes
 
-If you plan a major change, please open an issue first to discuss the design.
-
----
-
-## 👤 Author
-
-Afzaal
-
-Built for developers who want **fast, scriptable, cross-platform screen mirroring**.
+- Android sends raw H.264 Annex-B stream over TCP.
+- Desktop receiver validates a small stream header before playback.

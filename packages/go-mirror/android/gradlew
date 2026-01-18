@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+APP_BASE_NAME=$(basename "$0")
+APP_HOME=$(cd "${0%/*}" && pwd -P)
+
+GRADLE_WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+if [ ! -f "$GRADLE_WRAPPER_JAR" ]; then
+  echo "Gradle wrapper JAR not found. Run 'gradle wrapper' or use Android Studio to generate it." >&2
+  exit 1
+fi
+
+JAVA_EXEC="${JAVA_HOME:+$JAVA_HOME/bin/}java"
+
+exec "$JAVA_EXEC" -Dorg.gradle.appname="$APP_BASE_NAME" -classpath "$GRADLE_WRAPPER_JAR" org.gradle.wrapper.GradleWrapperMain "$@"

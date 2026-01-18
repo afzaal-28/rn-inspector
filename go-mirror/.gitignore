@@ -1,0 +1,16 @@
+*.o
+*.a
+*.so
+*.test
+*.out
+coverage.html
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.h264
+*.mp4
+*.mkv
