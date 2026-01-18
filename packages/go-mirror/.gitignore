@@ -1,7 +1,4 @@
 # Binaries
-go-mirror
-go-mirror.exe
-*.exe
 bin/
 
 # Go build artifacts
