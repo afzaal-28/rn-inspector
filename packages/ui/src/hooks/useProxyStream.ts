@@ -55,6 +55,29 @@ export type DeviceInfo = {
   url?: string;
 };
 
+export type DeviceInfoDetails = {
+  deviceId?: string;
+  deviceName?: string;
+  deviceModel?: string;
+  deviceBrand?: string;
+  osName?: string;
+  osVersion?: string;
+  systemVersion?: string;
+  reactNativeVersion?: string;
+  metroVersion?: string;
+  hermesVersion?: string;
+  engineType?: string;
+  isFabricEnabled?: boolean;
+  isNewArchEnabled?: boolean;
+  jsiEnabled?: boolean;
+  turboModulesEnabled?: boolean;
+  bridgelessEnabled?: boolean;
+  appVersion?: string;
+  appBuildNumber?: string;
+  bundleId?: string;
+  ts?: string;
+};
+
 export type StorageEvent = {
   requestId: string;
   asyncStorage: Record<string, unknown> | null;
@@ -68,6 +91,7 @@ export type ProxyEvent =
   | { type: "console"; payload: ConsoleEvent }
   | { type: "network"; payload: NetworkEvent }
   | { type: "storage"; payload: StorageEvent }
+  | { type: "deviceInfo"; payload: DeviceInfoDetails }
   | { type: "meta"; payload: Record<string, unknown> };
 
 export type StorageMutationPayload = {
@@ -86,6 +110,7 @@ export function useProxyStream(endpoint?: string) {
   const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(
     new Map(),
   );
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfoDetails[]>([]);
   const [status, setStatus] = useState<
     "connecting" | "open" | "closed" | "error"
   >("connecting");
@@ -112,6 +137,8 @@ export function useProxyStream(endpoint?: string) {
       setConsoleEvents((prev) => [...prev, parsed.payload].slice(-500));
     } else if (parsed.type === "network") {
       setNetworkEvents((prev) => [...prev, parsed.payload].slice(-500));
+    } else if (parsed.type === "deviceInfo") {
+      setDeviceInfo((prev) => [...prev, parsed.payload].slice(-10));
     } else if (parsed.type === "storage") {
       const storagePayload = parsed.payload as StorageEvent;
       const deviceId = storagePayload.deviceId || "unknown";
@@ -372,6 +399,7 @@ export function useProxyStream(endpoint?: string) {
     consoleEvents,
     networkEvents,
     storageData,
+    deviceInfo,
     status,
     stats,
     reconnect,
@@ -383,4 +411,8 @@ export function useProxyStream(endpoint?: string) {
     fetchStorage,
     mutateStorage,
   };
+}
+
+export function useProxy() {
+  return useProxyStream();
 }

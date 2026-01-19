@@ -233,12 +233,23 @@ const NetworkPage = () => {
     latest.forEach((evt) => {
       const key = evt.id || `${evt.method}:${evt.url}:${evt.ts}`;
       const existing = byId.get(key);
+      
       if (!existing) {
         byId.set(key, { ...evt });
       } else {
+        // Merge events: preserve existing data and overlay new data
         byId.set(key, {
           ...existing,
-          ...evt,
+          // Only update fields that have values in the new event
+          ...(evt.status !== undefined && { status: evt.status }),
+          ...(evt.durationMs !== undefined && { durationMs: evt.durationMs }),
+          ...(evt.error !== undefined && { error: evt.error }),
+          ...(evt.requestHeaders && { requestHeaders: evt.requestHeaders }),
+          ...(evt.responseHeaders && { responseHeaders: evt.responseHeaders }),
+          ...(evt.requestBody !== undefined && { requestBody: evt.requestBody }),
+          ...(evt.responseBody !== undefined && { responseBody: evt.responseBody }),
+          ...(evt.resourceType && { resourceType: evt.resourceType }),
+          // Keep the earliest timestamp
           ts: existing.ts,
         });
       }

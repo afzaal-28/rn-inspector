@@ -25,8 +25,11 @@ export const INJECT_NETWORK_SNIPPET = `
           }
           payload.resourceType = detectResourceType(payload.url, contentType, payload.source || '');
         }
-        if (typeof console !== 'undefined' && console.log) {
-          console.log('__RN_INSPECTOR_NETWORK__:' + JSON.stringify(payload));
+        // Only log complete requests (with status or error)
+        if (payload.status || payload.error || payload.phase === 'complete') {
+          if (typeof console !== 'undefined' && console.log) {
+            console.log('__RN_INSPECTOR_NETWORK__:' + JSON.stringify(payload));
+          }
         }
       } catch (e) {}
     }
@@ -150,13 +153,6 @@ export const INJECT_NETWORK_SNIPPET = `
         var requestHeaders = toPlainHeaders((init && init.headers) || (input && input.headers));
         var requestBody = init && typeof init.body !== 'undefined' ? init.body : undefined;
 
-        logNetwork({
-          id: id, phase: 'start', ts: new Date().toISOString(),
-          method: method, url: url, durationMs: 0,
-          requestHeaders: requestHeaders, requestBody: truncateBody(requestBody),
-          source: 'fetch'
-        });
-
         return originalFetch(input, init)
           .then(function (res) {
             var responseHeaders = toPlainHeaders(res && res.headers);
@@ -165,7 +161,7 @@ export const INJECT_NETWORK_SNIPPET = `
 
             if (!clone || typeof clone.text !== 'function') {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: method, url: url, status: res && res.status,
                 durationMs: Date.now() - start,
                 requestHeaders: requestHeaders, responseHeaders: responseHeaders,
@@ -176,7 +172,7 @@ export const INJECT_NETWORK_SNIPPET = `
 
             return clone.text().then(function (text) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: method, url: url, status: res && res.status,
                 durationMs: Date.now() - start,
                 requestHeaders: requestHeaders, responseHeaders: responseHeaders,
@@ -186,7 +182,7 @@ export const INJECT_NETWORK_SNIPPET = `
               return res;
             }).catch(function () {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: method, url: url, status: res && res.status,
                 durationMs: Date.now() - start,
                 requestHeaders: requestHeaders, responseHeaders: responseHeaders,
@@ -197,7 +193,7 @@ export const INJECT_NETWORK_SNIPPET = `
           })
           .catch(function (error) {
             logNetwork({
-              id: id, phase: 'error', ts: new Date().toISOString(),
+              id: id, phase: 'complete', ts: new Date().toISOString(),
               method: method, url: url, durationMs: Date.now() - start,
               requestHeaders: requestHeaders, requestBody: truncateBody(requestBody),
               error: String(error && error.message ? error.message : error),
@@ -237,12 +233,6 @@ export const INJECT_NETWORK_SNIPPET = `
         xhr.send = function (body) {
           requestBody = body;
           start = Date.now();
-          logNetwork({
-            id: id, phase: 'start', ts: new Date().toISOString(),
-            method: method, url: url, durationMs: 0,
-            requestHeaders: requestHeaders, requestBody: truncateBody(requestBody),
-            source: 'xhr'
-          });
           return origSend.apply(xhr, arguments);
         };
 
@@ -253,7 +243,7 @@ export const INJECT_NETWORK_SNIPPET = `
           try {
             var raw = xhr.getAllResponseHeaders();
             if (raw) {
-              raw.trim().split(/\\r?\\n/).forEach(function (line) {
+              raw.trim().split(/\r?\n/).forEach(function (line) {
                 var idx = line.indexOf(':');
                 if (idx > 0) {
                   responseHeaders[line.slice(0, idx).trim().toLowerCase()] = line.slice(idx + 1).trim();
@@ -263,7 +253,7 @@ export const INJECT_NETWORK_SNIPPET = `
           } catch (e) {}
 
           logNetwork({
-            id: id, phase: xhr.status === 0 ? 'error' : 'end',
+            id: id, phase: 'complete',
             ts: new Date().toISOString(),
             method: method, url: url, status: xhr.status || undefined,
             durationMs: Date.now() - (start || Date.now()),
@@ -280,7 +270,7 @@ export const INJECT_NETWORK_SNIPPET = `
           if (logged) return;
           logged = true;
           logNetwork({
-            id: id, phase: 'error', ts: new Date().toISOString(),
+            id: id, phase: 'complete', ts: new Date().toISOString(),
             method: method, url: url, durationMs: Date.now() - (start || Date.now()),
             requestHeaders: requestHeaders, requestBody: truncateBody(requestBody),
             error: e && e.message ? e.message : 'XHR error',
@@ -330,29 +320,25 @@ export const INJECT_NETWORK_SNIPPET = `
                   var url = args[0] || args[1] || '';
                   var method = methodName.toUpperCase();
                   
-                  logNetwork({
-                    id: id, phase: 'start', ts: new Date().toISOString(),
-                    method: method, url: url, durationMs: 0,
-                    requestBody: truncateBody(args[2] || args[3]),
-                    source: 'native-' + moduleName
-                  });
-                  
                   var result = origMethod.apply(module, arguments);
                   if (result && typeof result.then === 'function') {
                     return result.then(function(res) {
                       logNetwork({
-                        id: id, phase: 'end', ts: new Date().toISOString(),
+                        id: id, phase: 'complete', ts: new Date().toISOString(),
                         method: method, url: url, status: res && res.status,
                         durationMs: Date.now() - start,
+                        requestHeaders: {},
+                        requestBody: truncateBody(args[2] || args[3]),
                         responseBody: truncateBody(res),
                         source: 'native-' + moduleName
                       });
                       return res;
                     }).catch(function(err) {
                       logNetwork({
-                        id: id, phase: 'error', ts: new Date().toISOString(),
+                        id: id, phase: 'complete', ts: new Date().toISOString(),
                         method: method, url: url,
                         durationMs: Date.now() - start,
+                        requestBody: truncateBody(args[2] || args[3]),
                         error: String(err && err.message ? err.message : err),
                         source: 'native-' + moduleName
                       });
@@ -376,14 +362,6 @@ export const INJECT_NETWORK_SNIPPET = `
             var id = genId();
             var start = Date.now();
             var reqHeaders = toPlainHeaders(headers);
-
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: method || 'GET', url: url || '', durationMs: 0,
-              requestHeaders: reqHeaders, requestBody: truncateBody(data),
-              source: 'rn-native'
-            });
-
             pendingRequests[id] = { method: method, url: url, start: start, headers: reqHeaders, data: data };
 
             var wrappedCallback = function (requestId, response) {
@@ -392,7 +370,7 @@ export const INJECT_NETWORK_SNIPPET = `
               var respHeaders = toPlainHeaders(response && response.headers);
 
               logNetwork({
-                id: id, phase: status ? 'end' : 'error', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: method || 'GET', url: url || '', status: status,
                 durationMs: duration,
                 requestHeaders: reqHeaders, responseHeaders: respHeaders,
@@ -420,14 +398,16 @@ export const INJECT_NETWORK_SNIPPET = `
                   var args = Array.prototype.slice.call(arguments);
                   if (args[0] && typeof args[0] === 'object') {
                     var evt = args[0];
-                    logNetwork({
-                      id: 'evt-' + genId(), phase: eventType === 'didCompleteNetworkResponse' ? 'end' : 'response',
-                      ts: new Date().toISOString(),
-                      method: 'GET', url: evt.url || '', status: evt.status,
-                      responseHeaders: toPlainHeaders(evt.headers),
-                      responseBody: truncateBody(evt.body || evt.data),
-                      source: 'rn-event'
-                    });
+                    if (eventType === 'didCompleteNetworkResponse') {
+                      logNetwork({
+                        id: 'evt-' + genId(), phase: 'complete',
+                        ts: new Date().toISOString(),
+                        method: 'GET', url: evt.url || '', status: evt.status,
+                        responseHeaders: toPlainHeaders(evt.headers),
+                        responseBody: truncateBody(evt.body || evt.data),
+                        source: 'rn-event'
+                      });
+                    }
                   }
                 } catch (e) {}
                 return handler.apply(this, arguments);
@@ -448,15 +428,10 @@ export const INJECT_NETWORK_SNIPPET = `
           ImageLoader.getSize = function (url) {
             var id = genId();
             var start = Date.now();
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: 'GET', url: url || '', durationMs: 0,
-              source: 'image-loader'
-            });
 
             return origGetSize(url).then(function (result) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', status: 200,
                 durationMs: Date.now() - start,
                 responseBody: JSON.stringify(result),
@@ -465,7 +440,7 @@ export const INJECT_NETWORK_SNIPPET = `
               return result;
             }).catch(function (error) {
               logNetwork({
-                id: id, phase: 'error', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', durationMs: Date.now() - start,
                 error: String(error && error.message ? error.message : error),
                 source: 'image-loader'
@@ -481,15 +456,10 @@ export const INJECT_NETWORK_SNIPPET = `
           ImageLoader.prefetchImage = function (url, requestId) {
             var id = genId();
             var start = Date.now();
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: 'GET', url: url || '', durationMs: 0,
-              source: 'image-prefetch'
-            });
 
             return origPrefetch(url, requestId).then(function (result) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', status: 200,
                 durationMs: Date.now() - start,
                 source: 'image-prefetch'
@@ -497,7 +467,7 @@ export const INJECT_NETWORK_SNIPPET = `
               return result;
             }).catch(function (error) {
               logNetwork({
-                id: id, phase: 'error', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', durationMs: Date.now() - start,
                 error: String(error && error.message ? error.message : error),
                 source: 'image-prefetch'
@@ -514,15 +484,10 @@ export const INJECT_NETWORK_SNIPPET = `
             var id = genId();
             var start = Date.now();
             var urlList = Array.isArray(urls) ? urls.join(', ') : String(urls);
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: 'CACHE', url: urlList.slice(0, 200), durationMs: 0,
-              source: 'image-cache'
-            });
 
             return origQueryCache(urls).then(function (result) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'CACHE', url: urlList.slice(0, 200), status: 200,
                 durationMs: Date.now() - start,
                 responseBody: JSON.stringify(result),
@@ -540,12 +505,7 @@ export const INJECT_NETWORK_SNIPPET = `
           BlobModule.__patched = true;
           var origSendOverSocket = BlobModule.sendOverSocket.bind(BlobModule);
           BlobModule.sendOverSocket = function (blob, socketId) {
-            logNetwork({
-              id: genId(), phase: 'start', ts: new Date().toISOString(),
-              method: 'BLOB', url: 'socket://' + socketId, durationMs: 0,
-              requestBody: JSON.stringify({ size: blob && blob.size, type: blob && blob.type }),
-              source: 'blob'
-            });
+            // Skip logging blob transfers as they're not HTTP requests
             return origSendOverSocket(blob, socketId);
           };
         }
@@ -559,15 +519,10 @@ export const INJECT_NETWORK_SNIPPET = `
           FileReader.readAsDataURL = function (blob) {
             var id = genId();
             var start = Date.now();
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: 'READ', url: 'file://blob', durationMs: 0,
-              source: 'file-reader'
-            });
 
             return origReadAsDataURL(blob).then(function (result) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'READ', url: 'file://blob', status: 200,
                 durationMs: Date.now() - start,
                 responseBody: result ? result.slice(0, 100) + '...' : '',
@@ -589,15 +544,9 @@ export const INJECT_NETWORK_SNIPPET = `
           var start = Date.now();
           var messageCount = 0;
 
-          logNetwork({
-            id: id, phase: 'start', ts: new Date().toISOString(),
-            method: 'WS', url: url || '', durationMs: 0,
-            source: 'websocket'
-          });
-
           ws.addEventListener('open', function () {
             logNetwork({
-              id: id, phase: 'end', ts: new Date().toISOString(),
+              id: id, phase: 'complete', ts: new Date().toISOString(),
               method: 'WS', url: url || '', status: 101,
               durationMs: Date.now() - start,
               source: 'websocket'
@@ -608,7 +557,7 @@ export const INJECT_NETWORK_SNIPPET = `
             messageCount++;
             if (messageCount <= 10 || messageCount % 100 === 0) {
               logNetwork({
-                id: id + '-msg-' + messageCount, phase: 'end', ts: new Date().toISOString(),
+                id: id + '-msg-' + messageCount, phase: 'complete', ts: new Date().toISOString(),
                 method: 'WS-MSG', url: url || '', status: 200,
                 durationMs: Date.now() - start,
                 responseBody: truncateBody(e.data, 10000),
@@ -619,7 +568,7 @@ export const INJECT_NETWORK_SNIPPET = `
 
           ws.addEventListener('error', function (e) {
             logNetwork({
-              id: id + '-err', phase: 'error', ts: new Date().toISOString(),
+              id: id + '-err', phase: 'complete', ts: new Date().toISOString(),
               method: 'WS', url: url || '', durationMs: Date.now() - start,
               error: 'WebSocket error',
               source: 'websocket'
@@ -628,7 +577,7 @@ export const INJECT_NETWORK_SNIPPET = `
 
           ws.addEventListener('close', function (e) {
             logNetwork({
-              id: id + '-close', phase: 'end', ts: new Date().toISOString(),
+              id: id + '-close', phase: 'complete', ts: new Date().toISOString(),
               method: 'WS-CLOSE', url: url || '', status: e.code || 1000,
               durationMs: Date.now() - start,
               responseBody: 'Closed: ' + (e.reason || 'normal') + ' (messages: ' + messageCount + ')',
@@ -638,12 +587,7 @@ export const INJECT_NETWORK_SNIPPET = `
 
           var origSend = ws.send;
           ws.send = function (data) {
-            logNetwork({
-              id: id + '-send-' + genId(), phase: 'start', ts: new Date().toISOString(),
-              method: 'WS-SEND', url: url || '', durationMs: 0,
-              requestBody: truncateBody(data, 10000),
-              source: 'ws-send'
-            });
+            // Skip logging individual sends - they're not HTTP requests
             return origSend.call(ws, data);
           };
 
@@ -665,15 +609,10 @@ export const INJECT_NETWORK_SNIPPET = `
           Image.prefetch = function (url) {
             var id = genId();
             var start = Date.now();
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: 'GET', url: url || '', durationMs: 0,
-              source: 'Image.prefetch'
-            });
 
             return origImgPrefetch.call(Image, url).then(function (result) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', status: 200,
                 durationMs: Date.now() - start,
                 source: 'Image.prefetch'
@@ -681,7 +620,7 @@ export const INJECT_NETWORK_SNIPPET = `
               return result;
             }).catch(function (error) {
               logNetwork({
-                id: id, phase: 'error', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', durationMs: Date.now() - start,
                 error: String(error && error.message ? error.message : error),
                 source: 'Image.prefetch'
@@ -696,15 +635,10 @@ export const INJECT_NETWORK_SNIPPET = `
           Image.getSize = function (url, success, failure) {
             var id = genId();
             var start = Date.now();
-            logNetwork({
-              id: id, phase: 'start', ts: new Date().toISOString(),
-              method: 'GET', url: url || '', durationMs: 0,
-              source: 'Image.getSize'
-            });
 
             return origImgGetSize.call(Image, url, function (width, height) {
               logNetwork({
-                id: id, phase: 'end', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', status: 200,
                 durationMs: Date.now() - start,
                 responseBody: JSON.stringify({ width: width, height: height }),
@@ -713,7 +647,7 @@ export const INJECT_NETWORK_SNIPPET = `
               if (success) success(width, height);
             }, function (error) {
               logNetwork({
-                id: id, phase: 'error', ts: new Date().toISOString(),
+                id: id, phase: 'complete', ts: new Date().toISOString(),
                 method: 'GET', url: url || '', durationMs: Date.now() - start,
                 error: String(error && error.message ? error.message : error),
                 source: 'Image.getSize'
@@ -744,21 +678,14 @@ export const INJECT_NETWORK_SNIPPET = `
               var args = Array.prototype.slice.call(arguments);
               var path = args[1] || args[0] || '';
               
-              logNetwork({
-                id: id, phase: 'start', ts: new Date().toISOString(),
-                method: methodName.toUpperCase(), url: 'firestore://' + path, durationMs: 0,
-                requestBody: truncateBody(JSON.stringify(args)),
-                source: 'firestore',
-                resourceType: 'fetch'
-              });
-              
               var result = orig.apply(Firestore, arguments);
               if (result && typeof result.then === 'function') {
                 return result.then(function(res) {
                   logNetwork({
-                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: methodName.toUpperCase(), url: 'firestore://' + path, status: 200,
                     durationMs: Date.now() - start,
+                    requestBody: truncateBody(JSON.stringify(args)),
                     responseBody: truncateBody(JSON.stringify(res)),
                     source: 'firestore',
                     resourceType: 'fetch'
@@ -766,9 +693,10 @@ export const INJECT_NETWORK_SNIPPET = `
                   return res;
                 }).catch(function(err) {
                   logNetwork({
-                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: methodName.toUpperCase(), url: 'firestore://' + path,
                     durationMs: Date.now() - start,
+                    requestBody: truncateBody(JSON.stringify(args)),
                     error: String(err && err.message ? err.message : err),
                     source: 'firestore',
                     resourceType: 'fetch'
@@ -795,22 +723,15 @@ export const INJECT_NETWORK_SNIPPET = `
               var start = Date.now();
               var args = Array.prototype.slice.call(arguments);
               var path = args[1] || args[0] || '';
-　　 　 　 　
-              logNetwork({
-                id: id, phase: 'start', ts: new Date().toISOString(),
-                method: 'RTDB_' + methodName.toUpperCase(), url: 'firebase-rtdb://' + path, durationMs: 0,
-                requestBody: truncateBody(JSON.stringify(args)),
-                source: 'firebase-rtdb',
-                resourceType: 'fetch'
-              });
-　　 　 　 　
+              
               var result = orig.apply(Database, arguments);
               if (result && typeof result.then === 'function') {
                 return result.then(function(res) {
                   logNetwork({
-                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: 'RTDB_' + methodName.toUpperCase(), url: 'firebase-rtdb://' + path, status: 200,
                     durationMs: Date.now() - start,
+                    requestBody: truncateBody(JSON.stringify(args)),
                     responseBody: truncateBody(JSON.stringify(res)),
                     source: 'firebase-rtdb',
                     resourceType: 'fetch'
@@ -818,9 +739,10 @@ export const INJECT_NETWORK_SNIPPET = `
                   return res;
                 }).catch(function(err) {
                   logNetwork({
-                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: 'RTDB_' + methodName.toUpperCase(), url: 'firebase-rtdb://' + path,
                     durationMs: Date.now() - start,
+                    requestBody: truncateBody(JSON.stringify(args)),
                     error: String(err && err.message ? err.message : err),
                     source: 'firebase-rtdb',
                     resourceType: 'fetch'
@@ -845,19 +767,12 @@ export const INJECT_NETWORK_SNIPPET = `
             Auth[methodName] = function() {
               var id = genId();
               var start = Date.now();
-　　 　 　 　
-              logNetwork({
-                id: id, phase: 'start', ts: new Date().toISOString(),
-                method: 'AUTH_' + methodName.toUpperCase(), url: 'firebase-auth://' + methodName, durationMs: 0,
-                source: 'firebase-auth',
-                resourceType: 'fetch'
-              });
-　　 　 　 　
+              
               var result = orig.apply(Auth, arguments);
               if (result && typeof result.then === 'function') {
                 return result.then(function(res) {
                   logNetwork({
-                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: 'AUTH_' + methodName.toUpperCase(), url: 'firebase-auth://' + methodName, status: 200,
                     durationMs: Date.now() - start,
                     responseBody: res ? '[User data]' : null,
@@ -867,7 +782,7 @@ export const INJECT_NETWORK_SNIPPET = `
                   return res;
                 }).catch(function(err) {
                   logNetwork({
-                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: 'AUTH_' + methodName.toUpperCase(), url: 'firebase-auth://' + methodName,
                     durationMs: Date.now() - start,
                     error: String(err && err.message ? err.message : err),
@@ -896,19 +811,12 @@ export const INJECT_NETWORK_SNIPPET = `
               var start = Date.now();
               var args = Array.prototype.slice.call(arguments);
               var path = args[1] || args[0] || '';
-　　 　 　 　
-              logNetwork({
-                id: id, phase: 'start', ts: new Date().toISOString(),
-                method: 'STORAGE_' + methodName.toUpperCase(), url: 'firebase-storage://' + path, durationMs: 0,
-                source: 'firebase-storage',
-                resourceType: 'fetch'
-              });
-　　 　 　 　
+              
               var result = orig.apply(Storage, arguments);
               if (result && typeof result.then === 'function') {
                 return result.then(function(res) {
                   logNetwork({
-                    id: id, phase: 'end', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: 'STORAGE_' + methodName.toUpperCase(), url: 'firebase-storage://' + path, status: 200,
                     durationMs: Date.now() - start,
                     responseBody: truncateBody(JSON.stringify(res)),
@@ -918,7 +826,7 @@ export const INJECT_NETWORK_SNIPPET = `
                   return res;
                 }).catch(function(err) {
                   logNetwork({
-                    id: id, phase: 'error', ts: new Date().toISOString(),
+                    id: id, phase: 'complete', ts: new Date().toISOString(),
                     method: 'STORAGE_' + methodName.toUpperCase(), url: 'firebase-storage://' + path,
                     durationMs: Date.now() - start,
                     error: String(err && err.message ? err.message : err),
@@ -952,21 +860,14 @@ export const INJECT_NETWORK_SNIPPET = `
               var config = method === 'request' ? args[0] : (typeof args[0] === 'string' ? { url: args[0] } : args[0]);
               var url = config && config.url ? config.url : '';
               var httpMethod = config && config.method ? config.method.toUpperCase() : method.toUpperCase();
-　　 　 　 　
-              logNetwork({
-                id: id, phase: 'start', ts: new Date().toISOString(),
-                method: httpMethod, url: url, durationMs: 0,
-                requestHeaders: config && config.headers ? toPlainHeaders(config.headers) : {},
-                requestBody: config && config.data ? truncateBody(config.data) : undefined,
-                source: 'axios',
-                resourceType: 'fetch'
-              });
-　　 　 　 　
+              
               return origMethod.apply(origAxios, arguments).then(function(res) {
                 logNetwork({
-                  id: id, phase: 'end', ts: new Date().toISOString(),
+                  id: id, phase: 'complete', ts: new Date().toISOString(),
                   method: httpMethod, url: url, status: res && res.status,
                   durationMs: Date.now() - start,
+                  requestHeaders: config && config.headers ? toPlainHeaders(config.headers) : {},
+                  requestBody: config && config.data ? truncateBody(config.data) : undefined,
                   responseHeaders: res && res.headers ? toPlainHeaders(res.headers) : {},
                   responseBody: res && res.data ? truncateBody(res.data) : undefined,
                   source: 'axios',
@@ -975,9 +876,11 @@ export const INJECT_NETWORK_SNIPPET = `
                 return res;
               }).catch(function(err) {
                 logNetwork({
-                  id: id, phase: 'error', ts: new Date().toISOString(),
+                  id: id, phase: 'complete', ts: new Date().toISOString(),
                   method: httpMethod, url: url,
                   durationMs: Date.now() - start,
+                  requestHeaders: config && config.headers ? toPlainHeaders(config.headers) : {},
+                  requestBody: config && config.data ? truncateBody(config.data) : undefined,
                   error: String(err && err.message ? err.message : err),
                   responseBody: err && err.response && err.response.data ? truncateBody(err.response.data) : undefined,
                   source: 'axios',

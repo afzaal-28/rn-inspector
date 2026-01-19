@@ -26,6 +26,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
+import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useProxy } from "../context/ProxyContext";
@@ -43,6 +44,12 @@ const navItems = [
     label: "Network",
     icon: <NetworkCheckIcon fontSize="small" />,
     path: "/network",
+    disabled: false,
+  },
+  {
+    label: "Device",
+    icon: <PhoneAndroidIcon fontSize="small" />,
+    path: "/device",
     disabled: false,
   },
   {

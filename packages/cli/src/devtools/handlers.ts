@@ -1,3 +1,4 @@
+import type WebSocket from "ws";
 import type {
   DevtoolsState,
   NetworkResourceType,
@@ -19,6 +20,40 @@ export function mapConsoleLevel(
   if (type === "warning" || type === "warn") return "warn";
   if (type === "info") return "info";
   return "log";
+}
+
+export function handleInjectedDeviceInfoFromConsole(
+  params: any,
+  broadcast: (message: unknown) => void,
+  deviceId?: string,
+): boolean {
+  if (!params || !Array.isArray(params.args) || params.args.length === 0)
+    return false;
+  const first = params.args[0];
+  const raw = typeof first.value === "string" ? first.value : undefined;
+  if (!raw || !raw.startsWith("__RN_INSPECTOR_DEVICE_INFO__")) return false;
+
+  const rest = raw.slice("__RN_INSPECTOR_DEVICE_INFO__".length);
+  const trimmed = rest.trim().startsWith(":")
+    ? rest.trim().slice(1).trim()
+    : rest.trim();
+
+  let payload: any;
+  try {
+    payload = JSON.parse(trimmed);
+  } catch {
+    return true;
+  }
+
+  broadcast({
+    type: "deviceInfo",
+    payload: {
+      ...payload,
+      deviceId,
+    },
+  });
+
+  return true;
 }
 
 export function handleInjectedStorageFromConsole(
@@ -89,7 +124,31 @@ export function handleInjectedNetworkFromConsole(
   const phase = payload.phase;
   const map = state.requests;
 
-  if (phase === "start") {
+  if (phase === "complete") {
+    // Complete phase contains all data in one event
+    const ts = typeof payload.ts === "string" ? payload.ts : new Date().toISOString();
+    broadcast({
+      type: "network",
+      payload: {
+        id,
+        phase: "complete",
+        ts,
+        method: String(payload.method || "GET"),
+        url: String(payload.url || ""),
+        status: typeof payload.status === "number" ? payload.status : undefined,
+        durationMs: typeof payload.durationMs === "number" ? payload.durationMs : undefined,
+        error: typeof payload.error === "string" ? payload.error : undefined,
+        requestHeaders: payload.requestHeaders as Record<string, string> | undefined,
+        responseHeaders: payload.responseHeaders as Record<string, string> | undefined,
+        requestBody: payload.requestBody,
+        responseBody: payload.responseBody,
+        deviceId,
+        source: typeof payload.source === "string" ? payload.source : undefined,
+        resourceType: typeof payload.resourceType === "string" ? (payload.resourceType as NetworkResourceType) : undefined,
+      },
+    });
+    return true;
+  } else if (phase === "start") {
     const req: TrackedRequest = {
       method: String(payload.method || "GET"),
       url: String(payload.url || ""),
@@ -293,11 +352,13 @@ function detectResourceTypeFromCDP(
   return "other";
 }
 
-export function handleNetworkEvent(
+export async function handleNetworkEvent(
   method: string,
   params: any,
   state: DevtoolsState,
   broadcast: (message: unknown) => void,
+  ws: WebSocket | null,
+  pendingNetworkBodyRequests: Map<number, (value: unknown) => void>,
   deviceId?: string,
 ) {
   if (!params || !params.requestId) return;
@@ -419,6 +480,57 @@ export function handleNetworkEvent(
     ) {
       existing.error = params.errorText;
     }
+
+    // Fetch response body from CDP if available
+    if (method === "Network.loadingFinished" && ws && ws.readyState === 1) {
+      try {
+        const responseBodyId = Date.now() + Math.floor(Math.random() * 100000);
+        const responseBodyPromise = new Promise<any>((resolve) => {
+          const timeout = setTimeout(() => {
+            pendingNetworkBodyRequests.delete(responseBodyId);
+            resolve(null);
+          }, 1500);
+
+          pendingNetworkBodyRequests.set(responseBodyId, (value: unknown) => {
+            clearTimeout(timeout);
+            resolve(value);
+          });
+        });
+
+        ws.send(
+          JSON.stringify({
+            id: responseBodyId,
+            method: "Network.getResponseBody",
+            params: { requestId: id },
+          }),
+        );
+
+        const result = await responseBodyPromise;
+        if (result) {
+          if (result.error) {
+            // CDP returned an error (e.g., "No resource with given identifier found")
+            // This is normal for some requests (redirects, cached, etc.)
+          } else if (typeof result.body === "string") {
+            if (result.base64Encoded) {
+              // Decode base64 data
+              try {
+                const decoded = Buffer.from(result.body, 'base64').toString('utf-8');
+                existing.responseBody = tryParseJson(decoded);
+              } catch (err) {
+                // If decode fails, it's likely binary data
+                existing.responseBody = `[Binary data: ${result.body.length} chars]`;
+              }
+            } else {
+              // For text data, try to parse as JSON
+              existing.responseBody = tryParseJson(result.body);
+            }
+          }
+        }
+      } catch (err) {
+        // Response body fetch failed, continue without it
+      }
+    }
+
     const event = {
       type: "network",
       payload: {
