@@ -22,40 +22,6 @@ export function mapConsoleLevel(
   return "log";
 }
 
-export function handleInjectedDeviceInfoFromConsole(
-  params: any,
-  broadcast: (message: unknown) => void,
-  deviceId?: string,
-): boolean {
-  if (!params || !Array.isArray(params.args) || params.args.length === 0)
-    return false;
-  const first = params.args[0];
-  const raw = typeof first.value === "string" ? first.value : undefined;
-  if (!raw || !raw.startsWith("__RN_INSPECTOR_DEVICE_INFO__")) return false;
-
-  const rest = raw.slice("__RN_INSPECTOR_DEVICE_INFO__".length);
-  const trimmed = rest.trim().startsWith(":")
-    ? rest.trim().slice(1).trim()
-    : rest.trim();
-
-  let payload: any;
-  try {
-    payload = JSON.parse(trimmed);
-  } catch {
-    return true;
-  }
-
-  broadcast({
-    type: "deviceInfo",
-    payload: {
-      ...payload,
-      deviceId,
-    },
-  });
-
-  return true;
-}
-
 export function handleInjectedStorageFromConsole(
   params: any,
   broadcast: (message: unknown) => void,

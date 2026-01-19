@@ -10,3 +10,7 @@ build
 .idea
 .vscode
 .env
+devtools-frontend/*
+react-native/*
+react-native-device-info/*
+ws-scrcpy/*

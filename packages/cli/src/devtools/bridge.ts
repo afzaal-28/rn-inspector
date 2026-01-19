@@ -2,12 +2,10 @@ import WebSocket from "ws";
 import chalk from "chalk";
 import { INJECT_NETWORK_SNIPPET } from "../snippets/INJECT_NETWORK_SNIPPET";
 import { INJECT_STORAGE_SNIPPET } from "../snippets/INJECT_STORAGE_SNIPPET";
-import { INJECT_DEVICE_INFO_SNIPPET } from "../snippets/INJECT_DEVICE_INFO_SNIPPET";
 import type { DevtoolsBridge, DevtoolsState } from "../types/Index";
 import {
   handleInjectedNetworkFromConsole,
   handleInjectedStorageFromConsole,
-  handleInjectedDeviceInfoFromConsole,
   handleLogEntry,
   handleNetworkEvent,
   handleRuntimeConsole,
@@ -301,15 +299,6 @@ export function attachDevtoolsBridge(
             },
           },
           {
-            id: 8,
-            method: "Runtime.evaluate",
-            params: {
-              expression: INJECT_DEVICE_INFO_SNIPPET,
-              includeCommandLineAPI: false,
-              awaitPromise: false,
-            },
-          },
-          {
             id: 7,
             method: "Runtime.evaluate",
             params: {
@@ -381,8 +370,6 @@ export function attachDevtoolsBridge(
           )
             return;
           if (handleInjectedStorageFromConsole(params, broadcast, deviceId))
-            return;
-          if (handleInjectedDeviceInfoFromConsole(params, broadcast, deviceId))
             return;
           await handleRuntimeConsole(
             params,
