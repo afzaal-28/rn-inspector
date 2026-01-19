@@ -64,37 +64,10 @@ export type StorageEvent = {
   ts: string;
 };
 
-export type UINode = {
-  type: string | null;
-  props: Record<string, unknown>;
-  children: UINode[];
-  key?: string | null;
-  error?: string;
-  note?: string;
-};
-
-export type InspectorEvent = {
-  requestId: string;
-  hierarchy: UINode | null;
-  screenshot: string | null;
-  error?: string;
-  deviceId?: string;
-  ts: string;
-};
-
-export type MirrorEvent = {
-  deviceId: string;
-  frame: string | null;
-  error?: string;
-  ts: string;
-};
-
 export type ProxyEvent =
   | { type: "console"; payload: ConsoleEvent }
   | { type: "network"; payload: NetworkEvent }
   | { type: "storage"; payload: StorageEvent }
-  | { type: "inspector"; payload: InspectorEvent }
-  | { type: "mirror"; payload: MirrorEvent }
   | { type: "meta"; payload: Record<string, unknown> };
 
 export type StorageMutationPayload = {
@@ -111,12 +84,6 @@ export function useProxyStream(endpoint?: string) {
   const [consoleEvents, setConsoleEvents] = useState<ConsoleEvent[]>([]);
   const [networkEvents, setNetworkEvents] = useState<NetworkEvent[]>([]);
   const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(
-    new Map(),
-  );
-  const [inspectorData, setInspectorData] = useState<
-    Map<string, InspectorEvent>
-  >(new Map());
-  const [mirrorData, setMirrorData] = useState<Map<string, MirrorEvent>>(
     new Map(),
   );
   const [status, setStatus] = useState<
@@ -182,22 +149,6 @@ export function useProxyStream(endpoint?: string) {
           }
         }
       }
-    } else if (parsed.type === "inspector") {
-      const inspectorPayload = parsed.payload as InspectorEvent;
-      const deviceId = inspectorPayload.deviceId || "unknown";
-      setInspectorData((prev) => {
-        const next = new Map(prev);
-        next.set(deviceId, inspectorPayload);
-        return next;
-      });
-    } else if (parsed.type === "mirror") {
-      const mirrorPayload = parsed.payload as MirrorEvent;
-      const deviceId = mirrorPayload.deviceId || "unknown";
-      setMirrorData((prev) => {
-        const next = new Map(prev);
-        next.set(deviceId, mirrorPayload);
-        return next;
-      });
     } else if (parsed.type === "meta") {
       const payload = parsed.payload as any;
       const kind = payload?.kind;
@@ -417,62 +368,10 @@ export function useProxyStream(endpoint?: string) {
     }
   };
 
-  const fetchUI = (deviceId?: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    try {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "control",
-          command: "fetch-ui",
-          deviceId: deviceId || activeDeviceId,
-          requestId: `ui-${Date.now()}`,
-        }),
-      );
-    } catch {
-      // ignore send errors
-    }
-  };
-
-  const startMirror = (
-    platform?: "android" | "ios" | "ios-sim" | "ios-device",
-    deviceId?: string,
-  ) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    try {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "control",
-          command: "start-mirror",
-          deviceId: deviceId || activeDeviceId,
-          platform,
-        }),
-      );
-    } catch {
-      // ignore
-    }
-  };
-
-  const stopMirror = (deviceId?: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    try {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "control",
-          command: "stop-mirror",
-          deviceId: deviceId || activeDeviceId,
-        }),
-      );
-    } catch {
-      // ignore
-    }
-  };
-
   return {
     consoleEvents,
     networkEvents,
     storageData,
-    inspectorData,
-    mirrorData,
     status,
     stats,
     reconnect,
@@ -483,8 +382,5 @@ export function useProxyStream(endpoint?: string) {
     reconnectDevtools,
     fetchStorage,
     mutateStorage,
-    fetchUI,
-    startMirror,
-    stopMirror,
   };
 }

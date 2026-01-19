@@ -59,44 +59,6 @@ export function handleInjectedStorageFromConsole(
   return true;
 }
 
-export function handleInjectedUIFromConsole(
-  params: any,
-  broadcast: (message: unknown) => void,
-  deviceId?: string,
-): boolean {
-  if (!params || !Array.isArray(params.args) || params.args.length === 0)
-    return false;
-  const first = params.args[0];
-  const raw = typeof first.value === "string" ? first.value : undefined;
-  if (!raw || !raw.startsWith("__RN_INSPECTOR_UI__")) return false;
-
-  const rest = raw.slice("__RN_INSPECTOR_UI__".length);
-  const trimmed = rest.trim().startsWith(":")
-    ? rest.trim().slice(1).trim()
-    : rest.trim();
-
-  let payload: any;
-  try {
-    payload = JSON.parse(trimmed);
-  } catch {
-    return true;
-  }
-
-  broadcast({
-    type: "inspector",
-    payload: {
-      requestId: payload.requestId,
-      hierarchy: payload.hierarchy,
-      screenshot: payload.screenshot,
-      error: payload.error,
-      deviceId,
-      ts: new Date().toISOString(),
-    },
-  });
-
-  return true;
-}
-
 export function handleInjectedNetworkFromConsole(
   params: any,
   state: DevtoolsState,

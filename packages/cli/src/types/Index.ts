@@ -49,7 +49,6 @@ export type DevtoolsBridge = {
   ws: WebSocket;
   deviceId: string;
   requestStorage: (requestId: string) => void;
-  requestUI: (requestId: string) => void;
   requestStorageMutation: (payload: {
     requestId: string;
     target: "asyncStorage" | "redux";

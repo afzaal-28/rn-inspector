@@ -12,8 +12,6 @@ import {
   type NetworkEvent,
   type DeviceInfo,
   type StorageEvent,
-  type InspectorEvent,
-  type MirrorEvent,
   type StorageMutationPayload,
 } from "../hooks/useProxyStream";
 
@@ -21,8 +19,6 @@ export interface ProxyContextValue {
   consoleEvents: ConsoleEvent[];
   networkEvents: NetworkEvent[];
   storageData: Map<string, StorageEvent>;
-  inspectorData: Map<string, InspectorEvent>;
-  mirrorData: Map<string, MirrorEvent>;
   status: "connecting" | "open" | "closed" | "error";
   stats: { consoleCount: number; networkCount: number; status: typeof status };
   reconnect: () => void;
@@ -32,12 +28,6 @@ export interface ProxyContextValue {
   devtoolsStatus: "unknown" | "open" | "closed" | "error";
   reconnectDevtools: () => void;
   fetchStorage: (deviceId?: string) => void;
-  fetchUI: (deviceId?: string) => void;
-  startMirror: (
-    platform?: "android" | "ios" | "ios-sim" | "ios-device",
-    deviceId?: string,
-  ) => void;
-  stopMirror: (deviceId?: string) => void;
   mutateStorage: (payload: StorageMutationPayload) => void;
   consoleClearedAtMs: number | null;
   setConsoleClearedAtMs: (value: number | null) => void;
@@ -133,8 +123,6 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     consoleEvents,
     networkEvents,
     storageData: stream.storageData,
-    inspectorData: stream.inspectorData,
-    mirrorData: stream.mirrorData,
     status: stream.status,
     stats: stream.stats as any,
     reconnect: stream.reconnect,
@@ -144,9 +132,6 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     devtoolsStatus: stream.devtoolsStatus,
     reconnectDevtools: stream.reconnectDevtools,
     fetchStorage: stream.fetchStorage,
-    fetchUI: stream.fetchUI,
-    startMirror: stream.startMirror,
-    stopMirror: stream.stopMirror,
     mutateStorage: stream.mutateStorage,
     consoleClearedAtMs,
     setConsoleClearedAtMs,

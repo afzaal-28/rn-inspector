@@ -3,11 +3,10 @@ import http, { IncomingMessage, ServerResponse } from "http";
 import WebSocket, { RawData, WebSocketServer } from "ws";
 import path from "path";
 import fs from "fs";
-import readline from "readline";
 import serveStatic from "serve-static";
 import finalhandler from "finalhandler";
-import { spawn } from "child_process";
 import chalk from "chalk";
+import { spawn } from "child_process";
 import { discoverDevtoolsTargets } from "./devtools/discovery";
 import { attachDevtoolsBridge } from "./devtools/bridge";
 import type { DevtoolsBridge, ProxyOptions } from "./types/Index";
@@ -19,10 +18,7 @@ import {
   ENV_DEVTOOLS_URL,
   ENV_METRO_PORT,
   CONTROL_CMD_FETCH_STORAGE,
-  CONTROL_CMD_FETCH_UI,
   CONTROL_CMD_MUTATE_STORAGE,
-  CONTROL_CMD_START_MIRROR,
-  CONTROL_CMD_STOP_MIRROR,
   CONTROL_CMD_RECONNECT,
   CONTROL_MSG_TYPE,
   DEVICE_ID_ALL,
@@ -153,122 +149,6 @@ async function startProxy(opts: ProxyOptions = {}) {
   };
 
   const devtoolsBridges = new Map<string, DevtoolsBridge>();
-  const mirrorProcesses = new Map<
-    string,
-    { proc: ReturnType<typeof spawn>; rl: readline.Interface }
-  >();
-
-  const stopMirror = (deviceId: string) => {
-    const entry = mirrorProcesses.get(deviceId);
-    if (entry) {
-      try {
-        entry.rl.close();
-      } catch {}
-      try {
-        entry.proc.kill();
-      } catch {}
-      mirrorProcesses.delete(deviceId);
-    }
-  };
-
-  const broadcastMirror = (payload: {
-    deviceId: string;
-    frame?: string;
-    error?: string;
-  }) => {
-    broadcast({
-      type: "mirror",
-      payload: {
-        deviceId: payload.deviceId,
-        frame: payload.frame ?? null,
-        error: payload.error,
-        ts: new Date().toISOString(),
-      },
-    });
-  };
-
-  const resolveMirrorBinary = () => {
-    const platform = process.platform;
-    const binName = platform === "win32" ? "mirror.exe" : "mirror";
-    const packageRoot = path.resolve(baseDir, "..");
-    const srcBin = path.join(packageRoot, "src", "bin", platform, binName);
-    const distBin = path.join(packageRoot, "dist", "bin", platform, binName);
-
-    if (fs.existsSync(distBin)) return distBin;
-    if (fs.existsSync(srcBin)) return srcBin;
-    return distBin;
-  };
-
-  const startMirror = (
-    deviceId: string,
-    platformHint?: "android" | "ios" | "ios-sim" | "ios-device",
-  ) => {
-    stopMirror(deviceId);
-
-    const binaryPath = resolveMirrorBinary();
-    if (!binaryPath || !fs.existsSync(binaryPath)) {
-      broadcastMirror({
-        deviceId,
-        error:
-          `Mirror binary not found at ${binaryPath}. Build the Rust mirror binary and place it in cli/src/bin/<platform>.`,
-      });
-      return;
-    }
-
-    const args: string[] = [];
-    if (deviceId) args.push("--device", deviceId);
-    if (platformHint) args.push("--platform", platformHint);
-
-    const proc = spawn(binaryPath, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    const rl = readline.createInterface({ input: proc.stdout });
-
-    rl.on("line", (line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      try {
-        const payload = JSON.parse(trimmed) as {
-          type?: string;
-          data?: string;
-          mime?: string;
-          error?: string;
-        };
-        if (payload.type === "frame" && payload.data) {
-          const mime = payload.mime || "image/png";
-          const frame = `data:${mime};base64,${payload.data}`;
-          broadcastMirror({ deviceId, frame });
-        } else if (payload.type === "error") {
-          broadcastMirror({ deviceId, error: payload.error || "Mirror error" });
-        }
-      } catch (err) {
-        broadcastMirror({
-          deviceId,
-          error: `Mirror protocol error: ${err instanceof Error ? err.message : String(err)}`,
-        });
-      }
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      const msg = chunk.toString().trim();
-      if (msg) {
-        broadcastMirror({ deviceId, error: msg });
-      }
-    });
-
-    proc.on("close", (code) => {
-      mirrorProcesses.delete(deviceId);
-      try {
-        rl.close();
-      } catch {}
-      if (code && code !== 0) {
-        broadcastMirror({ deviceId, error: `Mirror process exited (${code})` });
-      }
-    });
-
-    mirrorProcesses.set(deviceId, { proc, rl });
-  };
 
   const attachDevtools = async () => {
     try {
@@ -474,74 +354,6 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_FETCH_UI
-        ) {
-          const requestId = msg.requestId || `ui-${Date.now()}`;
-          const targetDeviceId = msg.deviceId;
-
-          if (targetDeviceId && targetDeviceId !== DEVICE_ID_ALL) {
-            const bridge = devtoolsBridges.get(targetDeviceId);
-            if (bridge) {
-              bridge.requestUI(requestId);
-            } else {
-              broadcast({
-                type: "inspector",
-                payload: {
-                  requestId,
-                  hierarchy: null,
-                  screenshot: null,
-                  error: `Device ${targetDeviceId} not found`,
-                  deviceId: targetDeviceId,
-                  ts: new Date().toISOString(),
-                },
-              });
-            }
-          } else {
-            if (devtoolsBridges.size === 0) {
-              broadcast({
-                type: "inspector",
-                payload: {
-                  requestId,
-                  hierarchy: null,
-                  screenshot: null,
-                  error: "No devices connected",
-                  deviceId: DEVICE_ID_ALL,
-                  ts: new Date().toISOString(),
-                },
-              });
-            } else {
-              const firstBridge = devtoolsBridges.values().next().value;
-              if (firstBridge) {
-                firstBridge.requestUI(requestId);
-              }
-            }
-          }
-        }
-        // Screen mirror start/stop
-        else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_START_MIRROR
-        ) {
-          const targetDeviceId: string =
-            msg.deviceId || currentDevices[0]?.id || "";
-          if (!targetDeviceId) return;
-          const platform:
-            | "android"
-            | "ios"
-            | "ios-sim"
-            | "ios-device"
-            | undefined = msg.platform;
-          startMirror(targetDeviceId, platform);
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_STOP_MIRROR
-        ) {
-          const targetDeviceId: string =
-            msg.deviceId || currentDevices[0]?.id || "";
-          if (!targetDeviceId) return;
-          stopMirror(targetDeviceId);
         }
       } catch {}
     });

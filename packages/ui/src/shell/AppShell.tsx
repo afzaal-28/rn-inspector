@@ -22,7 +22,6 @@ import MenuIcon from "@mui/icons-material/Menu";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import LanIcon from "@mui/icons-material/Lan";
 import StorageIcon from "@mui/icons-material/Storage";
-import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
@@ -50,12 +49,6 @@ const navItems = [
     label: "Storage",
     icon: <StorageIcon fontSize="small" />,
     path: "/storage",
-    disabled: false,
-  },
-  {
-    label: "Device",
-    icon: <PhoneIphoneIcon fontSize="small" />,
-    path: "/device",
     disabled: false,
   },
   {

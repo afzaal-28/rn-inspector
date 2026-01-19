@@ -1,13 +1,11 @@
 import WebSocket from "ws";
 import chalk from "chalk";
-import { INJECT_INSPECTOR_SNIPPET } from "../snippets/INJECT_INSPECTOR_SNIPPET";
 import { INJECT_NETWORK_SNIPPET } from "../snippets/INJECT_NETWORK_SNIPPET";
 import { INJECT_STORAGE_SNIPPET } from "../snippets/INJECT_STORAGE_SNIPPET";
 import type { DevtoolsBridge, DevtoolsState } from "../types/Index";
 import {
   handleInjectedNetworkFromConsole,
   handleInjectedStorageFromConsole,
-  handleInjectedUIFromConsole,
   handleLogEntry,
   handleNetworkEvent,
   handleRuntimeConsole,
@@ -289,39 +287,29 @@ export function attachDevtoolsBridge(
             params: { patterns: [{ urlPattern: "*" }] },
           }),
         );
-        ws.send(
-          JSON.stringify({
+        const injections = [
+          {
             id: 6,
-            method: "Runtime.evaluate",
-            params: {
-              expression: INJECT_NETWORK_SNIPPET,
-              includeCommandLineAPI: false,
-              awaitPromise: false,
-            },
-          }),
-        );
-        ws.send(
-          JSON.stringify({
-            id: 7,
             method: "Runtime.evaluate",
             params: {
               expression: INJECT_STORAGE_SNIPPET,
               includeCommandLineAPI: false,
               awaitPromise: false,
             },
-          }),
-        );
-        ws.send(
-          JSON.stringify({
-            id: 8,
+          },
+          {
+            id: 7,
             method: "Runtime.evaluate",
             params: {
-              expression: INJECT_INSPECTOR_SNIPPET,
+              expression: INJECT_NETWORK_SNIPPET,
               includeCommandLineAPI: false,
               awaitPromise: false,
             },
-          }),
-        );
+          },
+        ];
+        injections.forEach((injection) => {
+          ws.send(JSON.stringify(injection));
+        });
         broadcast({
           type: "meta",
           payload: {
@@ -376,7 +364,6 @@ export function attachDevtoolsBridge(
             return;
           if (handleInjectedStorageFromConsole(params, broadcast, deviceId))
             return;
-          if (handleInjectedUIFromConsole(params, broadcast, deviceId)) return;
           await handleRuntimeConsole(
             params,
             broadcast,
@@ -466,35 +453,6 @@ export function attachDevtoolsBridge(
     );
   };
 
-  const requestUI = (requestId: string) => {
-    if (!devtoolsWs || devtoolsWs.readyState !== WebSocket.OPEN) {
-      broadcast({
-        type: "inspector",
-        payload: {
-          requestId,
-          hierarchy: null,
-          screenshot: null,
-          error: "DevTools not connected",
-          deviceId,
-          ts: new Date().toISOString(),
-        },
-      });
-      return;
-    }
-    const evalId = nextStorageRequestId++;
-    devtoolsWs.send(
-      JSON.stringify({
-        id: evalId,
-        method: "Runtime.evaluate",
-        params: {
-          expression: `(typeof __RN_INSPECTOR_FETCH_UI__ === 'function') ? __RN_INSPECTOR_FETCH_UI__('${requestId}') : console.log('__RN_INSPECTOR_UI__:' + JSON.stringify({ requestId: '${requestId}', hierarchy: null, error: 'UI inspector not injected' }))`,
-          includeCommandLineAPI: false,
-          awaitPromise: false,
-        },
-      }),
-    );
-  };
-
   const requestStorageMutation = (payload: {
     requestId: string;
     target: "asyncStorage" | "redux";
@@ -536,5 +494,5 @@ export function attachDevtoolsBridge(
     );
   };
 
-  return { ws, deviceId, requestStorage, requestUI, requestStorageMutation };
+  return { ws, deviceId, requestStorage, requestStorageMutation };
 }
