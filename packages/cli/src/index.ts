@@ -431,6 +431,11 @@ function startStaticUi(staticPort: number) {
   const staticDir = getUiStaticDir();
   const serve = serveStatic(staticDir);
   const server = http.createServer((req, res) => {
+    if (req.url && req.url.includes("..")) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("Bad Request");
+      return;
+    }
     const done = finalhandler(req as any, res as any);
 
     serve(req as any, res as any, (err) => {

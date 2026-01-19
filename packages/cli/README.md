@@ -218,4 +218,4 @@ Please open issues or pull requests in that repository for bugs, feature request
 
 ## License
 
-Licensed under the [MIT License](../../LICENSE).
+Licensed under the [MIT License](https://github.com/afzaal-28/rn-inspector/blob/main/LICENSE).

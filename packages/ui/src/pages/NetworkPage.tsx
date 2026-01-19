@@ -185,7 +185,22 @@ const NetworkPage = () => {
   const isHtmlResponse = responseContentType
     .toLowerCase()
     .includes("text/html");
+
+  const sanitizedHtmlPreview = useMemo(() => {
+    if (!isHtmlResponse || typeof selectedEvent?.responseBody !== "string") {
+      return null;
+    }
+    try {
+      const encoded = btoa(unescape(encodeURIComponent(selectedEvent.responseBody)));
+      return `data:text/html;base64,${encoded}`;
+    } catch {
+      return null;
+    }
+  }, [isHtmlResponse, selectedEvent?.responseBody]);
+
   const isTextLikeResponse =
+    isHtmlResponse ||
+    responseContentType.toLowerCase().includes("text/") ||
     !isImageResponse && !isPdfResponse && !isVideoResponse;
 
   let parsedJsonBody: unknown | null = null;
@@ -1269,7 +1284,7 @@ const NetworkPage = () => {
                           )}
                           {isHtmlResponse &&
                             showHtmlPreview &&
-                            typeof selectedEvent.responseBody === "string" && (
+                            sanitizedHtmlPreview && (
                               <Box
                                 sx={{
                                   borderRadius: 1.5,
@@ -1281,7 +1296,7 @@ const NetworkPage = () => {
                               >
                                 <Box
                                   component="iframe"
-                                  srcDoc={selectedEvent.responseBody}
+                                  src={sanitizedHtmlPreview}
                                   title="HTML preview"
                                   sx={{
                                     width: "100%",

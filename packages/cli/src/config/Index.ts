@@ -35,7 +35,17 @@ export const baseDir: string =
   typeof __dirname !== "undefined" ? __dirname : path.dirname(baseFile);
 
 export function getUiStaticDir(): string {
-  return path.resolve(baseDir, "../../ui");
+  const resolved = path.resolve(baseDir, "../../ui");
+  if (!resolved.startsWith(path.resolve(baseDir, "../.."))) {
+    console.warn("[rn-inspector] ui static dir resolved outside expected root, falling back to baseDir/ui");
+    return path.join(baseDir, "ui");
+  }
+  if (!fs.existsSync(resolved)) {
+    console.warn(
+      `[rn-inspector] ui static dir not found at ${resolved}. Build the UI first (pnpm --filter rn-inspector-ui build).`,
+    );
+  }
+  return resolved;
 }
 
 export function getCliVersion(): string {
