@@ -151,6 +151,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
   const [childKeyDraft, setChildKeyDraft] = useState("");
   const [childValueDraft, setChildValueDraft] = useState("");
   const [siblingValueDraft, setSiblingValueDraft] = useState("");
+  const [deleteAnchorEl, setDeleteAnchorEl] = useState<HTMLElement | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const currentPath = buildPath(parentPath, name);
   const currentPathLabel = formatPathLabel(currentPath);
@@ -186,8 +188,20 @@ const JsonTreeNode = memo(function JsonTreeNode({
 
   const handleDelete = (event: MouseEvent) => {
     event.stopPropagation();
+    if (!canDelete) return;
+    setDeleteAnchorEl(event.currentTarget as HTMLElement);
+    setConfirmingDelete(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setConfirmingDelete(false);
+    setDeleteAnchorEl(null);
+  };
+
+  const handleDeleteConfirm = () => {
     if (!onMutate || !storageTarget || !currentPath.length || !canDelete) return;
     onMutate({ target: storageTarget, op: "delete", path: currentPath });
+    handleDeleteCancel();
   };
 
   const handleAddChild = (event: MouseEvent) => {
@@ -286,7 +300,14 @@ const JsonTreeNode = memo(function JsonTreeNode({
             multiline
             minRows={3}
             sx={{ minWidth: 260, mt: 1 }}
-            helperText={`Path: ${currentPathLabel}`}
+            helperText={
+              <Box
+                component="span"
+                sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+              >
+                Path: {currentPathLabel}
+              </Box>
+            }
           />
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
             <Button size="small" variant="text" onClick={handleEditSave}>
@@ -347,14 +368,21 @@ const JsonTreeNode = memo(function JsonTreeNode({
                   ? setSiblingValueDraft(e.target.value)
                   : setChildValueDraft(e.target.value)
               }
+              helperText={
+                <Box
+                  component="span"
+                  sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                >
+                  Parent: {
+                    addMode === "sibling"
+                      ? formatPathLabel(parentPath ? [...parentPath] : [])
+                      : formatPathLabel(currentPath)
+                  }
+                </Box>
+              }
               multiline
               minRows={3}
               sx={{ minWidth: 260 }}
-              helperText={`Parent: ${
-                addMode === "sibling"
-                  ? formatPathLabel(parentPath ? [...parentPath] : [])
-                  : formatPathLabel(currentPath)
-              }`}
             />
             <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
               <Button
@@ -375,6 +403,42 @@ const JsonTreeNode = memo(function JsonTreeNode({
                 Cancel
               </Button>
             </Box>
+          </Box>
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
+  );
+
+  const deletePopper = (
+    <Popper
+      open={confirmingDelete && Boolean(deleteAnchorEl)}
+      anchorEl={deleteAnchorEl}
+      placement="bottom-start"
+      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
+      sx={{ zIndex: 1300 }}
+    >
+      <ClickAwayListener onClickAway={handleDeleteCancel}>
+        <Paper
+          elevation={6}
+          sx={{
+            p: 1.5,
+            minWidth: 260,
+            maxWidth: 360,
+            borderRadius: 1.5,
+            background: (theme) => theme.palette.background.paper,
+            border: (theme) => `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Delete {currentPathLabel || "item"}?
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button size="small" color="error" variant="text" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+            <Button size="small" variant="text" onClick={handleDeleteCancel}>
+              Cancel
+            </Button>
           </Box>
         </Paper>
       </ClickAwayListener>
@@ -473,18 +537,15 @@ const JsonTreeNode = memo(function JsonTreeNode({
                 </IconButton>
               )}
               {canDelete && (
-                <IconButton
-                  size="small"
-                  onClick={handleDelete}
-                  disabled={editingValue}
-                >
+                <IconButton size="small" onClick={handleDelete} disabled={editingValue}>
                   <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               )}
             </Box>
           )}
         </Box>
-        {editPopper}
+        {editingValue ? editPopper : null}
+        {deletePopper}
         {addPopper}
       </>
     );
@@ -588,6 +649,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
         )}
       </Box>
       {editingValue ? editPopper : null}
+      {deletePopper}
       {addPopper}
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <Box sx={{ borderLeft: "1px solid", borderColor: "divider", ml: 1 }}>
