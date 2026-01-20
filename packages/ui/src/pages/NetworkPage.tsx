@@ -624,8 +624,6 @@ const NetworkPage = () => {
               WebkitBackdropFilter: "blur(14px) saturate(140%)",
               border: (theme) => `1px solid ${theme.palette.divider}`,
               borderRadius: 2,
-              boxShadow: (theme) =>
-                `0 6px 20px ${theme.palette.mode === "dark" ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)"}`,
             }}
           >
             <Box

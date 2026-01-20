@@ -8,11 +8,15 @@ import {
   TextField,
   InputAdornment,
   LinearProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import StorageIcon from "@mui/icons-material/Storage";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import GlassPanel from "../ui/GlassPanel";
 import JsonTreeView from "../components/JsonTreeView";
 import { useProxy } from "../context/ProxyContext";
@@ -204,30 +208,37 @@ export default function StoragePage() {
             )}
           </Box>
         )}
-        <Box
+        <Accordion
           sx={{
             mt: 1,
-            p: 1.5,
             borderRadius: 1.5,
+            border: (theme) => `1px dashed ${theme.palette.divider}`,
             background: (theme) =>
               theme.palette.mode === "dark"
                 ? "rgba(0,0,0,0.2)"
                 : "rgba(0,0,0,0.04)",
-            border: (theme) => `1px dashed ${theme.palette.divider}`,
+            "&:before": { display: "none" },
           }}
+          disableGutters
         >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mb: 0.5 }}
-          >
-            Editing requires these globals in your React Native app:
-          </Typography>
-          <Box
-            component="pre"
-            sx={{ fontSize: 12, fontFamily: "monospace", m: 0 }}
-          >
-            {`// AsyncStorage access
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2" fontWeight={600}>
+              How to enable
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 0.5 }}
+            >
+              Expose these globals in your React Native app to allow editing:
+            </Typography>
+            <Box
+              component="pre"
+              sx={{ fontSize: 12, fontFamily: "monospace", m: 0 }}
+            >
+              {`// AsyncStorage access
 import AsyncStorage from '@react-native-async-storage/async-storage';
 global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
 
@@ -238,8 +249,9 @@ global.__RN_INSPECTOR_REDUX_STORE__ = store;
 if (action.type === '__RN_INSPECTOR_REDUX_SET_STATE__') {
   return action.payload;
 }`}
-          </Box>
-        </Box>
+            </Box>
+          </AccordionDetails>
+        </Accordion>
       </Box>
 
       {/* Storage Panels */}

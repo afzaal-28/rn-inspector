@@ -12,6 +12,9 @@ import {
   TextField,
   InputAdornment,
   Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -21,6 +24,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import NotesIcon from "@mui/icons-material/Notes";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import GlassPanel from "../ui/GlassPanel";
 import JsonTreeView from "../components/JsonTreeView";
 import type { ConsoleEvent } from "../hooks/useProxyStream";
@@ -416,7 +420,6 @@ const ConsolePage = () => {
               justifyContent: "space-between",
               p: 2,
               m: 2,
-              mb: 0,
               background: (theme) =>
                 theme.palette.mode === "dark"
                   ? "rgba(255,255,255,0.03)"
@@ -425,8 +428,6 @@ const ConsolePage = () => {
               WebkitBackdropFilter: "blur(14px) saturate(140%)",
               border: (theme) => `1px solid ${theme.palette.divider}`,
               borderRadius: 2,
-              boxShadow: (theme) =>
-                `0 6px 20px ${theme.palette.mode === "dark" ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)"}`,
             }}
           >
             <Box
@@ -435,9 +436,10 @@ const ConsolePage = () => {
                 alignItems: "center",
                 gap: 1.5,
                 minWidth: 0,
+                flex: 1,
               }}
             >
-              <Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography
                   variant="h6"
                   sx={{ fontWeight: 700, letterSpacing: 0.2, lineHeight: 1.2 }}
@@ -495,8 +497,9 @@ const ConsolePage = () => {
             <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
               <Box
                 sx={{
-                  mb: 3,
+                  mb: 2,
                   p: 2,
+                  mt: -2,
                   background: (theme) =>
                     theme.palette.mode === "dark"
                       ? "rgba(255,255,255,0.02)"
@@ -661,55 +664,43 @@ const ConsolePage = () => {
                 )}
                 {selectedEvent.rawCdpArgs &&
                   selectedEvent.rawCdpArgs.length > 0 && (
-                    <Box
+                    <Accordion
+                      disableGutters
                       sx={{
-                        p: 2,
+                        borderRadius: 2,
+                        border: (theme) => `1px solid ${theme.palette.divider}`,
                         background: (theme) =>
                           theme.palette.mode === "dark"
                             ? "rgba(255,255,255,0.02)"
                             : "rgba(0,0,0,0.01)",
-                        border: (theme) => `1px solid ${theme.palette.divider}`,
-                        borderRadius: 2,
-                        transition: "all 0.2s ease",
-                        "&:hover": {
-                          background: (theme) =>
-                            theme.palette.mode === "dark"
-                              ? "rgba(255,255,255,0.04)"
-                              : "rgba(0,0,0,0.02)",
-                          transform: "translateY(-1px)",
-                        },
+                        "&:before": { display: "none" },
                       }}
                     >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          mb: 1.5,
-                        }}
-                      >
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                         <Typography variant="overline" color="text.secondary">
                           Raw CDP
                         </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          p: 2,
-                          background: (theme) =>
-                            theme.palette.mode === "dark"
-                              ? "rgba(0,0,0,0.3)"
-                              : "rgba(0,0,0,0.04)",
-                          borderRadius: 1.5,
-                          maxHeight: "none",
-                          overflow: "auto",
-                        }}
-                      >
-                        <JsonTreeView
-                          data={selectedEvent.rawCdpArgs}
-                          defaultExpanded
-                        />
-                      </Box>
-                    </Box>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Box
+                          sx={{
+                            p: 2,
+                            background: (theme) =>
+                              theme.palette.mode === "dark"
+                                ? "rgba(0,0,0,0.3)"
+                                : "rgba(0,0,0,0.04)",
+                            borderRadius: 1.5,
+                            maxHeight: "none",
+                            overflow: "auto",
+                          }}
+                        >
+                          <JsonTreeView
+                            data={selectedEvent.rawCdpArgs}
+                            defaultExpanded
+                          />
+                        </Box>
+                      </AccordionDetails>
+                    </Accordion>
                   )}
               </Box>
             </Box>
