@@ -79,8 +79,16 @@ export type StorageMutationPayload = {
 };
 
 export function useProxyStream(endpoint?: string) {
-  const url = endpoint || "ws://localhost:9230/inspector";
-  const wsRef = useRef<WebSocket | null>(null);
+  const basePort = 9230;
+  const messagesUrl = endpoint || `ws://localhost:${basePort}/inspector-messages`;
+  const networkUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-network") : `ws://localhost:${basePort + 1}/inspector-network`;
+  const storageUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-storage") : `ws://localhost:${basePort + 2}/inspector-storage`;
+  const controlUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-control") : `ws://localhost:${basePort + 3}/inspector-control`;
+  
+  const messagesWsRef = useRef<WebSocket | null>(null);
+  const networkWsRef = useRef<WebSocket | null>(null);
+  const storageWsRef = useRef<WebSocket | null>(null);
+  const controlWsRef = useRef<WebSocket | null>(null);
   const [consoleEvents, setConsoleEvents] = useState<ConsoleEvent[]>([]);
   const [networkEvents, setNetworkEvents] = useState<NetworkEvent[]>([]);
   const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(
@@ -206,15 +214,39 @@ export function useProxyStream(endpoint?: string) {
 
   useEffect(() => {
     let stopped = false;
+    let openCount = 0;
 
-    const connect = () => {
+    const checkAllOpen = () => {
+      openCount++;
+      if (openCount === 4) {
+        setStatus("open");
+      }
+    };
+
+    const handleConnectionClose = () => {
       if (stopped) return;
-      setStatus("connecting");
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
+      setStatus("closed");
+      setDevtoolsStatus("closed");
+      setDevices([]);
+      if (
+        typeof window !== "undefined" &&
+        typeof window.showNotification === "function"
+      ) {
+        window.showNotification(
+          "Proxy websocket closed. Click the WS chip to try reconnecting.",
+          "warning" as any,
+        );
+      }
+    };
+
+    const connectMessages = () => {
+      if (stopped) return;
+      const ws = new WebSocket(messagesUrl);
+      messagesWsRef.current = ws;
 
       ws.addEventListener("open", () => {
-        setStatus("open");
+        console.log("[ui] Messages websocket connected");
+        checkAllOpen();
       });
 
       ws.addEventListener("message", (event) => {
@@ -222,46 +254,122 @@ export function useProxyStream(endpoint?: string) {
           const parsed: ProxyEvent = JSON.parse(event.data);
           handleProxyEvent(parsed);
         } catch (err) {
-          console.warn("[ui] failed to parse proxy message", err);
+          console.warn("[ui] failed to parse messages", err);
+        }
+      });
+
+      ws.addEventListener("close", handleConnectionClose);
+      ws.addEventListener("error", () => {
+        if (stopped) return;
+        setStatus("error");
+        ws.close();
+      });
+    };
+
+    const connectNetwork = () => {
+      if (stopped) return;
+      const ws = new WebSocket(networkUrl);
+      networkWsRef.current = ws;
+
+      ws.addEventListener("open", () => {
+        console.log("[ui] Network websocket connected");
+        checkAllOpen();
+      });
+
+      ws.addEventListener("message", (event) => {
+        try {
+          const parsed: ProxyEvent = JSON.parse(event.data);
+          handleProxyEvent(parsed);
+        } catch (err) {
+          console.warn("[ui] failed to parse network", err);
         }
       });
 
       ws.addEventListener("close", () => {
         if (stopped) return;
-        setStatus("closed");
-        if (
-          typeof window !== "undefined" &&
-          typeof window.showNotification === "function"
-        ) {
-          window.showNotification(
-            "Proxy websocket closed. Click the WS chip to try reconnecting.",
-            "warning" as any,
-          );
-        }
+        console.warn("[ui] Network websocket closed");
       });
       ws.addEventListener("error", () => {
         if (stopped) return;
-        setStatus("error");
-        if (
-          typeof window !== "undefined" &&
-          typeof window.showNotification === "function"
-        ) {
-          window.showNotification(
-            "Proxy websocket error. Check the CLI status.",
-            "error" as any,
-          );
-        }
+        console.error("[ui] Network websocket error");
         ws.close();
       });
     };
 
-    connect();
+    const connectStorage = () => {
+      if (stopped) return;
+      const ws = new WebSocket(storageUrl);
+      storageWsRef.current = ws;
+
+      ws.addEventListener("open", () => {
+        console.log("[ui] Storage websocket connected");
+        checkAllOpen();
+      });
+
+      ws.addEventListener("message", (event) => {
+        try {
+          const parsed: ProxyEvent = JSON.parse(event.data);
+          handleProxyEvent(parsed);
+        } catch (err) {
+          console.warn("[ui] failed to parse storage", err);
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        if (stopped) return;
+        console.warn("[ui] Storage websocket closed");
+      });
+      ws.addEventListener("error", () => {
+        if (stopped) return;
+        console.error("[ui] Storage websocket error");
+        ws.close();
+      });
+    };
+
+    const connectControl = () => {
+      if (stopped) return;
+      const ws = new WebSocket(controlUrl);
+      controlWsRef.current = ws;
+
+      ws.addEventListener("open", () => {
+        console.log("[ui] Control websocket connected");
+        checkAllOpen();
+      });
+
+      ws.addEventListener("message", (event) => {
+        try {
+          const parsed: ProxyEvent = JSON.parse(event.data);
+          handleProxyEvent(parsed);
+        } catch (err) {
+          console.warn("[ui] failed to parse control", err);
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        if (stopped) return;
+        console.warn("[ui] Control websocket closed");
+      });
+      ws.addEventListener("error", () => {
+        if (stopped) return;
+        console.error("[ui] Control websocket error");
+        ws.close();
+      });
+    };
+
+    setStatus("connecting");
+    connectMessages();
+    connectNetwork();
+    connectStorage();
+    connectControl();
 
     return () => {
       stopped = true;
-      wsRef.current?.close();
+      messagesWsRef.current?.close();
+      networkWsRef.current?.close();
+      storageWsRef.current?.close();
+      controlWsRef.current?.close();
     };
-  }, [url]);
+  }, [messagesUrl, networkUrl, storageUrl, controlUrl]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && activeDeviceId) {
@@ -287,41 +395,116 @@ export function useProxyStream(endpoint?: string) {
 
   const reconnect = () => {
     setStatus("connecting");
-    wsRef.current?.close();
-    // Manual reconnect: create a fresh websocket and attach the same handlers.
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-    ws.addEventListener("open", () => setStatus("open"));
-    ws.addEventListener("message", (event) => {
+    messagesWsRef.current?.close();
+    networkWsRef.current?.close();
+    storageWsRef.current?.close();
+    controlWsRef.current?.close();
+    
+    let openCount = 0;
+    const checkAllOpen = () => {
+      openCount++;
+      if (openCount === 4) {
+        setStatus("open");
+      }
+    };
+
+    const handleClose = () => {
+      setStatus("closed");
+      setDevtoolsStatus("closed");
+      setDevices([]);
+    };
+
+    const messagesWs = new WebSocket(messagesUrl);
+    messagesWsRef.current = messagesWs;
+    messagesWs.addEventListener("open", () => {
+      console.log("[ui] Messages websocket reconnected");
+      checkAllOpen();
+    });
+    messagesWs.addEventListener("message", (event) => {
       try {
         const parsed: ProxyEvent = JSON.parse(event.data);
         handleProxyEvent(parsed);
       } catch (err) {
-        console.warn("[ui] failed to parse proxy message", err);
+        console.warn("[ui] failed to parse messages", err);
       }
     });
-    ws.addEventListener("close", () => {
-      setStatus("closed");
-    });
-    ws.addEventListener("error", () => {
+    messagesWs.addEventListener("close", handleClose);
+    messagesWs.addEventListener("error", () => {
       setStatus("error");
-      if (
-        typeof window !== "undefined" &&
-        typeof window.showNotification === "function"
-      ) {
-        window.showNotification(
-          "Proxy websocket error. Check the CLI status.",
-          "error" as any,
-        );
+      messagesWs.close();
+    });
+
+    const networkWs = new WebSocket(networkUrl);
+    networkWsRef.current = networkWs;
+    networkWs.addEventListener("open", () => {
+      console.log("[ui] Network websocket reconnected");
+      checkAllOpen();
+    });
+    networkWs.addEventListener("message", (event) => {
+      try {
+        const parsed: ProxyEvent = JSON.parse(event.data);
+        handleProxyEvent(parsed);
+      } catch (err) {
+        console.warn("[ui] failed to parse network", err);
       }
-      ws.close();
+    });
+    networkWs.addEventListener("close", () => {
+      console.warn("[ui] Network websocket closed");
+    });
+    networkWs.addEventListener("error", () => {
+      console.error("[ui] Network websocket error");
+      networkWs.close();
+    });
+
+    const storageWs = new WebSocket(storageUrl);
+    storageWsRef.current = storageWs;
+    storageWs.addEventListener("open", () => {
+      console.log("[ui] Storage websocket reconnected");
+      checkAllOpen();
+    });
+    storageWs.addEventListener("message", (event) => {
+      try {
+        const parsed: ProxyEvent = JSON.parse(event.data);
+        handleProxyEvent(parsed);
+      } catch (err) {
+        console.warn("[ui] failed to parse storage", err);
+      }
+    });
+    storageWs.addEventListener("close", () => {
+      console.warn("[ui] Storage websocket closed");
+    });
+    storageWs.addEventListener("error", () => {
+      console.error("[ui] Storage websocket error");
+      storageWs.close();
+    });
+
+    const controlWs = new WebSocket(controlUrl);
+    controlWsRef.current = controlWs;
+    controlWs.addEventListener("open", () => {
+      console.log("[ui] Control websocket reconnected");
+      checkAllOpen();
+    });
+    controlWs.addEventListener("message", (event) => {
+      try {
+        const parsed: ProxyEvent = JSON.parse(event.data);
+        handleProxyEvent(parsed);
+      } catch (err) {
+        console.warn("[ui] failed to parse control", err);
+      }
+    });
+    controlWs.addEventListener("close", () => {
+      console.warn("[ui] Control websocket closed");
+    });
+    controlWs.addEventListener("error", () => {
+      console.error("[ui] Control websocket error");
+      controlWs.close();
     });
   };
 
   const reconnectDevtools = () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
     try {
-      wsRef.current.send(
+      controlWsRef.current.send(
         JSON.stringify({
           type: "control",
           command: "reconnect-devtools",
@@ -333,9 +516,9 @@ export function useProxyStream(endpoint?: string) {
   };
 
   const mutateStorage = (payload: StorageMutationPayload) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
     try {
-      wsRef.current.send(
+      controlWsRef.current.send(
         JSON.stringify({
           type: "control",
           command: "mutate-storage",
@@ -353,9 +536,9 @@ export function useProxyStream(endpoint?: string) {
   };
 
   const fetchStorage = (deviceId?: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
     try {
-      wsRef.current.send(
+      controlWsRef.current.send(
         JSON.stringify({
           type: "control",
           command: "fetch-storage",

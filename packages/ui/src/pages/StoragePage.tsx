@@ -36,12 +36,12 @@ export default function StoragePage() {
 
   // debounce search inputs to avoid heavy updates on each keystroke
   useEffect(() => {
-    const handle = setTimeout(() => setAsyncSearchQuery(asyncInput), 220);
+    const handle = setTimeout(() => setAsyncSearchQuery(asyncInput), 500);
     return () => clearTimeout(handle);
   }, [asyncInput]);
 
   useEffect(() => {
-    const handle = setTimeout(() => setReduxSearchQuery(reduxInput), 220);
+    const handle = setTimeout(() => setReduxSearchQuery(reduxInput), 500);
     return () => clearTimeout(handle);
   }, [reduxInput]);
 

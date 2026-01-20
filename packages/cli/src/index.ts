@@ -28,8 +28,10 @@ import {
   META_KIND_DEVICES,
   METRO_WS_PATH,
   UI_STATIC_INDEX,
-  UI_WS_PATH,
-  baseDir,
+  UI_WS_MESSAGES_PATH,
+  UI_WS_NETWORK_PATH,
+  UI_WS_STORAGE_PATH,
+  UI_WS_CONTROL_PATH,
   getCliVersion,
   getMetroPort,
   getUiStaticDir,
@@ -128,11 +130,38 @@ async function startProxy(opts: ProxyOptions = {}) {
     console.log(chalk.green(`[rn-inspector] Connected to Metro websocket`));
   });
 
-  const uiWss = new WebSocketServer({ port: uiPort });
-  uiWss.on("listening", () => {
+  const messagesWss = new WebSocketServer({ port: uiPort });
+  messagesWss.on("listening", () => {
     console.log(
       chalk.blue(
-        `[rn-inspector] UI WebSocket server on ws://${host}:${uiPort}${UI_WS_PATH}`,
+        `[rn-inspector] Messages WebSocket on ws://${host}:${uiPort}${UI_WS_MESSAGES_PATH}`,
+      ),
+    );
+  });
+
+  const networkWss = new WebSocketServer({ port: uiPort + 1 });
+  networkWss.on("listening", () => {
+    console.log(
+      chalk.blue(
+        `[rn-inspector] Network WebSocket on ws://${host}:${uiPort + 1}${UI_WS_NETWORK_PATH}`,
+      ),
+    );
+  });
+
+  const storageWss = new WebSocketServer({ port: uiPort + 2 });
+  storageWss.on("listening", () => {
+    console.log(
+      chalk.blue(
+        `[rn-inspector] Storage WebSocket on ws://${host}:${uiPort + 2}${UI_WS_STORAGE_PATH}`,
+      ),
+    );
+  });
+
+  const controlWss = new WebSocketServer({ port: uiPort + 3 });
+  controlWss.on("listening", () => {
+    console.log(
+      chalk.blue(
+        `[rn-inspector] Control WebSocket on ws://${host}:${uiPort + 3}${UI_WS_CONTROL_PATH}`,
       ),
     );
   });
@@ -141,21 +170,73 @@ async function startProxy(opts: ProxyOptions = {}) {
 
   const broadcast = (message: unknown) => {
     const data = JSON.stringify(message);
-    uiWss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(data);
-      }
-    });
+    const msg = message as any;
+    
+    const isConsole = msg?.type === "console";
+    const isNetwork = msg?.type === "network";
+    const isStorage = msg?.type === "storage";
+    const isControl = msg?.type === "control";
+    const isMetaDevices = msg?.type === "meta" && msg?.payload?.kind === "devices";
+    const isMeta = msg?.type === "meta";
+    
+    if (isConsole) {
+      messagesWss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
+    } else if (isNetwork) {
+      networkWss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
+    } else if (isStorage) {
+      storageWss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
+    } else if (isControl) {
+      controlWss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
+    } else if (isMetaDevices) {
+      [messagesWss, networkWss, storageWss, controlWss].forEach((wss) => {
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+          }
+        });
+      });
+    } else if (isMeta) {
+      [messagesWss, networkWss, storageWss, controlWss].forEach((wss) => {
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+          }
+        });
+      });
+    }
   };
 
   const devtoolsBridges = new Map<string, DevtoolsBridge>();
 
   const attachDevtools = async () => {
     try {
+      devtoolsBridges.forEach((bridge) => {
+        try {
+          bridge.ws.close();
+        } catch {}
+      });
+      devtoolsBridges.clear();
+
       if (opts.devtoolsWsUrl) {
         const deviceId = DEVICE_ID_EXPLICIT;
         console.log(
-          `[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`,
+          chalk.cyan(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`),
         );
         const bridge = attachDevtoolsBridge(
           opts.devtoolsWsUrl,
@@ -212,6 +293,15 @@ async function startProxy(opts: ProxyOptions = {}) {
             devtoolsBridges.set(d.id, bridge);
           });
         } else {
+          currentDevices = [];
+          broadcast({
+            type: META_MSG_TYPE,
+            payload: {
+              kind: META_KIND_DEVICES,
+              devices: [],
+              ts: new Date().toISOString(),
+            },
+          });
           broadcast({
             type: META_MSG_TYPE,
             payload: {
@@ -230,7 +320,7 @@ async function startProxy(opts: ProxyOptions = {}) {
     }
   };
 
-  uiWss.on("connection", (client) => {
+  const sendDevicesOnConnect = (client: WebSocket) => {
     if (currentDevices.length) {
       try {
         client.send(
@@ -245,6 +335,14 @@ async function startProxy(opts: ProxyOptions = {}) {
         );
       } catch {}
     }
+  };
+
+  messagesWss.on("connection", sendDevicesOnConnect);
+  networkWss.on("connection", sendDevicesOnConnect);
+  storageWss.on("connection", sendDevicesOnConnect);
+
+  controlWss.on("connection", (client) => {
+    sendDevicesOnConnect(client);
 
     client.on("message", (data) => {
       try {
@@ -414,7 +512,10 @@ async function startProxy(opts: ProxyOptions = {}) {
       res.end(
         JSON.stringify({
           ok: true,
-          uiWs: `ws://${host}:${uiPort}${UI_WS_PATH}`,
+          uiWsMessages: `ws://${host}:${uiPort}${UI_WS_MESSAGES_PATH}`,
+          uiWsNetwork: `ws://${host}:${uiPort + 1}${UI_WS_NETWORK_PATH}`,
+          uiWsStorage: `ws://${host}:${uiPort + 2}${UI_WS_STORAGE_PATH}`,
+          uiWsControl: `ws://${host}:${uiPort + 3}${UI_WS_CONTROL_PATH}`,
         }),
       );
     },
@@ -424,7 +525,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   const address = server.address();
   console.log("[rn-inspector] Local proxy health endpoint on", address);
 
-  return { metroWs, uiWss, server, devtoolsBridges };
+  return { metroWs, messagesWss, networkWss, storageWss, controlWss, server, devtoolsBridges, attachDevtools };
 }
 
 function startStaticUi(staticPort: number) {
@@ -492,7 +593,7 @@ function openInBrowser(url: string) {
   }
 }
 
-function registerKeyHandlers(uiUrl: string) {
+function registerKeyHandlers(uiUrl: string, attachDevtoolsFn: () => Promise<void>) {
   if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
     return;
   }
@@ -503,19 +604,34 @@ function registerKeyHandlers(uiUrl: string) {
     process.stdin.setEncoding("utf8");
 
     console.log(
-      "[rn-inspector] Keyboard shortcuts: 'o' = open UI, 'r' = show reload hint, Ctrl+C = quit",
+      chalk.cyan("[rn-inspector] Keyboard shortcuts:"),
     );
+    console.log(chalk.white("  'o' = open UI in browser"));
+    console.log(chalk.white("  'd' = reconnect to DevTools"));
+    console.log(chalk.white("  'r' = show reload hint"));
+    console.log(chalk.white("  'h' = show this help"));
+    console.log(chalk.white("  Ctrl+C = quit"));
 
     process.stdin.on("data", (chunk: string) => {
       const key = chunk.toString();
 
       if (key === "o" || key === "O") {
-        console.log("[rn-inspector] Opening UI in browser...");
+        console.log(chalk.green("[rn-inspector] Opening UI in browser..."));
         openInBrowser(uiUrl);
+      } else if (key === "d" || key === "D") {
+        console.log(chalk.yellow("[rn-inspector] Reconnecting to DevTools..."));
+        void attachDevtoolsFn();
       } else if (key === "r" || key === "R") {
         console.log(
-          "[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.",
+          chalk.yellow("[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again."),
         );
+      } else if (key === "h" || key === "H") {
+        console.log(chalk.cyan("\n[rn-inspector] Keyboard shortcuts:"));
+        console.log(chalk.white("  'o' = open UI in browser"));
+        console.log(chalk.white("  'd' = reconnect to DevTools"));
+        console.log(chalk.white("  'r' = show reload hint"));
+        console.log(chalk.white("  'h' = show this help"));
+        console.log(chalk.white("  Ctrl+C = quit\n"));
       } else if (key === "\u0003") {
         process.exit(0);
       }
@@ -523,6 +639,31 @@ function registerKeyHandlers(uiUrl: string) {
   } catch (err) {
     console.error("[rn-inspector] Failed to register key handlers:", err);
   }
+}
+
+function printBanner() {
+  const banner = `
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ██████╗ ███╗   ██╗    ██╗███╗   ██╗███████╗██████╗          ║
+║   ██╔══██╗████╗  ██║    ██║████╗  ██║██╔════╝██╔══██╗         ║
+║   ██████╔╝██╔██╗ ██║    ██║██╔██╗ ██║███████╗██████╔╝         ║
+║   ██╔══██╗██║╚██╗██║    ██║██║╚██╗██║╚════██║██╔═══╝          ║
+║   ██║  ██║██║ ╚████║    ██║██║ ╚████║███████║██║              ║
+║   ╚═╝  ╚═╝╚═╝  ╚═══╝    ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝              ║
+║                                                               ║
+║              ███████╗ ██████╗████████╗ ██████╗ ██████╗        ║
+║              ██╔════╝██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗       ║
+║              █████╗  ██║        ██║   ██║   ██║██████╔╝       ║
+║              ██╔══╝  ██║        ██║   ██║   ██║██╔══██╗       ║
+║              ███████╗╚██████╗   ██║   ╚██████╔╝██║  ██║       ║
+║              ╚══════╝ ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝       ║
+║                                                               ║
+║              DevTools for React Native Applications           ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+`;
+  console.log(chalk.cyan(banner));
 }
 
 export async function main() {
@@ -540,11 +681,13 @@ export async function main() {
     return;
   }
 
+  printBanner();
+
   const devtoolsWsUrl = explicitDevtoolsWsUrl;
 
   console.log(
     chalk.magenta(
-      `[rn-inspector] starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`,
+      `[rn-inspector] Starting proxy (Metro ${metroPort}, UI WS ${uiWsPort ?? DEFAULT_UI_WS_PORT})`,
     ),
   );
   if (devtoolsWsUrl) {
@@ -552,19 +695,24 @@ export async function main() {
       chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`),
     );
   }
-  await startProxy({ metroPort, uiWsPort, devtoolsWsUrl });
+  const { attachDevtools } = await startProxy({ metroPort, uiWsPort, devtoolsWsUrl });
 
-  console.log(chalk.blue("[rn-inspector] serving UI assets..."));
+  console.log(chalk.blue("[rn-inspector] Serving UI assets..."));
   startStaticUi(uiPort);
 
   const uiUrl = `http://localhost:${uiPort}`;
   console.log(
     chalk.green(
-      `[rn-inspector] open ${uiUrl} (UI connects to ws://localhost:${uiWsPort ?? DEFAULT_UI_WS_PORT}${UI_WS_PATH})`,
+      `[rn-inspector] Open ${uiUrl}`,
+    ),
+  );
+  console.log(
+    chalk.cyan(
+      `[rn-inspector] WebSockets: Messages:${uiWsPort ?? DEFAULT_UI_WS_PORT}, Network:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 1}, Storage:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 2}, Control:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 3}`,
     ),
   );
 
-  registerKeyHandlers(uiUrl);
+  registerKeyHandlers(uiUrl, attachDevtools);
 }
 
 main().catch((err) => {
