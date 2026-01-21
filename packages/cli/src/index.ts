@@ -186,15 +186,16 @@ async function startProxy(opts: ProxyOptions = {}) {
   const broadcast = (message: unknown) => {
     const data = JSON.stringify(message);
     const msg = message as any;
-    
+
     const isConsole = msg?.type === "console";
     const isNetwork = msg?.type === "network";
     const isStorage = msg?.type === "storage";
     const isControl = msg?.type === "control";
     const isNavigation = msg?.type === "navigation";
-    const isMetaDevices = msg?.type === "meta" && msg?.payload?.kind === "devices";
+    const isMetaDevices =
+      msg?.type === "meta" && msg?.payload?.kind === "devices";
     const isMeta = msg?.type === "meta";
-    
+
     if (isConsole) {
       messagesWss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -226,21 +227,25 @@ async function startProxy(opts: ProxyOptions = {}) {
         }
       });
     } else if (isMetaDevices) {
-      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach((wss) => {
-        wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(data);
-          }
-        });
-      });
+      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach(
+        (wss) => {
+          wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(data);
+            }
+          });
+        },
+      );
     } else if (isMeta) {
-      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach((wss) => {
-        wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(data);
-          }
-        });
-      });
+      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach(
+        (wss) => {
+          wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(data);
+            }
+          });
+        },
+      );
     }
   };
 
@@ -258,7 +263,9 @@ async function startProxy(opts: ProxyOptions = {}) {
       if (opts.devtoolsWsUrl) {
         const deviceId = DEVICE_ID_EXPLICIT;
         console.log(
-          chalk.cyan(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`),
+          chalk.cyan(
+            `[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`,
+          ),
         );
         const bridge = attachDevtoolsBridge(
           opts.devtoolsWsUrl,
@@ -471,7 +478,10 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             } else {
               devtoolsBridges.forEach((bridge) => {
-                sendMutation({ ...bridge, requestId: `${requestId}-${bridge.deviceId}` } as any);
+                sendMutation({
+                  ...bridge,
+                  requestId: `${requestId}-${bridge.deviceId}`,
+                } as any);
               });
             }
           }
@@ -480,85 +490,100 @@ async function startProxy(opts: ProxyOptions = {}) {
           msg.command === CONTROL_CMD_NAVIGATE
         ) {
           const targetDeviceId = msg.deviceId;
-          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
-            ? devtoolsBridges.get(targetDeviceId)
-            : devtoolsBridges.values().next().value;
+          const bridge =
+            targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+              ? devtoolsBridges.get(targetDeviceId)
+              : devtoolsBridges.values().next().value;
 
           if (bridge) {
-            bridge.ws.send(JSON.stringify({
-              method: "Runtime.evaluate",
-              params: {
-                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['navigate']?.(${JSON.stringify({ routeName: msg.routeName, params: msg.params })})`,
-              },
-            }));
+            bridge.ws.send(
+              JSON.stringify({
+                method: "Runtime.evaluate",
+                params: {
+                  expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['navigate']?.(${JSON.stringify({ routeName: msg.routeName, params: msg.params })})`,
+                },
+              }),
+            );
           }
         } else if (
           msg.type === CONTROL_MSG_TYPE &&
           msg.command === CONTROL_CMD_GO_BACK
         ) {
           const targetDeviceId = msg.deviceId;
-          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
-            ? devtoolsBridges.get(targetDeviceId)
-            : devtoolsBridges.values().next().value;
+          const bridge =
+            targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+              ? devtoolsBridges.get(targetDeviceId)
+              : devtoolsBridges.values().next().value;
 
           if (bridge) {
-            bridge.ws.send(JSON.stringify({
-              method: "Runtime.evaluate",
-              params: {
-                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['go-back']?.()`,
-              },
-            }));
+            bridge.ws.send(
+              JSON.stringify({
+                method: "Runtime.evaluate",
+                params: {
+                  expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['go-back']?.()`,
+                },
+              }),
+            );
           }
         } else if (
           msg.type === CONTROL_MSG_TYPE &&
           msg.command === CONTROL_CMD_RESET_NAVIGATION
         ) {
           const targetDeviceId = msg.deviceId;
-          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
-            ? devtoolsBridges.get(targetDeviceId)
-            : devtoolsBridges.values().next().value;
+          const bridge =
+            targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+              ? devtoolsBridges.get(targetDeviceId)
+              : devtoolsBridges.values().next().value;
 
           if (bridge) {
-            bridge.ws.send(JSON.stringify({
-              method: "Runtime.evaluate",
-              params: {
-                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['reset-navigation']?.(${JSON.stringify({ state: msg.state })})`,
-              },
-            }));
+            bridge.ws.send(
+              JSON.stringify({
+                method: "Runtime.evaluate",
+                params: {
+                  expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['reset-navigation']?.(${JSON.stringify({ state: msg.state })})`,
+                },
+              }),
+            );
           }
         } else if (
           msg.type === CONTROL_MSG_TYPE &&
           msg.command === CONTROL_CMD_OPEN_URL
         ) {
           const targetDeviceId = msg.deviceId;
-          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
-            ? devtoolsBridges.get(targetDeviceId)
-            : devtoolsBridges.values().next().value;
+          const bridge =
+            targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+              ? devtoolsBridges.get(targetDeviceId)
+              : devtoolsBridges.values().next().value;
 
           if (bridge) {
-            bridge.ws.send(JSON.stringify({
-              method: "Runtime.evaluate",
-              params: {
-                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['open-url']?.(${JSON.stringify({ url: msg.url })})`,
-              },
-            }));
+            bridge.ws.send(
+              JSON.stringify({
+                method: "Runtime.evaluate",
+                params: {
+                  expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['open-url']?.(${JSON.stringify({ url: msg.url })})`,
+                },
+              }),
+            );
           }
         } else if (
           msg.type === CONTROL_MSG_TYPE &&
           msg.command === CONTROL_CMD_GET_NAVIGATION_STATE
         ) {
           const targetDeviceId = msg.deviceId;
-          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
-            ? devtoolsBridges.get(targetDeviceId)
-            : devtoolsBridges.values().next().value;
+          const bridge =
+            targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+              ? devtoolsBridges.get(targetDeviceId)
+              : devtoolsBridges.values().next().value;
 
           if (bridge) {
-            bridge.ws.send(JSON.stringify({
-              method: "Runtime.evaluate",
-              params: {
-                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
-              },
-            }));
+            bridge.ws.send(
+              JSON.stringify({
+                method: "Runtime.evaluate",
+                params: {
+                  expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
+                },
+              }),
+            );
           }
         }
       } catch {}
@@ -634,7 +659,17 @@ async function startProxy(opts: ProxyOptions = {}) {
   const address = server.address();
   console.log("[rn-inspector] Local proxy health endpoint on", address);
 
-  return { metroWs, messagesWss, networkWss, storageWss, controlWss, navigationWss, server, devtoolsBridges, attachDevtools };
+  return {
+    metroWs,
+    messagesWss,
+    networkWss,
+    storageWss,
+    controlWss,
+    navigationWss,
+    server,
+    devtoolsBridges,
+    attachDevtools,
+  };
 }
 
 function startStaticUi(staticPort: number) {
@@ -702,7 +737,10 @@ function openInBrowser(url: string) {
   }
 }
 
-function registerKeyHandlers(uiUrl: string, attachDevtoolsFn: () => Promise<void>) {
+function registerKeyHandlers(
+  uiUrl: string,
+  attachDevtoolsFn: () => Promise<void>,
+) {
   if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
     return;
   }
@@ -712,9 +750,7 @@ function registerKeyHandlers(uiUrl: string, attachDevtoolsFn: () => Promise<void
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
 
-    console.log(
-      chalk.cyan("[rn-inspector] Keyboard shortcuts:"),
-    );
+    console.log(chalk.cyan("[rn-inspector] Keyboard shortcuts:"));
     console.log(chalk.white("  'o' = open UI in browser"));
     console.log(chalk.white("  'd' = reconnect to DevTools"));
     console.log(chalk.white("  'r' = show reload hint"));
@@ -732,7 +768,9 @@ function registerKeyHandlers(uiUrl: string, attachDevtoolsFn: () => Promise<void
         void attachDevtoolsFn();
       } else if (key === "r" || key === "R") {
         console.log(
-          chalk.yellow("[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again."),
+          chalk.yellow(
+            "[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.",
+          ),
         );
       } else if (key === "h" || key === "H") {
         console.log(chalk.cyan("\n[rn-inspector] Keyboard shortcuts:"));
@@ -804,17 +842,17 @@ export async function main() {
       chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`),
     );
   }
-  const { attachDevtools } = await startProxy({ metroPort, uiWsPort, devtoolsWsUrl });
+  const { attachDevtools } = await startProxy({
+    metroPort,
+    uiWsPort,
+    devtoolsWsUrl,
+  });
 
   console.log(chalk.blue("[rn-inspector] Serving UI assets..."));
   startStaticUi(uiPort);
 
   const uiUrl = `http://localhost:${uiPort}`;
-  console.log(
-    chalk.green(
-      `[rn-inspector] Open ${uiUrl}`,
-    ),
-  );
+  console.log(chalk.green(`[rn-inspector] Open ${uiUrl}`));
   console.log(
     chalk.cyan(
       `[rn-inspector] WebSockets: Messages:${uiWsPort ?? DEFAULT_UI_WS_PORT}, Network:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 1}, Storage:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 2}, Control:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 3}, Navigation:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 4}`,

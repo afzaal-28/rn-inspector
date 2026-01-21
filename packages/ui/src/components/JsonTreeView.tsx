@@ -151,7 +151,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
   const [childKeyDraft, setChildKeyDraft] = useState("");
   const [childValueDraft, setChildValueDraft] = useState("");
   const [siblingValueDraft, setSiblingValueDraft] = useState("");
-  const [deleteAnchorEl, setDeleteAnchorEl] = useState<HTMLElement | null>(null);
+  const [deleteAnchorEl, setDeleteAnchorEl] = useState<HTMLElement | null>(
+    null,
+  );
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const currentPath = buildPath(parentPath, name);
@@ -199,7 +201,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
   };
 
   const handleDeleteConfirm = () => {
-    if (!onMutate || !storageTarget || !currentPath.length || !canDelete) return;
+    if (!onMutate || !storageTarget || !currentPath.length || !canDelete)
+      return;
     onMutate({ target: storageTarget, op: "delete", path: currentPath });
     handleDeleteCancel();
   };
@@ -310,7 +313,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
               </Box>
             }
           />
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
+          <Box
+            sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}
+          >
             <Button size="small" variant="text" onClick={handleEditSave}>
               Save
             </Button>
@@ -363,7 +368,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
               size="small"
               label="Value (JSON)"
               placeholder='"hello", 123, { "a": 1 }'
-              value={addMode === "sibling" ? siblingValueDraft : childValueDraft}
+              value={
+                addMode === "sibling" ? siblingValueDraft : childValueDraft
+              }
               onChange={(e) =>
                 addMode === "sibling"
                   ? setSiblingValueDraft(e.target.value)
@@ -374,11 +381,10 @@ const JsonTreeNode = memo(function JsonTreeNode({
                   component="span"
                   sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                 >
-                  Parent: {
-                    addMode === "sibling"
-                      ? formatPathLabel(parentPath ? [...parentPath] : [])
-                      : formatPathLabel(currentPath)
-                  }
+                  Parent:{" "}
+                  {addMode === "sibling"
+                    ? formatPathLabel(parentPath ? [...parentPath] : [])
+                    : formatPathLabel(currentPath)}
                 </Box>
               }
               multiline
@@ -389,7 +395,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
               <Button
                 size="small"
                 variant="text"
-                onClick={addMode === "sibling" ? handleSiblingSave : handleAddSave}
+                onClick={
+                  addMode === "sibling" ? handleSiblingSave : handleAddSave
+                }
               >
                 Save
               </Button>
@@ -434,7 +442,12 @@ const JsonTreeNode = memo(function JsonTreeNode({
             Delete {currentPathLabel || "item"}?
           </Typography>
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-            <Button size="small" color="error" variant="text" onClick={handleDeleteConfirm}>
+            <Button
+              size="small"
+              color="error"
+              variant="text"
+              onClick={handleDeleteConfirm}
+            >
               Delete
             </Button>
             <Button size="small" variant="text" onClick={handleDeleteCancel}>
@@ -445,7 +458,6 @@ const JsonTreeNode = memo(function JsonTreeNode({
       </ClickAwayListener>
     </Popper>
   );
-
 
   if (depth > maxDepth) {
     return (
@@ -506,9 +518,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
               fontSize: 12,
               color: getValueColor(data),
               backgroundColor:
-                q &&
-                typeof data === "string" &&
-                data.toLowerCase().includes(q)
+                q && typeof data === "string" && data.toLowerCase().includes(q)
                   ? "rgba(255, 193, 7, 0.25)"
                   : "transparent",
               wordBreak: "break-word",
@@ -538,7 +548,11 @@ const JsonTreeNode = memo(function JsonTreeNode({
                 </IconButton>
               )}
               {canDelete && (
-                <IconButton size="small" onClick={handleDelete} disabled={editingValue}>
+                <IconButton
+                  size="small"
+                  onClick={handleDelete}
+                  disabled={editingValue}
+                >
                   <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               )}

@@ -92,7 +92,8 @@ export function handleInjectedNetworkFromConsole(
 
   if (phase === "complete") {
     // Complete phase contains all data in one event
-    const ts = typeof payload.ts === "string" ? payload.ts : new Date().toISOString();
+    const ts =
+      typeof payload.ts === "string" ? payload.ts : new Date().toISOString();
     broadcast({
       type: "network",
       payload: {
@@ -102,15 +103,25 @@ export function handleInjectedNetworkFromConsole(
         method: String(payload.method || "GET"),
         url: String(payload.url || ""),
         status: typeof payload.status === "number" ? payload.status : undefined,
-        durationMs: typeof payload.durationMs === "number" ? payload.durationMs : undefined,
+        durationMs:
+          typeof payload.durationMs === "number"
+            ? payload.durationMs
+            : undefined,
         error: typeof payload.error === "string" ? payload.error : undefined,
-        requestHeaders: payload.requestHeaders as Record<string, string> | undefined,
-        responseHeaders: payload.responseHeaders as Record<string, string> | undefined,
+        requestHeaders: payload.requestHeaders as
+          | Record<string, string>
+          | undefined,
+        responseHeaders: payload.responseHeaders as
+          | Record<string, string>
+          | undefined,
         requestBody: payload.requestBody,
         responseBody: payload.responseBody,
         deviceId,
         source: typeof payload.source === "string" ? payload.source : undefined,
-        resourceType: typeof payload.resourceType === "string" ? (payload.resourceType as NetworkResourceType) : undefined,
+        resourceType:
+          typeof payload.resourceType === "string"
+            ? (payload.resourceType as NetworkResourceType)
+            : undefined,
       },
     });
     return true;
@@ -228,6 +239,47 @@ export function handleInjectedNetworkFromConsole(
     });
     map.delete(id);
   }
+
+  return true;
+}
+
+export function handleInjectedNavigationFromConsole(
+  params: any,
+  broadcast: (message: unknown) => void,
+  deviceId?: string,
+): boolean {
+  if (!params || !Array.isArray(params.args) || params.args.length === 0)
+    return false;
+  const first = params.args[0];
+  const raw = typeof first.value === "string" ? first.value : undefined;
+  if (!raw || !raw.startsWith("__RN_INSPECTOR_NAVIGATION__")) return false;
+
+  const rest = raw.slice("__RN_INSPECTOR_NAVIGATION__".length);
+  const trimmed = rest.trim().startsWith(":")
+    ? rest.trim().slice(1).trim()
+    : rest.trim();
+
+  let payload: any;
+  try {
+    payload = JSON.parse(trimmed);
+  } catch {
+    return true;
+  }
+
+  broadcast({
+    type: "navigation",
+    payload: {
+      type: payload.type,
+      state: payload.state,
+      history: payload.history,
+      availableRoutes: payload.availableRoutes,
+      routeName: payload.routeName,
+      params: payload.params,
+      url: payload.url,
+      timestamp: payload.timestamp || new Date().toISOString(),
+      deviceId,
+    },
+  });
 
   return true;
 }
@@ -480,7 +532,9 @@ export async function handleNetworkEvent(
             if (result.base64Encoded) {
               // Decode base64 data
               try {
-                const decoded = Buffer.from(result.body, 'base64').toString('utf-8');
+                const decoded = Buffer.from(result.body, "base64").toString(
+                  "utf-8",
+                );
                 existing.responseBody = tryParseJson(decoded);
               } catch (err) {
                 // If decode fails, it's likely binary data

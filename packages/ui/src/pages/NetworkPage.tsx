@@ -191,7 +191,9 @@ const NetworkPage = () => {
       return null;
     }
     try {
-      const encoded = btoa(unescape(encodeURIComponent(selectedEvent.responseBody)));
+      const encoded = btoa(
+        unescape(encodeURIComponent(selectedEvent.responseBody)),
+      );
       return `data:text/html;base64,${encoded}`;
     } catch {
       return null;
@@ -201,7 +203,7 @@ const NetworkPage = () => {
   const isTextLikeResponse =
     isHtmlResponse ||
     responseContentType.toLowerCase().includes("text/") ||
-    !isImageResponse && !isPdfResponse && !isVideoResponse;
+    (!isImageResponse && !isPdfResponse && !isVideoResponse);
 
   let parsedJsonBody: unknown | null = null;
   if (selectedEvent && selectedEvent.responseBody != null) {
@@ -233,7 +235,7 @@ const NetworkPage = () => {
     latest.forEach((evt) => {
       const key = evt.id || `${evt.method}:${evt.url}:${evt.ts}`;
       const existing = byId.get(key);
-      
+
       if (!existing) {
         byId.set(key, { ...evt });
       } else {
@@ -246,8 +248,12 @@ const NetworkPage = () => {
           ...(evt.error !== undefined && { error: evt.error }),
           ...(evt.requestHeaders && { requestHeaders: evt.requestHeaders }),
           ...(evt.responseHeaders && { responseHeaders: evt.responseHeaders }),
-          ...(evt.requestBody !== undefined && { requestBody: evt.requestBody }),
-          ...(evt.responseBody !== undefined && { responseBody: evt.responseBody }),
+          ...(evt.requestBody !== undefined && {
+            requestBody: evt.requestBody,
+          }),
+          ...(evt.responseBody !== undefined && {
+            responseBody: evt.responseBody,
+          }),
           ...(evt.resourceType && { resourceType: evt.resourceType }),
           // Keep the earliest timestamp
           ts: existing.ts,

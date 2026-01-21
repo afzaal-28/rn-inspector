@@ -46,7 +46,9 @@ export const baseDir: string =
 export function getUiStaticDir(): string {
   const resolved = path.resolve(baseDir, "../../ui");
   if (!resolved.startsWith(path.resolve(baseDir, "../.."))) {
-    console.warn("[rn-inspector] ui static dir resolved outside expected root, falling back to baseDir/ui");
+    console.warn(
+      "[rn-inspector] ui static dir resolved outside expected root, falling back to baseDir/ui",
+    );
     return path.join(baseDir, "ui");
   }
   if (!fs.existsSync(resolved)) {

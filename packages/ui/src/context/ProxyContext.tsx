@@ -34,7 +34,11 @@ export interface ProxyContextValue {
   reconnectDevtools: () => void;
   fetchStorage: (deviceId?: string) => void;
   mutateStorage: (payload: StorageMutationPayload) => void;
-  navigateToRoute: (routeName: string, params?: Record<string, unknown>, deviceId?: string) => void;
+  navigateToRoute: (
+    routeName: string,
+    params?: Record<string, unknown>,
+    deviceId?: string,
+  ) => void;
   goBack: (deviceId?: string) => void;
   resetNavigation: (state: unknown, deviceId?: string) => void;
   openUrl: (url: string, deviceId?: string) => void;

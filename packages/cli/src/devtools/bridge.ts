@@ -2,10 +2,12 @@ import WebSocket from "ws";
 import chalk from "chalk";
 import { INJECT_NETWORK_SNIPPET } from "../snippets/INJECT_NETWORK_SNIPPET";
 import { INJECT_STORAGE_SNIPPET } from "../snippets/INJECT_STORAGE_SNIPPET";
+import { INJECT_NAVIGATION_SNIPPET } from "../snippets/INJECT_NAVIGATION_SNIPPET";
 import type { DevtoolsBridge, DevtoolsState } from "../types/Index";
 import {
   handleInjectedNetworkFromConsole,
   handleInjectedStorageFromConsole,
+  handleInjectedNavigationFromConsole,
   handleLogEntry,
   handleNetworkEvent,
   handleRuntimeConsole,
@@ -24,7 +26,10 @@ export function attachDevtoolsBridge(
 
   let nextConsoleEvalId = 100;
   const pendingConsoleEvals = new Map<number, (value: unknown) => void>();
-  const pendingNetworkBodyRequests = new Map<number, (value: unknown) => void>();
+  const pendingNetworkBodyRequests = new Map<
+    number,
+    (value: unknown) => void
+  >();
 
   const evaluateConsoleArg = async (arg: any): Promise<unknown> => {
     if (!arg || typeof arg !== "object" || !arg.objectId) {
@@ -307,6 +312,15 @@ export function attachDevtoolsBridge(
               awaitPromise: false,
             },
           },
+          {
+            id: 8,
+            method: "Runtime.evaluate",
+            params: {
+              expression: INJECT_NAVIGATION_SNIPPET,
+              includeCommandLineAPI: false,
+              awaitPromise: false,
+            },
+          },
         ];
         injections.forEach((injection) => {
           ws.send(JSON.stringify(injection));
@@ -350,7 +364,7 @@ export function attachDevtoolsBridge(
             }
             resolver(value);
           }
-          
+
           const networkBodyResolver = pendingNetworkBodyRequests.get(parsed.id);
           if (networkBodyResolver) {
             pendingNetworkBodyRequests.delete(parsed.id);
@@ -371,6 +385,8 @@ export function attachDevtoolsBridge(
             return;
           if (handleInjectedStorageFromConsole(params, broadcast, deviceId))
             return;
+          if (handleInjectedNavigationFromConsole(params, broadcast, deviceId))
+            return;
           await handleRuntimeConsole(
             params,
             broadcast,
@@ -385,7 +401,15 @@ export function attachDevtoolsBridge(
           method === "Network.loadingFinished" ||
           method === "Network.loadingFailed"
         ) {
-          handleNetworkEvent(method, params, state, broadcast, ws, pendingNetworkBodyRequests, deviceId);
+          handleNetworkEvent(
+            method,
+            params,
+            state,
+            broadcast,
+            ws,
+            pendingNetworkBodyRequests,
+            deviceId,
+          );
         }
       } catch {}
     });

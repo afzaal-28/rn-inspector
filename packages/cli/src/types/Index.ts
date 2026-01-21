@@ -80,7 +80,14 @@ export type NavigationHistoryEntry = {
 export type NavigationEvent = {
   type: "navigation";
   payload: {
-    type: "installed" | "ref-ready" | "state-change" | "navigate" | "go-back" | "reset" | "open-url";
+    type:
+      | "installed"
+      | "ref-ready"
+      | "state-change"
+      | "navigate"
+      | "go-back"
+      | "reset"
+      | "open-url";
     state?: NavigationState;
     history?: NavigationHistoryEntry[];
     availableRoutes?: string[];
@@ -93,7 +100,12 @@ export type NavigationEvent = {
 };
 
 export type NavigationCommand = {
-  command: "navigate" | "go-back" | "reset-navigation" | "open-url" | "get-navigation-state";
+  command:
+    | "navigate"
+    | "go-back"
+    | "reset-navigation"
+    | "open-url"
+    | "get-navigation-state";
   payload?: {
     routeName?: string;
     params?: Record<string, unknown>;

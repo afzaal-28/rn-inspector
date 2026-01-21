@@ -80,7 +80,9 @@ export default function NavigationPage() {
 
   const currentRoute = navigationState?.currentRoute;
   const hasHistory = navigationHistory && navigationHistory.length > 0;
-  const isNavigationConfigured = Boolean(currentRoute || availableRoutes.length > 0);
+  const isNavigationConfigured = Boolean(
+    currentRoute || availableRoutes.length > 0,
+  );
 
   return (
     <Box sx={{ p: 2, height: "100%", overflow: "auto" }}>
@@ -109,7 +111,8 @@ export default function NavigationPage() {
                 Navigation Setup Required
               </Typography>
               <Typography variant="body2" gutterBottom>
-                To enable navigation inspection, add the following to your React Native app:
+                To enable navigation inspection, add the following to your React
+                Native app:
               </Typography>
               <Box
                 component="pre"
@@ -143,7 +146,11 @@ function App() {
   );
 }`}
               </Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 1, display: "block" }}
+              >
                 After adding this code, reload your app and refresh this page.
               </Typography>
             </Alert>
@@ -250,18 +257,19 @@ function App() {
                           {formatTimestamp(entry.timestamp)}
                         </Typography>
                       </Stack>
-                      {entry.params &&
-                        Object.keys(entry.params).length > 0 && (
-                          <Box sx={{ mt: 1 }}>
-                            <JsonTreeView data={entry.params} />
-                          </Box>
-                        )}
+                      {entry.params && Object.keys(entry.params).length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          <JsonTreeView data={entry.params} />
+                        </Box>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
               </Stack>
             ) : (
-              <Alert severity="info">No navigation history available yet.</Alert>
+              <Alert severity="info">
+                No navigation history available yet.
+              </Alert>
             )}
           </Stack>
         </GlassPanel>
@@ -286,7 +294,9 @@ function App() {
                         label={route}
                         onClick={() => setSelectedRoute(route)}
                         color={selectedRoute === route ? "primary" : "default"}
-                        variant={selectedRoute === route ? "filled" : "outlined"}
+                        variant={
+                          selectedRoute === route ? "filled" : "outlined"
+                        }
                       />
                     ))}
                   </Stack>
@@ -310,7 +320,9 @@ function App() {
                   multiline
                   rows={3}
                   error={!!paramsError}
-                  helperText={paramsError || 'e.g., {"id": 123, "name": "test"}'}
+                  helperText={
+                    paramsError || 'e.g., {"id": 123, "name": "test"}'
+                  }
                   placeholder="{}"
                 />
                 <Button
@@ -375,25 +387,30 @@ function App() {
           </Stack>
         </GlassPanel>
 
-        {Boolean(navigationState?.state && typeof navigationState.state === 'object') && navigationState && (
-          <GlassPanel>
-            <Stack spacing={2}>
-              <Typography variant="h6">Full Navigation State</Typography>
-              <Divider />
-              <Box
-                sx={{
-                  maxHeight: 400,
-                  overflow: "auto",
-                  bgcolor: "background.default",
-                  p: 1,
-                  borderRadius: 1,
-                }}
-              >
-                <JsonTreeView data={navigationState.state as Record<string, unknown>} />
-              </Box>
-            </Stack>
-          </GlassPanel>
-        )}
+        {Boolean(
+          navigationState?.state && typeof navigationState.state === "object",
+        ) &&
+          navigationState && (
+            <GlassPanel>
+              <Stack spacing={2}>
+                <Typography variant="h6">Full Navigation State</Typography>
+                <Divider />
+                <Box
+                  sx={{
+                    maxHeight: 400,
+                    overflow: "auto",
+                    bgcolor: "background.default",
+                    p: 1,
+                    borderRadius: 1,
+                  }}
+                >
+                  <JsonTreeView
+                    data={navigationState.state as Record<string, unknown>}
+                  />
+                </Box>
+              </Stack>
+            </GlassPanel>
+          )}
       </Stack>
     </Box>
   );

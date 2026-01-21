@@ -9,13 +9,17 @@ export const INJECT_NAVIGATION_SNIPPET = `
   const MAX_HISTORY = 50;
 
   function sendNavigationEvent(type, payload) {
-    if (typeof globalAny.__RN_INSPECTOR_SEND__ === 'function') {
-      globalAny.__RN_INSPECTOR_SEND__({
-        type: 'navigation',
-        payload: { type, ...payload },
+    try {
+      const data = {
+        type,
+        ...payload,
         timestamp: new Date().toISOString(),
-        deviceId: globalAny.__RN_INSPECTOR_DEVICE_ID__ || 'unknown',
-      });
+      };
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('__RN_INSPECTOR_NAVIGATION__:' + JSON.stringify(data));
+      }
+    } catch (e) {
+      // Ignore serialization errors
     }
   }
 
