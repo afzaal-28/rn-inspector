@@ -325,6 +325,17 @@ export function attachDevtoolsBridge(
         injections.forEach((injection) => {
           ws.send(JSON.stringify(injection));
         });
+        
+        setTimeout(() => {
+          ws.send(
+            JSON.stringify({
+              method: "Runtime.evaluate",
+              params: {
+                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
+              },
+            }),
+          );
+        }, 1000);
         broadcast({
           type: "meta",
           payload: {

@@ -15,6 +15,7 @@ import {
   type StorageMutationPayload,
   type NavigationState,
   type NavigationHistoryEntry,
+  type NavigationRoute,
 } from "../hooks/useProxyStream";
 
 export interface ProxyContextValue {
@@ -23,7 +24,7 @@ export interface ProxyContextValue {
   storageData: Map<string, StorageEvent>;
   navigationState: NavigationState | null;
   navigationHistory: NavigationHistoryEntry[];
-  availableRoutes: string[];
+  availableRoutes: NavigationRoute[];
   status: "connecting" | "open" | "closed" | "error";
   stats: { consoleCount: number; networkCount: number; status: typeof status };
   reconnect: () => void;
@@ -35,7 +36,12 @@ export interface ProxyContextValue {
   fetchStorage: (deviceId?: string) => void;
   mutateStorage: (payload: StorageMutationPayload) => void;
   navigateToRoute: (
-    routeName: string,
+    routeKey: string,
+    params?: Record<string, unknown>,
+    deviceId?: string,
+  ) => void;
+  replaceToRoute: (
+    routeKey: string,
     params?: Record<string, unknown>,
     deviceId?: string,
   ) => void;
@@ -151,6 +157,7 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     fetchStorage: stream.fetchStorage,
     mutateStorage: stream.mutateStorage,
     navigateToRoute: stream.navigateToRoute,
+    replaceToRoute: stream.replaceToRoute,
     goBack: stream.goBack,
     resetNavigation: stream.resetNavigation,
     openUrl: stream.openUrl,

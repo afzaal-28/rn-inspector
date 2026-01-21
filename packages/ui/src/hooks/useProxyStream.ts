@@ -94,8 +94,9 @@ export type NavigationEvent = {
     | "open-url";
   state?: NavigationState;
   history?: NavigationHistoryEntry[];
-  availableRoutes?: string[];
+  availableRoutes?: NavigationRoute[];
   routeName?: string;
+  routeKey?: string;
   params?: Record<string, unknown>;
   url?: string;
   timestamp?: string;
@@ -149,7 +150,7 @@ export function useProxyStream(endpoint?: string) {
   const [navigationHistory, setNavigationHistory] = useState<
     NavigationHistoryEntry[]
   >([]);
-  const [availableRoutes, setAvailableRoutes] = useState<string[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<NavigationRoute[]>([]);
   const [status, setStatus] = useState<
     "connecting" | "open" | "closed" | "error"
   >("connecting");
@@ -686,7 +687,7 @@ export function useProxyStream(endpoint?: string) {
   };
 
   const navigateToRoute = (
-    routeName: string,
+    routeKey: string,
     params?: Record<string, unknown>,
     deviceId?: string,
   ) => {
@@ -700,7 +701,32 @@ export function useProxyStream(endpoint?: string) {
         JSON.stringify({
           type: "control",
           command: "navigate",
-          routeName,
+          routeKey,
+          params,
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  const replaceToRoute = (
+    routeKey: string,
+    params?: Record<string, unknown>,
+    deviceId?: string,
+  ) => {
+    if (
+      !controlWsRef.current ||
+      controlWsRef.current.readyState !== WebSocket.OPEN
+    )
+      return;
+    try {
+      controlWsRef.current.send(
+        JSON.stringify({
+          type: "control",
+          command: "replace",
+          routeKey,
           params,
           deviceId: deviceId || activeDeviceId,
         }),
@@ -806,6 +832,7 @@ export function useProxyStream(endpoint?: string) {
     fetchStorage,
     mutateStorage,
     navigateToRoute,
+    replaceToRoute,
     goBack,
     resetNavigation,
     openUrl,

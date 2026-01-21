@@ -11,6 +11,10 @@ import {
   IconButton,
   Divider,
   Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import NavigationIcon from "@mui/icons-material/Navigation";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -36,7 +40,9 @@ export default function NavigationPage() {
     navigationHistory,
     availableRoutes,
     navigateToRoute,
+    replaceToRoute,
     goBack,
+    resetNavigation,
     openUrl,
     getNavigationState,
     activeDeviceId,
@@ -46,6 +52,9 @@ export default function NavigationPage() {
   const [routeParams, setRouteParams] = useState<string>("{}");
   const [deepLinkUrl, setDeepLinkUrl] = useState<string>("");
   const [paramsError, setParamsError] = useState<string>("");
+  const [navigationMethod, setNavigationMethod] = useState<string>("navigate");
+  const [resetState, setResetState] = useState<string>("{}");
+  const [resetStateError, setResetStateError] = useState<string>("");
 
   useEffect(() => {
     if (activeDeviceId) {
@@ -59,7 +68,12 @@ export default function NavigationPage() {
     try {
       const params = routeParams.trim() ? JSON.parse(routeParams) : undefined;
       setParamsError("");
-      navigateToRoute(selectedRoute, params, activeDeviceId);
+
+      if (navigationMethod === 'navigate') {
+        navigateToRoute(selectedRoute, params, activeDeviceId);
+      } else if (navigationMethod === 'replace') {
+        replaceToRoute(selectedRoute, params, activeDeviceId);
+      }
     } catch (err) {
       setParamsError("Invalid JSON params");
     }
@@ -232,40 +246,42 @@ function App() {
             </Box>
             <Divider />
             {hasHistory ? (
-              <Stack spacing={1} sx={{ maxHeight: 300, overflow: "auto" }}>
-                {navigationHistory.map((entry, index) => (
-                  <Card
-                    key={`${entry.key}-${index}`}
-                    variant="outlined"
-                    sx={{ bgcolor: "background.default" }}
-                  >
-                    <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" fontWeight="bold">
-                            {entry.name}
+              <Box sx={{ maxHeight: 300, overflow: "auto", borderRadius: 1 }}>
+                <Stack spacing={1}>
+                  {navigationHistory.map((entry, index) => (
+                    <Card
+                      key={`${entry.key}-${index}`}
+                      variant="outlined"
+                      sx={{ bgcolor: "background.default" }}
+                    >
+                      <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" fontWeight="bold">
+                              {entry.name}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              fontFamily="monospace"
+                            >
+                              {entry.key}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatTimestamp(entry.timestamp)}
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            fontFamily="monospace"
-                          >
-                            {entry.key}
-                          </Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatTimestamp(entry.timestamp)}
-                        </Typography>
-                      </Stack>
-                      {entry.params && Object.keys(entry.params).length > 0 && (
-                        <Box sx={{ mt: 1 }}>
-                          <JsonTreeView data={entry.params} />
-                        </Box>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </Stack>
+                        </Stack>
+                        {entry.params && Object.keys(entry.params).length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <JsonTreeView data={entry.params} />
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
             ) : (
               <Alert severity="info">
                 No navigation history available yet.
@@ -290,23 +306,36 @@ function App() {
                   <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                     {availableRoutes.map((route) => (
                       <Chip
-                        key={route}
-                        label={route}
-                        onClick={() => setSelectedRoute(route)}
-                        color={selectedRoute === route ? "primary" : "default"}
-                        variant={
-                          selectedRoute === route ? "filled" : "outlined"
-                        }
+                        key={route.key}
+                        label={`${route.name} (${route.key})`}
+                        onClick={() => setSelectedRoute(route.name)}
+                        color={selectedRoute === route.name ? "primary" : "default"}
+                        variant="filled"
+                        title={`Key: ${route.key}`}
                       />
                     ))}
                   </Stack>
                 </Box>
+                
+                <FormControl fullWidth size="small">
+                  <InputLabel>Navigation Method</InputLabel>
+                  <Select
+                    value={navigationMethod}
+                    label="Navigation Method"
+                    onChange={(e) => setNavigationMethod(e.target.value)}
+                  >
+                    <MenuItem value="navigate">Navigate</MenuItem>
+                    <MenuItem value="replace">Replace</MenuItem>
+                  </Select>
+                </FormControl>
+
                 <TextField
-                  label="Route Name"
+                  label="Route Key"
                   value={selectedRoute}
                   onChange={(e) => setSelectedRoute(e.target.value)}
                   size="small"
                   fullWidth
+                  helperText="Route key to navigate to (e.g., Browse-6X4B3CMpoXVB51hbn-YQn)"
                 />
                 <TextField
                   label="Route Params (JSON)"
@@ -332,7 +361,7 @@ function App() {
                   startIcon={<NavigationIcon />}
                   fullWidth
                 >
-                  Navigate
+                  {navigationMethod === 'navigate' ? 'Navigate' : 'Replace'}
                 </Button>
               </>
             ) : (
@@ -341,6 +370,50 @@ function App() {
                 navigation properly configured.
               </Alert>
             )}
+          </Stack>
+        </GlassPanel>
+
+        <GlassPanel>
+          <Stack spacing={2}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <RefreshIcon />
+              <Typography variant="h6">Reset Navigation</Typography>
+            </Box>
+            <Divider />
+            <TextField
+              label="Navigation State (JSON)"
+              value={resetState}
+              onChange={(e) => {
+                setResetState(e.target.value);
+                setResetStateError("");
+              }}
+              size="small"
+              fullWidth
+              multiline
+              rows={4}
+              error={!!resetStateError}
+              helperText={
+                resetStateError || 'e.g., {"index": 0, "routes": [{"name": "Home"}]}'
+              }
+              placeholder='{"index": 0, "routes": []}'
+            />
+            <Button
+              variant="outlined"
+              onClick={() => {
+                try {
+                  const state = resetState.trim() ? JSON.parse(resetState) : {};
+                  setResetStateError("");
+                  resetNavigation(state, activeDeviceId);
+                } catch (err) {
+                  setResetStateError("Invalid JSON state");
+                }
+              }}
+              startIcon={<RefreshIcon />}
+              fullWidth
+              color="warning"
+            >
+              Reset Navigation State
+            </Button>
           </Stack>
         </GlassPanel>
 

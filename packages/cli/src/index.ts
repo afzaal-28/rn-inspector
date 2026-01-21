@@ -504,6 +504,16 @@ async function startProxy(opts: ProxyOptions = {}) {
                 },
               }),
             );
+            setTimeout(() => {
+              bridge.ws.send(
+                JSON.stringify({
+                  method: "Runtime.evaluate",
+                  params: {
+                    expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
+                  },
+                }),
+              );
+            }, 300);
           }
         } else if (
           msg.type === CONTROL_MSG_TYPE &&
@@ -524,6 +534,16 @@ async function startProxy(opts: ProxyOptions = {}) {
                 },
               }),
             );
+            setTimeout(() => {
+              bridge.ws.send(
+                JSON.stringify({
+                  method: "Runtime.evaluate",
+                  params: {
+                    expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
+                  },
+                }),
+              );
+            }, 300);
           }
         } else if (
           msg.type === CONTROL_MSG_TYPE &&
