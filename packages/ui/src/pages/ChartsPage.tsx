@@ -150,78 +150,79 @@ export default function ChartsPage() {
           </Box>
         </GlassPanel>
 
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" color="primary" gutterBottom>
-                  Console Events
-                </Typography>
-                <Typography variant="h3" fontWeight="bold">
-                  {totalConsole}
-                </Typography>
-                <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-                  {Object.entries(consoleByLevel).map(([level, count]) => (
-                    count > 0 && (
-                      <Chip
-                        key={level}
-                        label={`${level}: ${count}`}
-                        size="small"
-                        color={
-                          level === "error" ? "error" :
-                          level === "warn" ? "warning" :
-                          level === "info" ? "info" : "default"
-                        }
-                      />
-                    )
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Box>
-
-          <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" color="secondary" gutterBottom>
-                  Network Requests
-                </Typography>
-                <Typography variant="h3" fontWeight="bold">
-                  {totalNetwork}
-                </Typography>
-                <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-                  {Object.entries(networkByStatus).map(([status, count]) => (
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            alignItems: 'stretch',
+          }}
+        >
+          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" color="primary" gutterBottom>
+                Console Events
+              </Typography>
+              <Typography variant="h3" fontWeight="bold">
+                {totalConsole}
+              </Typography>
+              <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
+                {Object.entries(consoleByLevel).map(([level, count]) => (
+                  count > 0 && (
                     <Chip
-                      key={status}
-                      label={`${status}: ${count}`}
+                      key={level}
+                      label={`${level}: ${count}`}
                       size="small"
                       color={
-                        status.startsWith("2") ? "success" :
-                        status.startsWith("4") || status.startsWith("5") ? "error" :
-                        "default"
+                        level === "error" ? "error" :
+                        level === "warn" ? "warning" :
+                        level === "info" ? "info" : "default"
                       }
                     />
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Box>
+                  )
+                ))}
+              </Stack>
+            </CardContent>
+          </Card>
 
-          <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" color="success.main" gutterBottom>
-                  Navigation Events
-                </Typography>
-                <Typography variant="h3" fontWeight="bold">
-                  {totalNavigation}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" mt={1}>
-                  Route changes tracked
-                </Typography>
-              </CardContent>
-            </Card>
-          </Box>
+          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" color="secondary" gutterBottom>
+                Network Requests
+              </Typography>
+              <Typography variant="h3" fontWeight="bold">
+                {totalNetwork}
+              </Typography>
+              <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
+                {Object.entries(networkByStatus).map(([status, count]) => (
+                  <Chip
+                    key={status}
+                    label={`${status}: ${count}`}
+                    size="small"
+                    color={
+                      status.startsWith("2") ? "success" :
+                      status.startsWith("4") || status.startsWith("5") ? "error" :
+                      "default"
+                    }
+                  />
+                ))}
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" color="success.main" gutterBottom>
+                Navigation Events
+              </Typography>
+              <Typography variant="h3" fontWeight="bold">
+                {totalNavigation}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" mt={1}>
+                Route changes tracked
+              </Typography>
+            </CardContent>
+          </Card>
         </Box>
 
         <GlassPanel>
@@ -260,7 +261,7 @@ export default function ChartsPage() {
         </GlassPanel>
 
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Box sx={{ flex: "1 1 400px", minWidth: 0 }}>
+          <Box sx={{ flex: "1 1 400px", minWidth: 0, height: '100%' }}>
             <GlassPanel>
               <Stack spacing={2}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -287,7 +288,7 @@ export default function ChartsPage() {
             </GlassPanel>
           </Box>
 
-          <Box sx={{ flex: "1 1 400px", minWidth: 0 }}>
+          <Box sx={{ flex: "1 1 400px", minWidth: 0, height: '100%' }}>
             <GlassPanel>
               <Stack spacing={2}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -317,7 +318,7 @@ export default function ChartsPage() {
 
         <GlassPanel>
           <Stack spacing={2}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, height: '100%' }}>
               <BarChartIcon />
               <Typography variant="h6">Network Requests by Method</Typography>
             </Box>
