@@ -57,3 +57,49 @@ export type DevtoolsBridge = {
     value?: unknown;
   }) => void;
 };
+
+export type NavigationRoute = {
+  name: string;
+  key: string;
+  params?: Record<string, unknown>;
+  path?: string;
+};
+
+export type NavigationState = {
+  state?: unknown;
+  currentRoute?: NavigationRoute;
+};
+
+export type NavigationHistoryEntry = {
+  name: string;
+  key: string;
+  params?: Record<string, unknown>;
+  timestamp: string;
+};
+
+export type NavigationEvent = {
+  type: "navigation";
+  payload: {
+    type: "installed" | "ref-ready" | "state-change" | "navigate" | "go-back" | "reset" | "open-url";
+    state?: NavigationState;
+    history?: NavigationHistoryEntry[];
+    availableRoutes?: string[];
+    routeName?: string;
+    params?: Record<string, unknown>;
+    url?: string;
+  };
+  timestamp: string;
+  deviceId: string;
+};
+
+export type NavigationCommand = {
+  command: "navigate" | "go-back" | "reset-navigation" | "open-url" | "get-navigation-state";
+  payload?: {
+    routeName?: string;
+    params?: Record<string, unknown>;
+    state?: unknown;
+    url?: string;
+  };
+  deviceId?: string;
+  requestId?: string;
+};

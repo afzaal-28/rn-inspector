@@ -285,8 +285,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
           elevation={6}
           sx={{
             p: 1.5,
-            minWidth: 280,
-            maxWidth: 360,
+            minWidth: 320,
+            maxWidth: 520,
             borderRadius: 1.5,
             background: (theme) => theme.palette.background.paper,
             border: (theme) => `1px solid ${theme.palette.divider}`,
@@ -299,7 +299,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
             onChange={(e) => setValueDraft(e.target.value)}
             multiline
             minRows={3}
-            sx={{ minWidth: 260, mt: 1 }}
+            fullWidth
+            sx={{ mt: 1 }}
             helperText={
               <Box
                 component="span"
@@ -340,8 +341,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
           elevation={6}
           sx={{
             p: 1.5,
-            minWidth: 280,
-            maxWidth: 360,
+            minWidth: 320,
+            maxWidth: 520,
             borderRadius: 1.5,
             background: (theme) => theme.palette.background.paper,
             border: (theme) => `1px solid ${theme.palette.divider}`,
@@ -355,7 +356,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
                 placeholder="e.g. settings"
                 value={childKeyDraft}
                 onChange={(e) => setChildKeyDraft(e.target.value)}
-                sx={{ minWidth: 180 }}
+                fullWidth
               />
             )}
             <TextField
@@ -382,7 +383,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
               }
               multiline
               minRows={3}
-              sx={{ minWidth: 260 }}
+              fullWidth
             />
             <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
               <Button

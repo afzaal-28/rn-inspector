@@ -32,6 +32,12 @@ import {
   UI_WS_NETWORK_PATH,
   UI_WS_STORAGE_PATH,
   UI_WS_CONTROL_PATH,
+  UI_WS_NAVIGATION_PATH,
+  CONTROL_CMD_NAVIGATE,
+  CONTROL_CMD_GO_BACK,
+  CONTROL_CMD_RESET_NAVIGATION,
+  CONTROL_CMD_OPEN_URL,
+  CONTROL_CMD_GET_NAVIGATION_STATE,
   getCliVersion,
   getMetroPort,
   getUiStaticDir,
@@ -166,6 +172,15 @@ async function startProxy(opts: ProxyOptions = {}) {
     );
   });
 
+  const navigationWss = new WebSocketServer({ port: uiPort + 4 });
+  navigationWss.on("listening", () => {
+    console.log(
+      chalk.blue(
+        `[rn-inspector] Navigation WebSocket on ws://${host}:${uiPort + 4}${UI_WS_NAVIGATION_PATH}`,
+      ),
+    );
+  });
+
   let currentDevices: { id: string; label: string; url?: string }[] = [];
 
   const broadcast = (message: unknown) => {
@@ -176,6 +191,7 @@ async function startProxy(opts: ProxyOptions = {}) {
     const isNetwork = msg?.type === "network";
     const isStorage = msg?.type === "storage";
     const isControl = msg?.type === "control";
+    const isNavigation = msg?.type === "navigation";
     const isMetaDevices = msg?.type === "meta" && msg?.payload?.kind === "devices";
     const isMeta = msg?.type === "meta";
     
@@ -203,8 +219,14 @@ async function startProxy(opts: ProxyOptions = {}) {
           client.send(data);
         }
       });
+    } else if (isNavigation) {
+      navigationWss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
     } else if (isMetaDevices) {
-      [messagesWss, networkWss, storageWss, controlWss].forEach((wss) => {
+      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach((wss) => {
         wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(data);
@@ -212,7 +234,7 @@ async function startProxy(opts: ProxyOptions = {}) {
         });
       });
     } else if (isMeta) {
-      [messagesWss, networkWss, storageWss, controlWss].forEach((wss) => {
+      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach((wss) => {
         wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(data);
@@ -340,6 +362,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   messagesWss.on("connection", sendDevicesOnConnect);
   networkWss.on("connection", sendDevicesOnConnect);
   storageWss.on("connection", sendDevicesOnConnect);
+  navigationWss.on("connection", sendDevicesOnConnect);
 
   controlWss.on("connection", (client) => {
     sendDevicesOnConnect(client);
@@ -452,6 +475,91 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_NAVIGATE
+        ) {
+          const targetDeviceId = msg.deviceId;
+          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+            ? devtoolsBridges.get(targetDeviceId)
+            : devtoolsBridges.values().next().value;
+
+          if (bridge) {
+            bridge.ws.send(JSON.stringify({
+              method: "Runtime.evaluate",
+              params: {
+                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['navigate']?.(${JSON.stringify({ routeName: msg.routeName, params: msg.params })})`,
+              },
+            }));
+          }
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_GO_BACK
+        ) {
+          const targetDeviceId = msg.deviceId;
+          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+            ? devtoolsBridges.get(targetDeviceId)
+            : devtoolsBridges.values().next().value;
+
+          if (bridge) {
+            bridge.ws.send(JSON.stringify({
+              method: "Runtime.evaluate",
+              params: {
+                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['go-back']?.()`,
+              },
+            }));
+          }
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_RESET_NAVIGATION
+        ) {
+          const targetDeviceId = msg.deviceId;
+          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+            ? devtoolsBridges.get(targetDeviceId)
+            : devtoolsBridges.values().next().value;
+
+          if (bridge) {
+            bridge.ws.send(JSON.stringify({
+              method: "Runtime.evaluate",
+              params: {
+                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['reset-navigation']?.(${JSON.stringify({ state: msg.state })})`,
+              },
+            }));
+          }
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_OPEN_URL
+        ) {
+          const targetDeviceId = msg.deviceId;
+          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+            ? devtoolsBridges.get(targetDeviceId)
+            : devtoolsBridges.values().next().value;
+
+          if (bridge) {
+            bridge.ws.send(JSON.stringify({
+              method: "Runtime.evaluate",
+              params: {
+                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['open-url']?.(${JSON.stringify({ url: msg.url })})`,
+              },
+            }));
+          }
+        } else if (
+          msg.type === CONTROL_MSG_TYPE &&
+          msg.command === CONTROL_CMD_GET_NAVIGATION_STATE
+        ) {
+          const targetDeviceId = msg.deviceId;
+          const bridge = targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
+            ? devtoolsBridges.get(targetDeviceId)
+            : devtoolsBridges.values().next().value;
+
+          if (bridge) {
+            bridge.ws.send(JSON.stringify({
+              method: "Runtime.evaluate",
+              params: {
+                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
+              },
+            }));
+          }
         }
       } catch {}
     });
@@ -516,6 +624,7 @@ async function startProxy(opts: ProxyOptions = {}) {
           uiWsNetwork: `ws://${host}:${uiPort + 1}${UI_WS_NETWORK_PATH}`,
           uiWsStorage: `ws://${host}:${uiPort + 2}${UI_WS_STORAGE_PATH}`,
           uiWsControl: `ws://${host}:${uiPort + 3}${UI_WS_CONTROL_PATH}`,
+          uiWsNavigation: `ws://${host}:${uiPort + 4}${UI_WS_NAVIGATION_PATH}`,
         }),
       );
     },
@@ -525,7 +634,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   const address = server.address();
   console.log("[rn-inspector] Local proxy health endpoint on", address);
 
-  return { metroWs, messagesWss, networkWss, storageWss, controlWss, server, devtoolsBridges, attachDevtools };
+  return { metroWs, messagesWss, networkWss, storageWss, controlWss, navigationWss, server, devtoolsBridges, attachDevtools };
 }
 
 function startStaticUi(staticPort: number) {
@@ -708,7 +817,7 @@ export async function main() {
   );
   console.log(
     chalk.cyan(
-      `[rn-inspector] WebSockets: Messages:${uiWsPort ?? DEFAULT_UI_WS_PORT}, Network:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 1}, Storage:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 2}, Control:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 3}`,
+      `[rn-inspector] WebSockets: Messages:${uiWsPort ?? DEFAULT_UI_WS_PORT}, Network:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 1}, Storage:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 2}, Control:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 3}, Navigation:${(uiWsPort ?? DEFAULT_UI_WS_PORT) + 4}`,
     ),
   );
 

@@ -4,6 +4,8 @@ import ConsolePage from "../pages/ConsolePage";
 import NetworkPage from "../pages/NetworkPage";
 import SessionsPage from "../pages/SessionsPage";
 import StoragePage from "../pages/StoragePage";
+import NavigationPage from "../pages/NavigationPage";
+import ChartsPage from "../pages/ChartsPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 const router = createBrowserRouter([
@@ -15,6 +17,8 @@ const router = createBrowserRouter([
       { path: "network", element: <NetworkPage /> },
       { path: "sessions", element: <SessionsPage /> },
       { path: "storage", element: <StoragePage /> },
+      { path: "navigation", element: <NavigationPage /> },
+      { path: "charts", element: <ChartsPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

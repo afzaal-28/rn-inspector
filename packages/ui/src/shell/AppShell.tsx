@@ -26,6 +26,8 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
+import NavigationIcon from "@mui/icons-material/Navigation";
+import ShowChartIcon from "@mui/icons-material/ShowChart";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useProxy } from "../context/ProxyContext";
@@ -49,6 +51,18 @@ const navItems = [
     label: "Storage",
     icon: <StorageIcon fontSize="small" />,
     path: "/storage",
+    disabled: false,
+  },
+  {
+    label: "Navigation",
+    icon: <NavigationIcon fontSize="small" />,
+    path: "/navigation",
+    disabled: false,
+  },
+  {
+    label: "Charts",
+    icon: <ShowChartIcon fontSize="small" />,
+    path: "/charts",
     disabled: false,
   },
   {

@@ -64,10 +64,42 @@ export type StorageEvent = {
   ts: string;
 };
 
+export type NavigationRoute = {
+  name: string;
+  key: string;
+  params?: Record<string, unknown>;
+  path?: string;
+};
+
+export type NavigationState = {
+  state?: unknown;
+  currentRoute?: NavigationRoute;
+};
+
+export type NavigationHistoryEntry = {
+  name: string;
+  key: string;
+  params?: Record<string, unknown>;
+  timestamp: string;
+};
+
+export type NavigationEvent = {
+  type: "installed" | "ref-ready" | "state-change" | "navigate" | "go-back" | "reset" | "open-url";
+  state?: NavigationState;
+  history?: NavigationHistoryEntry[];
+  availableRoutes?: string[];
+  routeName?: string;
+  params?: Record<string, unknown>;
+  url?: string;
+  timestamp?: string;
+  deviceId?: string;
+};
+
 export type ProxyEvent =
   | { type: "console"; payload: ConsoleEvent }
   | { type: "network"; payload: NetworkEvent }
   | { type: "storage"; payload: StorageEvent }
+  | { type: "navigation"; payload: NavigationEvent }
   | { type: "meta"; payload: Record<string, unknown> };
 
 export type StorageMutationPayload = {
@@ -84,16 +116,21 @@ export function useProxyStream(endpoint?: string) {
   const networkUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-network") : `ws://localhost:${basePort + 1}/inspector-network`;
   const storageUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-storage") : `ws://localhost:${basePort + 2}/inspector-storage`;
   const controlUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-control") : `ws://localhost:${basePort + 3}/inspector-control`;
+  const navigationUrl = endpoint ? endpoint.replace("/inspector-messages", "/inspector-navigation") : `ws://localhost:${basePort + 4}/inspector-navigation`;
   
   const messagesWsRef = useRef<WebSocket | null>(null);
   const networkWsRef = useRef<WebSocket | null>(null);
   const storageWsRef = useRef<WebSocket | null>(null);
   const controlWsRef = useRef<WebSocket | null>(null);
+  const navigationWsRef = useRef<WebSocket | null>(null);
   const [consoleEvents, setConsoleEvents] = useState<ConsoleEvent[]>([]);
   const [networkEvents, setNetworkEvents] = useState<NetworkEvent[]>([]);
   const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(
     new Map(),
   );
+  const [navigationState, setNavigationState] = useState<NavigationState | null>(null);
+  const [navigationHistory, setNavigationHistory] = useState<NavigationHistoryEntry[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<string[]>([]);
   const [status, setStatus] = useState<
     "connecting" | "open" | "closed" | "error"
   >("connecting");
@@ -120,6 +157,17 @@ export function useProxyStream(endpoint?: string) {
       setConsoleEvents((prev) => [...prev, parsed.payload].slice(-500));
     } else if (parsed.type === "network") {
       setNetworkEvents((prev) => [...prev, parsed.payload].slice(-500));
+    } else if (parsed.type === "navigation") {
+      const navPayload = parsed.payload as NavigationEvent;
+      if (navPayload.state) {
+        setNavigationState(navPayload.state);
+      }
+      if (navPayload.history) {
+        setNavigationHistory(navPayload.history);
+      }
+      if (navPayload.availableRoutes) {
+        setAvailableRoutes(navPayload.availableRoutes);
+      }
     } else if (parsed.type === "storage") {
       const storagePayload = parsed.payload as StorageEvent;
       const deviceId = storagePayload.deviceId || "unknown";
@@ -218,7 +266,7 @@ export function useProxyStream(endpoint?: string) {
 
     const checkAllOpen = () => {
       openCount++;
-      if (openCount === 4) {
+      if (openCount === 5) {
         setStatus("open");
       }
     };
@@ -356,11 +404,42 @@ export function useProxyStream(endpoint?: string) {
       });
     };
 
+    const connectNavigation = () => {
+      if (stopped) return;
+      const ws = new WebSocket(navigationUrl);
+      navigationWsRef.current = ws;
+
+      ws.addEventListener("open", () => {
+        console.log("[ui] Navigation websocket connected");
+        checkAllOpen();
+      });
+
+      ws.addEventListener("message", (event) => {
+        try {
+          const parsed: ProxyEvent = JSON.parse(event.data);
+          handleProxyEvent(parsed);
+        } catch (err) {
+          console.warn("[ui] failed to parse navigation", err);
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        if (stopped) return;
+        console.warn("[ui] Navigation websocket closed");
+      });
+      ws.addEventListener("error", () => {
+        if (stopped) return;
+        console.error("[ui] Navigation websocket error");
+        ws.close();
+      });
+    };
+
     setStatus("connecting");
     connectMessages();
     connectNetwork();
     connectStorage();
     connectControl();
+    connectNavigation();
 
     return () => {
       stopped = true;
@@ -368,8 +447,9 @@ export function useProxyStream(endpoint?: string) {
       networkWsRef.current?.close();
       storageWsRef.current?.close();
       controlWsRef.current?.close();
+      navigationWsRef.current?.close();
     };
-  }, [messagesUrl, networkUrl, storageUrl, controlUrl]);
+  }, [messagesUrl, networkUrl, storageUrl, controlUrl, navigationUrl]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && activeDeviceId) {
@@ -399,11 +479,12 @@ export function useProxyStream(endpoint?: string) {
     networkWsRef.current?.close();
     storageWsRef.current?.close();
     controlWsRef.current?.close();
+    navigationWsRef.current?.close();
     
     let openCount = 0;
     const checkAllOpen = () => {
       openCount++;
-      if (openCount === 4) {
+      if (openCount === 5) {
         setStatus("open");
       }
     };
@@ -499,6 +580,28 @@ export function useProxyStream(endpoint?: string) {
       console.error("[ui] Control websocket error");
       controlWs.close();
     });
+
+    const navigationWs = new WebSocket(navigationUrl);
+    navigationWsRef.current = navigationWs;
+    navigationWs.addEventListener("open", () => {
+      console.log("[ui] Navigation websocket reconnected");
+      checkAllOpen();
+    });
+    navigationWs.addEventListener("message", (event) => {
+      try {
+        const parsed: ProxyEvent = JSON.parse(event.data);
+        handleProxyEvent(parsed);
+      } catch (err) {
+        console.warn("[ui] failed to parse navigation", err);
+      }
+    });
+    navigationWs.addEventListener("close", () => {
+      console.warn("[ui] Navigation websocket closed");
+    });
+    navigationWs.addEventListener("error", () => {
+      console.error("[ui] Navigation websocket error");
+      navigationWs.close();
+    });
   };
 
   const reconnectDevtools = () => {
@@ -551,10 +654,92 @@ export function useProxyStream(endpoint?: string) {
     }
   };
 
+  const navigateToRoute = (routeName: string, params?: Record<string, unknown>, deviceId?: string) => {
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      controlWsRef.current.send(
+        JSON.stringify({
+          type: "control",
+          command: "navigate",
+          routeName,
+          params,
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  const goBack = (deviceId?: string) => {
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      controlWsRef.current.send(
+        JSON.stringify({
+          type: "control",
+          command: "go-back",
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  const resetNavigation = (state: unknown, deviceId?: string) => {
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      controlWsRef.current.send(
+        JSON.stringify({
+          type: "control",
+          command: "reset-navigation",
+          state,
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  const openUrl = (url: string, deviceId?: string) => {
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      controlWsRef.current.send(
+        JSON.stringify({
+          type: "control",
+          command: "open-url",
+          url,
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
+  const getNavigationState = (deviceId?: string) => {
+    if (!controlWsRef.current || controlWsRef.current.readyState !== WebSocket.OPEN) return;
+    try {
+      controlWsRef.current.send(
+        JSON.stringify({
+          type: "control",
+          command: "get-navigation-state",
+          deviceId: deviceId || activeDeviceId,
+        }),
+      );
+    } catch {
+      // ignore send errors
+    }
+  };
+
   return {
     consoleEvents,
     networkEvents,
     storageData,
+    navigationState,
+    navigationHistory,
+    availableRoutes,
     status,
     stats,
     reconnect,
@@ -565,6 +750,11 @@ export function useProxyStream(endpoint?: string) {
     reconnectDevtools,
     fetchStorage,
     mutateStorage,
+    navigateToRoute,
+    goBack,
+    resetNavigation,
+    openUrl,
+    getNavigationState,
   };
 }
 
