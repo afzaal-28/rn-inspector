@@ -7,7 +7,7 @@
 
 - Proxying **Metro** messages.
 - Attaching to **DevTools** targets (single or multiple devices/emulators).
-- Streaming **console logs**, **network requests**, and selected **storage state** into a modern, glassy web UI.
+- Streaming **console logs**, **network requests**, **navigation state**, and selected **storage state** into a modern, glassy web UI.
 
 This package is the **CLI entry point** you install globally.
 
@@ -129,6 +129,17 @@ The UI includes:
   - HTTP requests captured via an injected fetch wrapper / DevTools Network domain.
   - Detail drawer with headers, payload, and response preview (including text, JSON, images, and some binary types).
 
+- **Navigation** page
+  - Real-time navigation state inspection.
+  - Current route information and navigation history.
+  - Navigate to any available route with parameters.
+  - Deep link testing and navigation controls.
+  - Automatic route discovery from your React Navigation setup.
+
+- **Storage** page
+  - AsyncStorage key/value inspection.
+  - Redux state visualization (when exposed).
+
 - **Header controls**
   - Global **device selector** (backed by the `deviceId` tagging in the CLI).
   - Global **capture toggles** for Console and Network streams.
@@ -178,7 +189,55 @@ If you do not expose these globals, the Storage page will show a helpful message
 
 ---
 
-## Keyboard shortcuts (CLI)
+## Navigation inspection
+
+The **Navigation** page lets you inspect and control your React Navigation setup:
+
+- **Current Route** information with name, key, params, and path.
+- **Navigation History** with timestamps and route parameters.
+- **Available Routes** automatically discovered from your navigation structure.
+- **Navigate to Route** with support for route parameters and nested navigation.
+- **Reset Navigation State** to restore specific navigation states.
+- **Deep Link Testing** to test URL-based navigation.
+- **Navigation Controls** including go back functionality.
+
+### React Navigation setup
+
+To enable navigation inspection, add the following to your React Native app (for example in `App.tsx`):
+
+```ts
+import { NavigationContainer } from '@react-navigation/native';
+
+function App() {
+  const navigationRef = useRef(null);
+
+  useEffect(() => {
+    if (global.__RN_INSPECTOR_NAVIGATION__) {
+      global.__RN_INSPECTOR_NAVIGATION__
+        .setNavigationRef(navigationRef.current);
+    }
+  }, []);
+
+  return (
+    <NavigationContainer ref={navigationRef}>
+      {/* Your navigation stack */}
+    </NavigationContainer>
+  );
+}
+```
+
+Once this is set and the app is running with DevTools debugging enabled, the Navigation page will show your current route, navigation history, and let you navigate to any available route.
+
+### Navigation features
+
+- **Automatic Route Discovery**: Scans your navigation structure and lists all available routes.
+- **Nested Navigation Support**: Handles complex navigation hierarchies with proper screen parameter passing.
+- **Real-time Updates**: Navigation state updates automatically as you navigate in your app.
+- **Parameter Support**: Pass route parameters when navigating programmatically.
+- **History Tracking**: See your navigation history with timestamps and parameters.
+- **Deep Link Testing**: Test deep links directly from the inspector UI.
+
+If you do not set up the navigation ref, the Navigation page will show setup instructions.
 
 While `rn-inspector` is running in a TTY, the CLI listens for a few simple shortcuts:
 
