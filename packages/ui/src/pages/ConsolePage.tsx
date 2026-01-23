@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Box,
   Chip,
@@ -30,6 +30,7 @@ import JsonTreeView from "../components/JsonTreeView";
 import type { ConsoleEvent } from "../hooks/useProxyStream";
 import { useProxy } from "../context/ProxyContext";
 import SearchIcon from "@mui/icons-material/Search";
+import { queryConsoleEvents, clearConsoleEvents } from "../utils/db";
 
 const levelColor: Record<
   string,
@@ -64,11 +65,12 @@ function formatTs(ts: string) {
 
 const ConsolePage = () => {
   const {
-    consoleEvents,
     activeDeviceId,
     consoleClearedAtMs,
     setConsoleClearedAtMs,
   } = useProxy();
+  const [dbConsoleEvents, setDbConsoleEvents] = useState<(ConsoleEvent & { id: number })[]>([]);
+  const [loading, setLoading] = useState(false);
   const [levelFilter, setLevelFilter] = useState<
     "all" | "log" | "info" | "warn" | "error"
   >("all");
@@ -86,43 +88,38 @@ const ConsolePage = () => {
     }
   };
 
+  useEffect(() => {
+    let mounted = true;
+    const loadEvents = async () => {
+      setLoading(true);
+      try {
+        const events = await queryConsoleEvents({
+          deviceId: activeDeviceId,
+          level: levelFilter === "all" ? undefined : levelFilter,
+          searchQuery: searchQuery.trim() || undefined,
+          limit: 500,
+          afterTimestamp: consoleClearedAtMs ? new Date(consoleClearedAtMs).toISOString() : undefined,
+        });
+        if (mounted) {
+          setDbConsoleEvents(events);
+        }
+      } catch (err) {
+        console.error("Failed to load console events:", err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    loadEvents();
+    return () => {
+      mounted = false;
+    };
+  }, [activeDeviceId, levelFilter, searchQuery, consoleClearedAtMs]);
+
   const filteredEvents = useMemo(() => {
-    let latest = consoleEvents.slice(-300);
-
-    if (consoleClearedAtMs) {
-      latest = latest.filter((evt) => {
-        const tsMs = Date.parse(evt.ts);
-        if (Number.isNaN(tsMs)) return true;
-        return tsMs > consoleClearedAtMs;
-      });
-    }
-
-    latest = latest.reverse();
-
-    let byLevel =
-      levelFilter === "all"
-        ? latest
-        : latest.filter((evt) => evt.level === levelFilter);
-
-    if (activeDeviceId) {
-      byLevel = byLevel.filter(
-        (evt) => !evt.deviceId || evt.deviceId === activeDeviceId,
-      );
-    }
-
-    const query = searchQuery.trim().toLowerCase();
-    if (query) {
-      byLevel = byLevel.filter((evt) => evt.msg.toLowerCase().includes(query));
-    }
-
-    return byLevel;
-  }, [
-    consoleEvents,
-    levelFilter,
-    activeDeviceId,
-    searchQuery,
-    consoleClearedAtMs,
-  ]);
+    return dbConsoleEvents;
+  }, [dbConsoleEvents]);
 
   const groupedEvents = useMemo(() => {
     const groups = new Map<
@@ -155,14 +152,10 @@ const ConsolePage = () => {
     return Array.from(groups.values());
   }, [filteredEvents]);
 
-  const handleClear = () => {
-    if (consoleEvents.length > 0) {
-      const last = consoleEvents[consoleEvents.length - 1];
-      const lastMs = Date.parse(last.ts);
-      setConsoleClearedAtMs(Number.isNaN(lastMs) ? Date.now() : lastMs);
-    } else {
-      setConsoleClearedAtMs(Date.now());
-    }
+  const handleClear = async () => {
+    await clearConsoleEvents();
+    setConsoleClearedAtMs(Date.now());
+    setDbConsoleEvents([]);
     setSelectedEvent(null);
     setDrawerOpen(false);
   };
@@ -256,7 +249,7 @@ const ConsolePage = () => {
               size="small"
               variant="outlined"
               onClick={handleClear}
-              disabled={consoleEvents.length === 0}
+              disabled={dbConsoleEvents.length === 0 || loading}
               sx={(theme) => ({
                 textTransform: "none",
                 borderRadius: 999,

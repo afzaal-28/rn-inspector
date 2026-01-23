@@ -1,4 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  addConsoleEvent,
+  addNetworkEvent,
+  addStorageEvent,
+  pruneOldConsoleEvents,
+  pruneOldNetworkEvents,
+  pruneOldStorageEvents,
+} from "../utils/db";
 
 export type ConsoleEvent = {
   ts: string;
@@ -145,6 +153,9 @@ export function useProxyStream(endpoint?: string) {
   const [storageData, setStorageData] = useState<Map<string, StorageEvent>>(
     new Map(),
   );
+  const [consoleCount, setConsoleCount] = useState(0);
+  const [networkCount, setNetworkCount] = useState(0);
+  const pruneTimerRef = useRef<number | null>(null);
   const [navigationState, setNavigationState] =
     useState<NavigationState | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<
@@ -172,11 +183,15 @@ export function useProxyStream(endpoint?: string) {
     "unknown" | "open" | "closed" | "error"
   >("unknown");
 
-  const handleProxyEvent = (parsed: ProxyEvent) => {
+  const handleProxyEvent = async (parsed: ProxyEvent) => {
     if (parsed.type === "console") {
-      setConsoleEvents((prev) => [...prev, parsed.payload].slice(-500));
+      await addConsoleEvent(parsed.payload);
+      setConsoleEvents((prev) => [...prev, parsed.payload].slice(-100));
+      setConsoleCount((prev) => prev + 1);
     } else if (parsed.type === "network") {
-      setNetworkEvents((prev) => [...prev, parsed.payload].slice(-500));
+      await addNetworkEvent(parsed.payload);
+      setNetworkEvents((prev) => [...prev, parsed.payload].slice(-100));
+      setNetworkCount((prev) => prev + 1);
     } else if (parsed.type === "navigation") {
       const navPayload = parsed.payload as NavigationEvent;
       if (navPayload.state) {
@@ -191,6 +206,7 @@ export function useProxyStream(endpoint?: string) {
     } else if (parsed.type === "storage") {
       const storagePayload = parsed.payload as StorageEvent;
       const deviceId = storagePayload.deviceId || "unknown";
+      await addStorageEvent(storagePayload);
       setStorageData((prev) => {
         const next = new Map(prev);
         next.set(deviceId, storagePayload);
@@ -486,12 +502,30 @@ export function useProxyStream(endpoint?: string) {
 
   const stats = useMemo(
     () => ({
-      consoleCount: consoleEvents.length,
-      networkCount: networkEvents.length,
+      consoleCount,
+      networkCount,
       status,
     }),
-    [consoleEvents.length, networkEvents.length, status],
+    [consoleCount, networkCount, status],
   );
+
+  useEffect(() => {
+    if (pruneTimerRef.current) {
+      clearInterval(pruneTimerRef.current);
+    }
+
+    pruneTimerRef.current = setInterval(async () => {
+      await pruneOldConsoleEvents(10000);
+      await pruneOldNetworkEvents(10000);
+      await pruneOldStorageEvents(1000);
+    }, 60000);
+
+    return () => {
+      if (pruneTimerRef.current) {
+        clearInterval(pruneTimerRef.current);
+      }
+    };
+  }, []);
 
   const reconnect = () => {
     setStatus("connecting");
