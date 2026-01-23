@@ -1,4 +1,4 @@
-import type WebSocket from "ws";
+import type WebSocket from 'ws';
 
 export type ProxyOptions = {
   metroPort?: number;
@@ -15,16 +15,16 @@ export type DevtoolsTarget = {
 };
 
 export type NetworkResourceType =
-  | "fetch"
-  | "xhr"
-  | "doc"
-  | "css"
-  | "js"
-  | "font"
-  | "img"
-  | "media"
-  | "socket"
-  | "other";
+  | 'fetch'
+  | 'xhr'
+  | 'doc'
+  | 'css'
+  | 'js'
+  | 'font'
+  | 'img'
+  | 'media'
+  | 'socket'
+  | 'other';
 
 export type TrackedRequest = {
   method: string;
@@ -51,8 +51,8 @@ export type DevtoolsBridge = {
   requestStorage: (requestId: string) => void;
   requestStorageMutation: (payload: {
     requestId: string;
-    target: "asyncStorage" | "redux";
-    op: "set" | "delete";
+    target: 'asyncStorage' | 'redux';
+    op: 'set' | 'delete';
     path: string;
     value?: unknown;
   }) => void;
@@ -78,16 +78,16 @@ export type NavigationHistoryEntry = {
 };
 
 export type NavigationEvent = {
-  type: "navigation";
+  type: 'navigation';
   payload: {
     type:
-      | "installed"
-      | "ref-ready"
-      | "state-change"
-      | "navigate"
-      | "go-back"
-      | "reset"
-      | "open-url";
+      | 'installed'
+      | 'ref-ready'
+      | 'state-change'
+      | 'navigate'
+      | 'go-back'
+      | 'reset'
+      | 'open-url';
     state?: NavigationState;
     history?: NavigationHistoryEntry[];
     availableRoutes?: string[];
@@ -100,12 +100,7 @@ export type NavigationEvent = {
 };
 
 export type NavigationCommand = {
-  command:
-    | "navigate"
-    | "go-back"
-    | "reset-navigation"
-    | "open-url"
-    | "get-navigation-state";
+  command: 'navigate' | 'go-back' | 'reset-navigation' | 'open-url' | 'get-navigation-state';
   payload?: {
     routeName?: string;
     params?: Record<string, unknown>;

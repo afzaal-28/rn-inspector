@@ -1,55 +1,50 @@
-import path from "path";
-import fs from "fs";
+import path from 'path';
+import fs from 'fs';
 
 export const DEFAULT_METRO_PORT = 8081;
 export const DEFAULT_UI_WS_PORT = 9230;
 export const DEFAULT_UI_STATIC_PORT = 4173;
-export const DEFAULT_HOST = "127.0.0.1";
-export const DEVTOOLS_PORT_OFFSETS: number[] = Array.from(
-  { length: 10 },
-  (_v, i) => i + 1,
-);
+export const DEFAULT_HOST = '127.0.0.1';
+export const DEVTOOLS_PORT_OFFSETS: number[] = Array.from({ length: 10 }, (_v, i) => i + 1);
 export const DEVTOOLS_EXTRA_PORTS = [9222, 9229, 9230];
 export const DEFAULT_DISCOVERY_TIMEOUT_MS = 750;
-export const DEVTOOLS_DISCOVERY_PATH = "/json";
-export const METRO_WS_PATH = "/message";
-export const UI_WS_MESSAGES_PATH = "/inspector-messages";
-export const UI_WS_NETWORK_PATH = "/inspector-network";
-export const UI_WS_STORAGE_PATH = "/inspector-storage";
-export const UI_WS_CONTROL_PATH = "/inspector-control";
-export const UI_WS_NAVIGATION_PATH = "/inspector-navigation";
-export const UI_STATIC_INDEX = "index.html";
-export const ENV_DEVTOOLS_URL = "RN_INSPECTOR_DEVTOOLS_URL";
-export const ENV_METRO_PORT = "METRO_PORT";
-export const CONTROL_MSG_TYPE = "control";
-export const CONTROL_CMD_RECONNECT = "reconnect-devtools";
-export const CONTROL_CMD_FETCH_STORAGE = "fetch-storage";
-export const CONTROL_CMD_MUTATE_STORAGE = "mutate-storage";
-export const CONTROL_CMD_NAVIGATE = "navigate";
-export const CONTROL_CMD_GO_BACK = "go-back";
-export const CONTROL_CMD_RESET_NAVIGATION = "reset-navigation";
-export const CONTROL_CMD_OPEN_URL = "open-url";
-export const CONTROL_CMD_GET_NAVIGATION_STATE = "get-navigation-state";
-export const DEVICE_ID_EXPLICIT = "devtools-explicit";
-export const DEVICE_ID_ALL = "all";
-export const DEVICE_LABEL_EXPLICIT = "DevTools (explicit URL)";
-export const META_KIND_DEVICES = "devices";
-export const META_MSG_TYPE = "meta";
+export const DEVTOOLS_DISCOVERY_PATH = '/json';
+export const METRO_WS_PATH = '/message';
+export const UI_WS_MESSAGES_PATH = '/inspector-messages';
+export const UI_WS_NETWORK_PATH = '/inspector-network';
+export const UI_WS_STORAGE_PATH = '/inspector-storage';
+export const UI_WS_CONTROL_PATH = '/inspector-control';
+export const UI_WS_NAVIGATION_PATH = '/inspector-navigation';
+export const UI_STATIC_INDEX = 'index.html';
+export const ENV_DEVTOOLS_URL = 'RN_INSPECTOR_DEVTOOLS_URL';
+export const ENV_METRO_PORT = 'METRO_PORT';
+export const CONTROL_MSG_TYPE = 'control';
+export const CONTROL_CMD_RECONNECT = 'reconnect-devtools';
+export const CONTROL_CMD_FETCH_STORAGE = 'fetch-storage';
+export const CONTROL_CMD_MUTATE_STORAGE = 'mutate-storage';
+export const CONTROL_CMD_NAVIGATE = 'navigate';
+export const CONTROL_CMD_GO_BACK = 'go-back';
+export const CONTROL_CMD_RESET_NAVIGATION = 'reset-navigation';
+export const CONTROL_CMD_OPEN_URL = 'open-url';
+export const CONTROL_CMD_GET_NAVIGATION_STATE = 'get-navigation-state';
+export const DEVICE_ID_EXPLICIT = 'devtools-explicit';
+export const DEVICE_ID_ALL = 'all';
+export const DEVICE_LABEL_EXPLICIT = 'DevTools (explicit URL)';
+export const META_KIND_DEVICES = 'devices';
+export const META_MSG_TYPE = 'meta';
 
 const baseFile: string =
-  typeof __filename !== "undefined"
-    ? __filename
-    : path.resolve(process.argv[1] ?? "");
+  typeof __filename !== 'undefined' ? __filename : path.resolve(process.argv[1] ?? '');
 export const baseDir: string =
-  typeof __dirname !== "undefined" ? __dirname : path.dirname(baseFile);
+  typeof __dirname !== 'undefined' ? __dirname : path.dirname(baseFile);
 
 export function getUiStaticDir(): string {
-  const resolved = path.resolve(baseDir, "../../ui");
-  if (!resolved.startsWith(path.resolve(baseDir, "../.."))) {
+  const resolved = path.resolve(baseDir, '../../ui');
+  if (!resolved.startsWith(path.resolve(baseDir, '../..'))) {
     console.warn(
-      "[rn-inspector] ui static dir resolved outside expected root, falling back to baseDir/ui",
+      '[rn-inspector] ui static dir resolved outside expected root, falling back to baseDir/ui',
     );
-    return path.join(baseDir, "ui");
+    return path.join(baseDir, 'ui');
   }
   if (!fs.existsSync(resolved)) {
     console.warn(
@@ -61,12 +56,12 @@ export function getUiStaticDir(): string {
 
 export function getCliVersion(): string {
   try {
-    const pkgPath = path.resolve(baseDir, "../../package.json");
-    const raw = fs.readFileSync(pkgPath, "utf8");
+    const pkgPath = path.resolve(baseDir, '../../package.json');
+    const raw = fs.readFileSync(pkgPath, 'utf8');
     const pkg = JSON.parse(raw) as { version?: string };
-    return pkg.version ?? "unknown";
+    return pkg.version ?? 'unknown';
   } catch {
-    return "unknown";
+    return 'unknown';
   }
 }
 

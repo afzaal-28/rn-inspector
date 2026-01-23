@@ -162,7 +162,7 @@ To keep the CLI simple and avoid depending on your bundler setup, you need to ex
 In your React Native app (for example in `App.tsx`):
 
 ```ts
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Make AsyncStorage visible to rn-inspector storage helper
 global.__RN_INSPECTOR_ASYNC_STORAGE__ = AsyncStorage;
@@ -175,7 +175,7 @@ Once this is set and the app is running with DevTools debugging enabled, the Sto
 If you use Redux, expose your store after you create it (anywhere in your app setup):
 
 ```ts
-import { createStore } from "redux";
+import { createStore } from 'redux';
 
 const store = createStore(reducer);
 

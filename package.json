@@ -2,16 +2,15 @@
   "name": "rn-inspector-monorepo",
   "version": "0.4.1",
   "private": false,
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "pnpm -r run build",
     "lint": "echo \"TODO: add lint script\"",
-    "test": "echo \"TODO: add test runner\""
+    "test": "echo \"TODO: add test runner\"",
+    "prettier:fix": "prettier --write ."
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "typescript": "^5.4.0"
+    "@types/node": "^20.19.30",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3"
   }
 }

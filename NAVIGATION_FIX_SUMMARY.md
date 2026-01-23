@@ -3,16 +3,20 @@
 ## Issues Fixed
 
 ### 1. Navigation Snippet Not Injected
+
 **Problem**: The `INJECT_NAVIGATION_SNIPPET` was not being injected into the DevTools bridge when connecting to the React Native app.
 
 **Solution**: Added navigation snippet injection in `@/home/afzaal/projects/rn-inspector/packages/cli/src/devtools/bridge.ts`:
+
 - Imported `INJECT_NAVIGATION_SNIPPET`
 - Added injection call (id: 8) alongside storage and network snippets
 
 ### 2. Navigation Events Not Handled
+
 **Problem**: Navigation events from the injected snippet were not being processed by the DevTools bridge message handler.
 
-**Solution**: 
+**Solution**:
+
 - Created `handleInjectedNavigationFromConsole` handler in `@/home/afzaal/projects/rn-inspector/packages/cli/src/devtools/handlers.ts`
 - Integrated handler into bridge's `Runtime.consoleAPICalled` message processor
 - Handler detects `__RN_INSPECTOR_NAVIGATION__` prefix and broadcasts navigation events
@@ -20,10 +24,11 @@
 ## How Navigation Works Now
 
 ### 1. Snippet Injection Flow
+
 ```
 DevTools Bridge Connect
   → Runtime.enable
-  → Log.enable  
+  → Log.enable
   → Network.enable
   → Page.enable
   → Fetch.enable
@@ -33,6 +38,7 @@ DevTools Bridge Connect
 ```
 
 ### 2. Navigation Data Flow
+
 ```
 React Native App
   → User calls setNavigationRef(navigationRef.current)
@@ -45,6 +51,7 @@ React Native App
 ```
 
 ### 3. Navigation Events Sent
+
 - `installed`: When navigation snippet is first loaded
 - `ref-ready`: When navigation ref is set with initial state
 - `state-change`: When navigation state changes (route changes)
@@ -56,6 +63,7 @@ React Native App
 ## WebSocket Architecture
 
 ### Port Allocation
+
 - **9230**: Messages/Console (`/inspector-messages`)
 - **9231**: Network (`/inspector-network`)
 - **9232**: Storage (`/inspector-storage`)
@@ -83,6 +91,7 @@ The **inspector-control** WebSocket (`ws://localhost:9233/inspector-control`) ha
    - `reconnect-devtools`: Reconnect to DevTools WebSocket
 
 #### How Control Commands Work:
+
 ```
 UI (NavigationPage.tsx)
   → Calls navigateToRoute('HomeScreen', { id: 123 })
@@ -116,6 +125,7 @@ Each WebSocket has a specific purpose:
 - **Control WS**: Commands from UI to RN app (write-only from UI perspective)
 
 This separation ensures:
+
 1. Clean data streams without mixing concerns
 2. Easy filtering and subscription on UI side
 3. Independent reconnection handling
@@ -124,11 +134,13 @@ This separation ensures:
 ## Testing the Fix
 
 1. **Start the CLI**:
+
    ```bash
    npm run dev
    ```
 
 2. **Start your React Native app** with the navigation setup:
+
    ```javascript
    import { useEffect, useRef } from 'react';
    import { NavigationContainer } from '@react-navigation/native';
@@ -143,9 +155,7 @@ This separation ensures:
      }, []);
 
      return (
-       <NavigationContainer ref={navigationRef}>
-         {/* Your navigation stack */}
-       </NavigationContainer>
+       <NavigationContainer ref={navigationRef}>{/* Your navigation stack */}</NavigationContainer>
      );
    }
    ```
@@ -166,6 +176,7 @@ This separation ensures:
 ## What Was Wrong in Your Setup
 
 Your React Native app code was **correct**:
+
 ```javascript
 useEffect(() => {
   if (global.__RN_INSPECTOR_NAVIGATION__) {

@@ -1,19 +1,15 @@
-import http from "http";
-import chalk from "chalk";
+import http from 'http';
+import chalk from 'chalk';
 import {
   DEFAULT_DISCOVERY_TIMEOUT_MS,
   DEFAULT_HOST,
   DEVTOOLS_DISCOVERY_PATH,
   DEVTOOLS_EXTRA_PORTS,
   DEVTOOLS_PORT_OFFSETS,
-} from "../config/Index";
-import type { DevtoolsTarget } from "../types/Index";
+} from '../config/Index';
+import type { DevtoolsTarget } from '../types/Index';
 
-function httpGetJson(
-  host: string,
-  port: number,
-  path: string,
-): Promise<unknown | undefined> {
+function httpGetJson(host: string, port: number, path: string): Promise<unknown | undefined> {
   return new Promise((resolve) => {
     const req = http.get(
       {
@@ -29,10 +25,10 @@ function httpGetJson(
           return;
         }
         const chunks: Buffer[] = [];
-        res.on("data", (chunk) => chunks.push(chunk));
-        res.on("end", () => {
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
           try {
-            const text = Buffer.concat(chunks).toString("utf8");
+            const text = Buffer.concat(chunks).toString('utf8');
             const json = JSON.parse(text);
             resolve(json);
           } catch {
@@ -42,11 +38,11 @@ function httpGetJson(
       },
     );
 
-    req.on("error", () => {
+    req.on('error', () => {
       resolve(undefined);
     });
 
-    req.on("timeout", () => {
+    req.on('timeout', () => {
       req.destroy();
       resolve(undefined);
     });
@@ -61,8 +57,8 @@ function dedupeDevtoolsTargets(targets: DevtoolsTarget[]): DevtoolsTarget[] {
     let page = 0;
     try {
       const urlObj = new URL(t.webSocketDebuggerUrl);
-      const deviceParam = urlObj.searchParams.get("device");
-      const pageParam = urlObj.searchParams.get("page");
+      const deviceParam = urlObj.searchParams.get('device');
+      const pageParam = urlObj.searchParams.get('page');
       if (deviceParam) deviceKey = deviceParam;
       if (pageParam) {
         const parsed = Number(pageParam);
@@ -72,8 +68,7 @@ function dedupeDevtoolsTargets(targets: DevtoolsTarget[]): DevtoolsTarget[] {
       // ignore URL parse errors, fall back to id
     }
 
-    if (!deviceKey)
-      deviceKey = t.title || t.description || t.webSocketDebuggerUrl;
+    if (!deviceKey) deviceKey = t.title || t.description || t.webSocketDebuggerUrl;
 
     if (!deviceKey) return;
 
@@ -81,9 +76,7 @@ function dedupeDevtoolsTargets(targets: DevtoolsTarget[]): DevtoolsTarget[] {
     const existingPage = existing
       ? (() => {
           try {
-            const p = new URL(existing.webSocketDebuggerUrl).searchParams.get(
-              "page",
-            );
+            const p = new URL(existing.webSocketDebuggerUrl).searchParams.get('page');
             return p ? Number(p) : 0;
           } catch {
             return 0;
@@ -98,9 +91,7 @@ function dedupeDevtoolsTargets(targets: DevtoolsTarget[]): DevtoolsTarget[] {
   return Array.from(map.values());
 }
 
-export async function discoverDevtoolsTargets(
-  metroPort: number,
-): Promise<DevtoolsTarget[]> {
+export async function discoverDevtoolsTargets(metroPort: number): Promise<DevtoolsTarget[]> {
   const host = DEFAULT_HOST;
   const candidates = new Set<number>();
   candidates.add(metroPort);
@@ -122,7 +113,7 @@ export async function discoverDevtoolsTargets(
 
     let index = 0;
     for (const item of tryList) {
-      if (item && typeof (item as any).webSocketDebuggerUrl === "string") {
+      if (item && typeof (item as any).webSocketDebuggerUrl === 'string') {
         const url = String((item as any).webSocketDebuggerUrl);
 
         if (seenUrls.has(url)) {
@@ -132,14 +123,9 @@ export async function discoverDevtoolsTargets(
 
         seenUrls.add(url);
         const id = String((item as any).id ?? `${port}-${index}`);
-        const title =
-          typeof (item as any).title === "string"
-            ? (item as any).title
-            : undefined;
+        const title = typeof (item as any).title === 'string' ? (item as any).title : undefined;
         const description =
-          typeof (item as any).description === "string"
-            ? (item as any).description
-            : undefined;
+          typeof (item as any).description === 'string' ? (item as any).description : undefined;
         results.push({ id, title, description, webSocketDebuggerUrl: url });
         index += 1;
       }
@@ -151,7 +137,7 @@ export async function discoverDevtoolsTargets(
   if (deduped.length === 0) {
     console.log(
       chalk.yellow(
-        "[rn-inspector] DevTools auto-discovery found no /json targets (falling back to Metro-only mode)",
+        '[rn-inspector] DevTools auto-discovery found no /json targets (falling back to Metro-only mode)',
       ),
     );
   } else {
@@ -162,12 +148,10 @@ export async function discoverDevtoolsTargets(
         ),
       );
     }
-    console.log(chalk.green("[rn-inspector] Discovered DevTools targets:"));
+    console.log(chalk.green('[rn-inspector] Discovered DevTools targets:'));
     deduped.forEach((t, idx) => {
       const label = t.title || t.description || t.id;
-      console.log(
-        chalk.cyan(`  [${idx}] ${t.webSocketDebuggerUrl} (${label})`),
-      );
+      console.log(chalk.cyan(`  [${idx}] ${t.webSocketDebuggerUrl} (${label})`));
     });
   }
 

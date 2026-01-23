@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   useProxyStream,
   type ConsoleEvent,
@@ -16,7 +9,7 @@ import {
   type NavigationState,
   type NavigationHistoryEntry,
   type NavigationRoute,
-} from "../hooks/useProxyStream";
+} from '../hooks/useProxyStream';
 
 export interface ProxyContextValue {
   consoleEvents: ConsoleEvent[];
@@ -25,26 +18,18 @@ export interface ProxyContextValue {
   navigationState: NavigationState | null;
   navigationHistory: NavigationHistoryEntry[];
   availableRoutes: NavigationRoute[];
-  status: "connecting" | "open" | "closed" | "error";
+  status: 'connecting' | 'open' | 'closed' | 'error';
   stats: { consoleCount: number; networkCount: number; status: typeof status };
   reconnect: () => void;
   devices: DeviceInfo[];
   activeDeviceId: string;
   setActiveDeviceId: (id: string) => void;
-  devtoolsStatus: "unknown" | "open" | "closed" | "error";
+  devtoolsStatus: 'unknown' | 'open' | 'closed' | 'error';
   reconnectDevtools: () => void;
   fetchStorage: (deviceId?: string) => void;
   mutateStorage: (payload: StorageMutationPayload) => void;
-  navigateToRoute: (
-    routeKey: string,
-    params?: Record<string, unknown>,
-    deviceId?: string,
-  ) => void;
-  replaceToRoute: (
-    routeKey: string,
-    params?: Record<string, unknown>,
-    deviceId?: string,
-  ) => void;
+  navigateToRoute: (routeKey: string, params?: Record<string, unknown>, deviceId?: string) => void;
+  replaceToRoute: (routeKey: string, params?: Record<string, unknown>, deviceId?: string) => void;
   goBack: (deviceId?: string) => void;
   resetNavigation: (state: unknown, deviceId?: string) => void;
   openUrl: (url: string, deviceId?: string) => void;
@@ -69,12 +54,10 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
   const stream = useProxyStream();
 
   const [captureConsole, setCaptureConsole] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       try {
-        const saved = window.localStorage.getItem(
-          "rn_inspector_capture_console",
-        );
-        if (saved === "true" || saved === "false") return saved === "true";
+        const saved = window.localStorage.getItem('rn_inspector_capture_console');
+        if (saved === 'true' || saved === 'false') return saved === 'true';
       } catch {
         // ignore storage errors
       }
@@ -82,20 +65,14 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     return true;
   });
 
-  const [consoleClearedAtMs, setConsoleClearedAtMs] = useState<number | null>(
-    null,
-  );
-  const [networkClearedAtMs, setNetworkClearedAtMs] = useState<number | null>(
-    null,
-  );
+  const [consoleClearedAtMs, setConsoleClearedAtMs] = useState<number | null>(null);
+  const [networkClearedAtMs, setNetworkClearedAtMs] = useState<number | null>(null);
 
   const [captureNetwork, setCaptureNetwork] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       try {
-        const saved = window.localStorage.getItem(
-          "rn_inspector_capture_network",
-        );
-        if (saved === "true" || saved === "false") return saved === "true";
+        const saved = window.localStorage.getItem('rn_inspector_capture_network');
+        if (saved === 'true' || saved === 'false') return saved === 'true';
       } catch {
         // ignore storage errors
       }
@@ -104,12 +81,9 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
   });
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       try {
-        window.localStorage.setItem(
-          "rn_inspector_capture_console",
-          String(captureConsole),
-        );
+        window.localStorage.setItem('rn_inspector_capture_console', String(captureConsole));
       } catch {
         // ignore storage errors
       }
@@ -117,12 +91,9 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
   }, [captureConsole]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       try {
-        window.localStorage.setItem(
-          "rn_inspector_capture_network",
-          String(captureNetwork),
-        );
+        window.localStorage.setItem('rn_inspector_capture_network', String(captureNetwork));
       } catch {
         // ignore storage errors
       }
@@ -172,15 +143,13 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     setCaptureNetwork,
   };
 
-  return (
-    <ProxyContext.Provider value={value}>{children}</ProxyContext.Provider>
-  );
+  return <ProxyContext.Provider value={value}>{children}</ProxyContext.Provider>;
 };
 
 export const useProxy = () => {
   const ctx = useContext(ProxyContext);
   if (!ctx) {
-    throw new Error("useProxy must be used within a ProxyProvider");
+    throw new Error('useProxy must be used within a ProxyProvider');
   }
   return ctx;
 };

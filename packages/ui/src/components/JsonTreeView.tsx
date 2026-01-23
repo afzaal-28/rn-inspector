@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, useEffect, type MouseEvent } from "react";
+import { useState, useCallback, memo, useEffect, type MouseEvent } from 'react';
 import {
   Box,
   IconButton,
@@ -9,12 +9,12 @@ import {
   Popper,
   Paper,
   ClickAwayListener,
-} from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 
 type JsonTreeViewProps = {
   data: unknown;
@@ -25,44 +25,44 @@ type JsonTreeViewProps = {
   searchQuery?: string;
   parentPath?: string[];
   parentValue?: unknown;
-  storageTarget?: "asyncStorage" | "redux";
+  storageTarget?: 'asyncStorage' | 'redux';
   onMutate?: (payload: {
-    target: "asyncStorage" | "redux";
-    op: "set" | "delete";
+    target: 'asyncStorage' | 'redux';
+    op: 'set' | 'delete';
     path: string | string[];
     value?: unknown;
   }) => void;
 };
 
 const getValueColor = (value: unknown): string => {
-  if (value === null) return "#808080";
-  if (value === undefined) return "#808080";
-  if (typeof value === "string") return "#ce9178";
-  if (typeof value === "number") return "#b5cea8";
-  if (typeof value === "boolean") return "#569cd6";
-  return "inherit";
+  if (value === null) return '#808080';
+  if (value === undefined) return '#808080';
+  if (typeof value === 'string') return '#ce9178';
+  if (typeof value === 'number') return '#b5cea8';
+  if (typeof value === 'boolean') return '#569cd6';
+  return 'inherit';
 };
 
 const getTypeLabel = (value: unknown): string => {
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
   if (Array.isArray(value)) return `Array(${value.length})`;
-  if (typeof value === "object") return `Object`;
+  if (typeof value === 'object') return `Object`;
   return typeof value;
 };
 
 const formatValue = (value: unknown): string => {
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (typeof value === "string") return `"${value}"`;
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "number") return String(value);
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') return `"${value}"`;
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'number') return String(value);
   return String(value);
 };
 
 const parseInputValue = (raw: string): unknown => {
   const trimmed = raw.trim();
-  if (!trimmed) return "";
+  if (!trimmed) return '';
   try {
     return JSON.parse(trimmed);
   } catch {
@@ -70,10 +70,7 @@ const parseInputValue = (raw: string): unknown => {
   }
 };
 
-const buildPath = (
-  parentPath: string[] | undefined,
-  name?: string,
-): string[] => {
+const buildPath = (parentPath: string[] | undefined, name?: string): string[] => {
   const base = parentPath ? [...parentPath] : [];
   if (!name) return base;
   const indexMatch = name.match(/^\[(\d+)\]$/);
@@ -82,7 +79,7 @@ const buildPath = (
 };
 
 const formatPathLabel = (pathParts: string[]): string => {
-  if (!pathParts.length) return "<root>";
+  if (!pathParts.length) return '<root>';
   return pathParts
     .map((part, index) => {
       if (/^\d+$/.test(part)) return `[${part}]`;
@@ -91,12 +88,12 @@ const formatPathLabel = (pathParts: string[]): string => {
       if (index === 0) return isSimple ? part : `["${safeKey}"]`;
       return isSimple ? `.${part}` : `["${safeKey}"]`;
     })
-    .join("");
+    .join('');
 };
 
 const isExpandable = (value: unknown): boolean => {
   if (value === null || value === undefined) return false;
-  if (typeof value !== "object") return false;
+  if (typeof value !== 'object') return false;
   if (Array.isArray(value)) return value.length > 0;
   return Object.keys(value).length > 0;
 };
@@ -107,7 +104,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
   defaultExpanded = false,
   depth = 0,
   maxDepth = 10,
-  searchQuery = "",
+  searchQuery = '',
   parentPath,
   parentValue,
   storageTarget,
@@ -119,19 +116,16 @@ const JsonTreeNode = memo(function JsonTreeNode({
     (value: unknown, keyName?: string): boolean => {
       if (!q) return false;
 
-      if (typeof keyName === "string" && keyName.toLowerCase().includes(q))
-        return true;
+      if (typeof keyName === 'string' && keyName.toLowerCase().includes(q)) return true;
 
       if (value === null || value === undefined) return false;
       const t = typeof value;
-      if (t === "string") return (value as string).toLowerCase().includes(q);
-      if (t === "number" || t === "boolean" || t === "bigint")
+      if (t === 'string') return (value as string).toLowerCase().includes(q);
+      if (t === 'number' || t === 'boolean' || t === 'bigint')
         return String(value).toLowerCase().includes(q);
       if (Array.isArray(value)) return value.some((item) => hasMatch(item));
-      if (t === "object")
-        return Object.entries(value as Record<string, unknown>).some(([k, v]) =>
-          hasMatch(v, k),
-        );
+      if (t === 'object')
+        return Object.entries(value as Record<string, unknown>).some(([k, v]) => hasMatch(v, k));
       return false;
     },
     [q],
@@ -140,27 +134,21 @@ const JsonTreeNode = memo(function JsonTreeNode({
   const expandable = isExpandable(data);
   const selfOrDescendantMatch = q ? hasMatch(data, name) : false;
 
-  const [expanded, setExpanded] = useState(
-    (defaultExpanded && depth < 2) || selfOrDescendantMatch,
-  );
+  const [expanded, setExpanded] = useState((defaultExpanded && depth < 2) || selfOrDescendantMatch);
   const [editingValue, setEditingValue] = useState(false);
-  const [valueDraft, setValueDraft] = useState("");
+  const [valueDraft, setValueDraft] = useState('');
   const [editAnchorEl, setEditAnchorEl] = useState<HTMLElement | null>(null);
   const [addAnchorEl, setAddAnchorEl] = useState<HTMLElement | null>(null);
-  const [addMode, setAddMode] = useState<"child" | "sibling" | null>(null);
-  const [childKeyDraft, setChildKeyDraft] = useState("");
-  const [childValueDraft, setChildValueDraft] = useState("");
-  const [siblingValueDraft, setSiblingValueDraft] = useState("");
-  const [deleteAnchorEl, setDeleteAnchorEl] = useState<HTMLElement | null>(
-    null,
-  );
+  const [addMode, setAddMode] = useState<'child' | 'sibling' | null>(null);
+  const [childKeyDraft, setChildKeyDraft] = useState('');
+  const [childValueDraft, setChildValueDraft] = useState('');
+  const [siblingValueDraft, setSiblingValueDraft] = useState('');
+  const [deleteAnchorEl, setDeleteAnchorEl] = useState<HTMLElement | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const currentPath = buildPath(parentPath, name);
   const currentPathLabel = formatPathLabel(currentPath);
-  const canMutate = Boolean(
-    onMutate && storageTarget && (name !== undefined || depth === 0),
-  );
+  const canMutate = Boolean(onMutate && storageTarget && (name !== undefined || depth === 0));
   const canDelete = depth > 0;
   const isArrayItem = Array.isArray(parentValue);
 
@@ -201,18 +189,17 @@ const JsonTreeNode = memo(function JsonTreeNode({
   };
 
   const handleDeleteConfirm = () => {
-    if (!onMutate || !storageTarget || !currentPath.length || !canDelete)
-      return;
-    onMutate({ target: storageTarget, op: "delete", path: currentPath });
+    if (!onMutate || !storageTarget || !currentPath.length || !canDelete) return;
+    onMutate({ target: storageTarget, op: 'delete', path: currentPath });
     handleDeleteCancel();
   };
 
   const handleAddChild = (event: MouseEvent) => {
     event.stopPropagation();
-    setAddMode("child");
+    setAddMode('child');
     setAddAnchorEl(event.currentTarget as HTMLElement);
-    setChildKeyDraft("");
-    setChildValueDraft("");
+    setChildKeyDraft('');
+    setChildValueDraft('');
     setExpanded(true);
   };
 
@@ -229,7 +216,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
     }
     onMutate({
       target: storageTarget,
-      op: "set",
+      op: 'set',
       path: childPath,
       value: parseInputValue(childValueDraft),
     });
@@ -239,24 +226,23 @@ const JsonTreeNode = memo(function JsonTreeNode({
 
   const handleAddSibling = (event: MouseEvent) => {
     event.stopPropagation();
-    setAddMode("sibling");
+    setAddMode('sibling');
     setAddAnchorEl(event.currentTarget as HTMLElement);
-    setSiblingValueDraft("");
+    setSiblingValueDraft('');
   };
 
   const handleSiblingSave = () => {
     if (!onMutate || !storageTarget || !isArrayItem) return;
     const parentArray = Array.isArray(parentValue) ? [...parentValue] : null;
     if (!parentArray) return;
-    const nameMatch =
-      (name || "").match(/^(\d+)$/) || (name || "").match(/^\[(\d+)\]$/);
+    const nameMatch = (name || '').match(/^(\d+)$/) || (name || '').match(/^\[(\d+)\]$/);
     const index = nameMatch ? Number(nameMatch[1]) : null;
     if (index === null || Number.isNaN(index)) return;
     parentArray.splice(index, 0, parseInputValue(siblingValueDraft));
     const parentArrayPath = parentPath || [];
     onMutate({
       target: storageTarget,
-      op: "set",
+      op: 'set',
       path: parentArrayPath,
       value: parentArray,
     });
@@ -268,7 +254,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
     if (!onMutate || !storageTarget) return;
     onMutate({
       target: storageTarget,
-      op: "set",
+      op: 'set',
       path: currentPath,
       value: parseInputValue(valueDraft),
     });
@@ -280,7 +266,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
       open={editingValue && Boolean(editAnchorEl)}
       anchorEl={editAnchorEl}
       placement="bottom-start"
-      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
+      modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
       sx={{ zIndex: 1300 }}
     >
       <ClickAwayListener onClickAway={handleEditClose}>
@@ -305,17 +291,12 @@ const JsonTreeNode = memo(function JsonTreeNode({
             fullWidth
             sx={{ mt: 1 }}
             helperText={
-              <Box
-                component="span"
-                sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-              >
+              <Box component="span" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                 Path: {currentPathLabel}
               </Box>
             }
           />
-          <Box
-            sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}
-          >
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
             <Button size="small" variant="text" onClick={handleEditSave}>
               Save
             </Button>
@@ -333,7 +314,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
       open={Boolean(addMode) && Boolean(addAnchorEl)}
       anchorEl={addAnchorEl}
       placement="bottom-start"
-      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
+      modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
       sx={{ zIndex: 1300 }}
     >
       <ClickAwayListener
@@ -353,8 +334,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
             border: (theme) => `1px solid ${theme.palette.divider}`,
           }}
         >
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {addMode === "child" && !Array.isArray(data) && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {addMode === 'child' && !Array.isArray(data) && (
               <TextField
                 size="small"
                 label="Key"
@@ -368,21 +349,16 @@ const JsonTreeNode = memo(function JsonTreeNode({
               size="small"
               label="Value (JSON)"
               placeholder='"hello", 123, { "a": 1 }'
-              value={
-                addMode === "sibling" ? siblingValueDraft : childValueDraft
-              }
+              value={addMode === 'sibling' ? siblingValueDraft : childValueDraft}
               onChange={(e) =>
-                addMode === "sibling"
+                addMode === 'sibling'
                   ? setSiblingValueDraft(e.target.value)
                   : setChildValueDraft(e.target.value)
               }
               helperText={
-                <Box
-                  component="span"
-                  sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                >
-                  Parent:{" "}
-                  {addMode === "sibling"
+                <Box component="span" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  Parent:{' '}
+                  {addMode === 'sibling'
                     ? formatPathLabel(parentPath ? [...parentPath] : [])
                     : formatPathLabel(currentPath)}
                 </Box>
@@ -391,13 +367,11 @@ const JsonTreeNode = memo(function JsonTreeNode({
               minRows={3}
               fullWidth
             />
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
               <Button
                 size="small"
                 variant="text"
-                onClick={
-                  addMode === "sibling" ? handleSiblingSave : handleAddSave
-                }
+                onClick={addMode === 'sibling' ? handleSiblingSave : handleAddSave}
               >
                 Save
               </Button>
@@ -423,7 +397,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
       open={confirmingDelete && Boolean(deleteAnchorEl)}
       anchorEl={deleteAnchorEl}
       placement="bottom-start"
-      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
+      modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
       sx={{ zIndex: 1300 }}
     >
       <ClickAwayListener onClickAway={handleDeleteCancel}>
@@ -439,15 +413,10 @@ const JsonTreeNode = memo(function JsonTreeNode({
           }}
         >
           <Typography variant="body2" sx={{ mb: 1 }}>
-            Delete {currentPathLabel || "item"}?
+            Delete {currentPathLabel || 'item'}?
           </Typography>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-            <Button
-              size="small"
-              color="error"
-              variant="text"
-              onClick={handleDeleteConfirm}
-            >
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button size="small" color="error" variant="text" onClick={handleDeleteConfirm}>
               Delete
             </Button>
             <Button size="small" variant="text" onClick={handleDeleteCancel}>
@@ -461,10 +430,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
 
   if (depth > maxDepth) {
     return (
-      <Typography
-        component="span"
-        sx={{ fontFamily: "monospace", fontSize: 12, color: "#808080" }}
-      >
+      <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: 12, color: '#808080' }}>
         [Max depth exceeded]
       </Typography>
     );
@@ -476,8 +442,8 @@ const JsonTreeNode = memo(function JsonTreeNode({
       <>
         <Box
           sx={{
-            display: "flex",
-            alignItems: "center",
+            display: 'flex',
+            alignItems: 'center',
             gap: 0.5,
             pl: depth > 0 ? 2.5 : 0,
             py: 0.25,
@@ -488,13 +454,13 @@ const JsonTreeNode = memo(function JsonTreeNode({
               <Typography
                 component="span"
                 sx={{
-                  fontFamily: "monospace",
+                  fontFamily: 'monospace',
                   fontSize: 12,
-                  color: "#9cdcfe",
+                  color: '#9cdcfe',
                   backgroundColor:
                     q && name?.toLowerCase().includes(q)
-                      ? "rgba(255, 193, 7, 0.25)"
-                      : "transparent",
+                      ? 'rgba(255, 193, 7, 0.25)'
+                      : 'transparent',
                 }}
               >
                 {name}
@@ -502,9 +468,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
               <Typography
                 component="span"
                 sx={{
-                  fontFamily: "monospace",
+                  fontFamily: 'monospace',
                   fontSize: 12,
-                  color: "text.secondary",
+                  color: 'text.secondary',
                 }}
               >
                 :
@@ -514,45 +480,31 @@ const JsonTreeNode = memo(function JsonTreeNode({
           <Typography
             component="span"
             sx={{
-              fontFamily: "monospace",
+              fontFamily: 'monospace',
               fontSize: 12,
               color: getValueColor(data),
               backgroundColor:
-                q && typeof data === "string" && data.toLowerCase().includes(q)
-                  ? "rgba(255, 193, 7, 0.25)"
-                  : "transparent",
-              wordBreak: "break-word",
+                q && typeof data === 'string' && data.toLowerCase().includes(q)
+                  ? 'rgba(255, 193, 7, 0.25)'
+                  : 'transparent',
+              wordBreak: 'break-word',
               opacity: editingValue ? 0.4 : 1,
             }}
           >
             {formatValue(data)}
           </Typography>
           {canMutate && (
-            <Box
-              sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}
-            >
-              <IconButton
-                size="small"
-                onClick={handleEditStart}
-                disabled={editingValue}
-              >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
+              <IconButton size="small" onClick={handleEditStart} disabled={editingValue}>
                 <EditIcon sx={{ fontSize: 16 }} />
               </IconButton>
               {isArrayItem && (
-                <IconButton
-                  size="small"
-                  onClick={handleAddSibling}
-                  disabled={editingValue}
-                >
+                <IconButton size="small" onClick={handleAddSibling} disabled={editingValue}>
                   <AddCircleOutlineIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               )}
               {canDelete && (
-                <IconButton
-                  size="small"
-                  onClick={handleDelete}
-                  disabled={editingValue}
-                >
+                <IconButton size="small" onClick={handleDelete} disabled={editingValue}>
                   <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               )}
@@ -576,10 +528,10 @@ const JsonTreeNode = memo(function JsonTreeNode({
     <Box sx={{ pl: depth > 0 ? 2 : 0 }}>
       <Box
         sx={{
-          display: "flex",
-          alignItems: "center",
-          cursor: "pointer",
-          "&:hover": { backgroundColor: "action.hover" },
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+          '&:hover': { backgroundColor: 'action.hover' },
           borderRadius: 1,
           py: 0.25,
         }}
@@ -597,14 +549,13 @@ const JsonTreeNode = memo(function JsonTreeNode({
             <Typography
               component="span"
               sx={{
-                fontFamily: "monospace",
+                fontFamily: 'monospace',
                 fontSize: 12,
-                color: "#9cdcfe",
+                color: '#9cdcfe',
                 backgroundColor:
-                  q &&
-                  (name?.toLowerCase().includes(q) || selfOrDescendantMatch)
-                    ? "rgba(255, 193, 7, 0.25)"
-                    : "transparent",
+                  q && (name?.toLowerCase().includes(q) || selfOrDescendantMatch)
+                    ? 'rgba(255, 193, 7, 0.25)'
+                    : 'transparent',
               }}
             >
               {name}
@@ -612,9 +563,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
             <Typography
               component="span"
               sx={{
-                fontFamily: "monospace",
+                fontFamily: 'monospace',
                 fontSize: 12,
-                color: "text.secondary",
+                color: 'text.secondary',
                 mx: 0.5,
               }}
             >
@@ -625,9 +576,9 @@ const JsonTreeNode = memo(function JsonTreeNode({
         <Typography
           component="span"
           sx={{
-            fontFamily: "monospace",
+            fontFamily: 'monospace',
             fontSize: 12,
-            color: "text.secondary",
+            color: 'text.secondary',
           }}
         >
           {getTypeLabel(data)}
@@ -636,19 +587,17 @@ const JsonTreeNode = memo(function JsonTreeNode({
           <Typography
             component="span"
             sx={{
-              fontFamily: "monospace",
+              fontFamily: 'monospace',
               fontSize: 12,
-              color: "text.disabled",
+              color: 'text.disabled',
               ml: 1,
             }}
           >
-            {isArray ? "[...]" : "{...}"}
+            {isArray ? '[...]' : '{...}'}
           </Typography>
         )}
         {canMutate && (
-          <Box
-            sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: "auto" }}
-          >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
             <IconButton size="small" onClick={handleEditStart}>
               <EditIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -667,7 +616,7 @@ const JsonTreeNode = memo(function JsonTreeNode({
       {deletePopper}
       {addPopper}
       <Collapse in={expanded} timeout="auto" unmountOnExit>
-        <Box sx={{ borderLeft: "1px solid", borderColor: "divider", ml: 1 }}>
+        <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', ml: 1 }}>
           {entries.map(([key, value]) => (
             <JsonTreeNode
               key={key}
@@ -693,7 +642,7 @@ export default function JsonTreeView({
   name,
   defaultExpanded = true,
   maxDepth = 10,
-  searchQuery = "",
+  searchQuery = '',
   parentPath,
   parentValue,
   storageTarget,
@@ -701,7 +650,7 @@ export default function JsonTreeView({
 }: JsonTreeViewProps) {
   if (Array.isArray(data) && name === undefined) {
     return (
-      <Box sx={{ fontFamily: "monospace", fontSize: 12 }}>
+      <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>
         {data.map((item, index) => (
           <JsonTreeNode
             key={index}
@@ -722,7 +671,7 @@ export default function JsonTreeView({
   }
 
   return (
-    <Box sx={{ fontFamily: "monospace", fontSize: 12 }}>
+    <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>
       <JsonTreeNode
         data={data}
         name={name}

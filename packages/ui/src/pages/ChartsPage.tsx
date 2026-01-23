@@ -1,13 +1,13 @@
-import { useMemo } from "react";
-import { Box, Stack, Typography, Card, CardContent, Chip } from "@mui/material";
-import { LineChart } from "@mui/x-charts/LineChart";
-import { BarChart } from "@mui/x-charts/BarChart";
-import { PieChart } from "@mui/x-charts/PieChart";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import TimelineIcon from "@mui/icons-material/Timeline";
-import PieChartIcon from "@mui/icons-material/PieChart";
-import GlassPanel from "../ui/GlassPanel";
-import { useProxy } from "../context/ProxyContext";
+import { useMemo } from 'react';
+import { Box, Stack, Typography, Card, CardContent, Chip } from '@mui/material';
+import { LineChart } from '@mui/x-charts/LineChart';
+import { BarChart } from '@mui/x-charts/BarChart';
+import { PieChart } from '@mui/x-charts/PieChart';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import PieChartIcon from '@mui/icons-material/PieChart';
+import GlassPanel from '../ui/GlassPanel';
+import { useProxy } from '../context/ProxyContext';
 
 export default function ChartsPage() {
   const { consoleEvents, networkEvents, navigationHistory } = useProxy();
@@ -20,7 +20,7 @@ export default function ChartsPage() {
       error: 0,
     };
     consoleEvents.forEach((event) => {
-      const level = event.level || "log";
+      const level = event.level || 'log';
       counts[level] = (counts[level] || 0) + 1;
     });
     return counts;
@@ -41,7 +41,7 @@ export default function ChartsPage() {
   const networkByMethod = useMemo(() => {
     const counts: Record<string, number> = {};
     networkEvents.forEach((event) => {
-      const method = event.method || "UNKNOWN";
+      const method = event.method || 'UNKNOWN';
       counts[method] = (counts[method] || 0) + 1;
     });
     return counts;
@@ -51,10 +51,7 @@ export default function ChartsPage() {
     const now = Date.now();
     const timeWindow = 60000;
     const bucketSize = 5000;
-    const buckets: Record<
-      number,
-      { console: number; network: number; navigation: number }
-    > = {};
+    const buckets: Record<number, { console: number; network: number; navigation: number }> = {};
 
     for (let i = 0; i < timeWindow; i += bucketSize) {
       const bucketTime = now - timeWindow + i;
@@ -65,8 +62,7 @@ export default function ChartsPage() {
       try {
         const eventTime = new Date(event.ts).getTime();
         const bucketTime =
-          Math.floor((eventTime - (now - timeWindow)) / bucketSize) *
-            bucketSize +
+          Math.floor((eventTime - (now - timeWindow)) / bucketSize) * bucketSize +
           (now - timeWindow);
         if (buckets[bucketTime]) {
           buckets[bucketTime].console++;
@@ -78,8 +74,7 @@ export default function ChartsPage() {
       try {
         const eventTime = new Date(event.ts).getTime();
         const bucketTime =
-          Math.floor((eventTime - (now - timeWindow)) / bucketSize) *
-            bucketSize +
+          Math.floor((eventTime - (now - timeWindow)) / bucketSize) * bucketSize +
           (now - timeWindow);
         if (buckets[bucketTime]) {
           buckets[bucketTime].network++;
@@ -91,8 +86,7 @@ export default function ChartsPage() {
       try {
         const eventTime = new Date(entry.timestamp).getTime();
         const bucketTime =
-          Math.floor((eventTime - (now - timeWindow)) / bucketSize) *
-            bucketSize +
+          Math.floor((eventTime - (now - timeWindow)) / bucketSize) * bucketSize +
           (now - timeWindow);
         if (buckets[bucketTime]) {
           buckets[bucketTime].navigation++;
@@ -100,16 +94,14 @@ export default function ChartsPage() {
       } catch {}
     });
 
-    const sortedBuckets = Object.entries(buckets).sort(
-      ([a], [b]) => Number(a) - Number(b),
-    );
+    const sortedBuckets = Object.entries(buckets).sort(([a], [b]) => Number(a) - Number(b));
 
     return {
       labels: sortedBuckets.map(([time]) => {
         const date = new Date(Number(time));
         return date.toLocaleTimeString([], {
-          minute: "2-digit",
-          second: "2-digit",
+          minute: '2-digit',
+          second: '2-digit',
         });
       }),
       console: sortedBuckets.map(([, counts]) => counts.console),
@@ -149,10 +141,10 @@ export default function ChartsPage() {
   const totalNavigation = navigationHistory.length;
 
   return (
-    <Box sx={{ p: 2, height: "100%", overflow: "auto" }}>
+    <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Stack spacing={2}>
         <GlassPanel>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <BarChartIcon sx={{ fontSize: 28 }} />
             <Typography variant="h5" fontWeight="bold">
               Event Analytics
@@ -162,16 +154,14 @@ export default function ChartsPage() {
 
         <Box
           sx={{
-            display: "grid",
+            display: 'grid',
             gap: 2,
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            alignItems: "stretch",
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            alignItems: 'stretch',
           }}
         >
-          <Card variant="outlined" sx={{ height: "100%", display: "flex" }}>
-            <CardContent
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
+          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" color="primary" gutterBottom>
                 Console Events
               </Typography>
@@ -187,13 +177,13 @@ export default function ChartsPage() {
                         label={`${level}: ${count}`}
                         size="small"
                         color={
-                          level === "error"
-                            ? "error"
-                            : level === "warn"
-                              ? "warning"
-                              : level === "info"
-                                ? "info"
-                                : "default"
+                          level === 'error'
+                            ? 'error'
+                            : level === 'warn'
+                              ? 'warning'
+                              : level === 'info'
+                                ? 'info'
+                                : 'default'
                         }
                       />
                     ),
@@ -202,10 +192,8 @@ export default function ChartsPage() {
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ height: "100%", display: "flex" }}>
-            <CardContent
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
+          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" color="secondary" gutterBottom>
                 Network Requests
               </Typography>
@@ -219,11 +207,11 @@ export default function ChartsPage() {
                     label={`${status}: ${count}`}
                     size="small"
                     color={
-                      status.startsWith("2")
-                        ? "success"
-                        : status.startsWith("4") || status.startsWith("5")
-                          ? "error"
-                          : "default"
+                      status.startsWith('2')
+                        ? 'success'
+                        : status.startsWith('4') || status.startsWith('5')
+                          ? 'error'
+                          : 'default'
                     }
                   />
                 ))}
@@ -231,10 +219,8 @@ export default function ChartsPage() {
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ height: "100%", display: "flex" }}>
-            <CardContent
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
+          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" color="success.main" gutterBottom>
                 Navigation Events
               </Typography>
@@ -250,33 +236,33 @@ export default function ChartsPage() {
 
         <GlassPanel>
           <Stack spacing={2}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TimelineIcon />
               <Typography variant="h6">Event Timeline (Last 60s)</Typography>
             </Box>
-            <Box sx={{ width: "100%", height: 300 }}>
+            <Box sx={{ width: '100%', height: 300 }}>
               <LineChart
                 xAxis={[
                   {
-                    scaleType: "point",
+                    scaleType: 'point',
                     data: eventTimeline.labels,
                   },
                 ]}
                 series={[
                   {
                     data: eventTimeline.console,
-                    label: "Console",
-                    color: "#2196f3",
+                    label: 'Console',
+                    color: '#2196f3',
                   },
                   {
                     data: eventTimeline.network,
-                    label: "Network",
-                    color: "#ff9800",
+                    label: 'Network',
+                    color: '#ff9800',
                   },
                   {
                     data: eventTimeline.navigation,
-                    label: "Navigation",
-                    color: "#4caf50",
+                    label: 'Navigation',
+                    color: '#4caf50',
                   },
                 ]}
                 height={300}
@@ -285,16 +271,16 @@ export default function ChartsPage() {
           </Stack>
         </GlassPanel>
 
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Box sx={{ flex: "1 1 400px", minWidth: 0, height: "100%" }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 400px', minWidth: 0, height: '100%' }}>
             <GlassPanel>
               <Stack spacing={2}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PieChartIcon />
                   <Typography variant="h6">Console Events by Level</Typography>
                 </Box>
                 {consolePieData.length > 0 ? (
-                  <Box sx={{ width: "100%", height: 300 }}>
+                  <Box sx={{ width: '100%', height: 300 }}>
                     <PieChart
                       series={[
                         {
@@ -305,12 +291,7 @@ export default function ChartsPage() {
                     />
                   </Box>
                 ) : (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    textAlign="center"
-                    py={4}
-                  >
+                  <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
                     No console events to display
                   </Typography>
                 )}
@@ -318,15 +299,15 @@ export default function ChartsPage() {
             </GlassPanel>
           </Box>
 
-          <Box sx={{ flex: "1 1 400px", minWidth: 0, height: "100%" }}>
+          <Box sx={{ flex: '1 1 400px', minWidth: 0, height: '100%' }}>
             <GlassPanel>
               <Stack spacing={2}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PieChartIcon />
                   <Typography variant="h6">Network Status Codes</Typography>
                 </Box>
                 {networkStatusPieData.length > 0 ? (
-                  <Box sx={{ width: "100%", height: 300 }}>
+                  <Box sx={{ width: '100%', height: 300 }}>
                     <PieChart
                       series={[
                         {
@@ -337,12 +318,7 @@ export default function ChartsPage() {
                     />
                   </Box>
                 ) : (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    textAlign="center"
-                    py={4}
-                  >
+                  <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
                     No network events to display
                   </Typography>
                 )}
@@ -355,31 +331,26 @@ export default function ChartsPage() {
           <Stack spacing={2}>
             <Box
               sx={{
-                display: "flex",
-                alignItems: "center",
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1,
-                height: "100%",
+                height: '100%',
               }}
             >
               <BarChartIcon />
               <Typography variant="h6">Network Requests by Method</Typography>
             </Box>
             {networkMethodBarData.length > 0 ? (
-              <Box sx={{ width: "100%", height: 300 }}>
+              <Box sx={{ width: '100%', height: 300 }}>
                 <BarChart
                   dataset={networkMethodBarData}
-                  xAxis={[{ scaleType: "band", dataKey: "method" }]}
-                  series={[{ dataKey: "count", label: "Requests" }]}
+                  xAxis={[{ scaleType: 'band', dataKey: 'method' }]}
+                  series={[{ dataKey: 'count', label: 'Requests' }]}
                   height={300}
                 />
               </Box>
             ) : (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                textAlign="center"
-                py={4}
-              >
+              <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
                 No network events to display
               </Typography>
             )}

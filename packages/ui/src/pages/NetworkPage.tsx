@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Chip,
@@ -12,34 +12,31 @@ import {
   Button,
   TextField,
   InputAdornment,
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import CallMadeIcon from "@mui/icons-material/CallMade";
-import GlassPanel from "../ui/GlassPanel";
-import JsonTreeView from "../components/JsonTreeView";
-import type {
-  NetworkEvent,
-  NetworkResourceType,
-} from "../hooks/useProxyStream";
-import { useProxy } from "../context/ProxyContext";
-import SearchIcon from "@mui/icons-material/Search";
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import CallMadeIcon from '@mui/icons-material/CallMade';
+import GlassPanel from '../ui/GlassPanel';
+import JsonTreeView from '../components/JsonTreeView';
+import type { NetworkEvent, NetworkResourceType } from '../hooks/useProxyStream';
+import { useProxy } from '../context/ProxyContext';
+import SearchIcon from '@mui/icons-material/Search';
 
-type ResourceFilterType = "all" | "fetch-xhr" | NetworkResourceType;
+type ResourceFilterType = 'all' | 'fetch-xhr' | NetworkResourceType;
 
 const RESOURCE_FILTERS: { value: ResourceFilterType; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "fetch-xhr", label: "Fetch/XHR" },
-  { value: "doc", label: "Doc" },
-  { value: "css", label: "CSS" },
-  { value: "js", label: "JS" },
-  { value: "font", label: "Font" },
-  { value: "img", label: "Img" },
-  { value: "media", label: "Media" },
-  { value: "socket", label: "Socket" },
-  { value: "other", label: "Other" },
+  { value: 'all', label: 'All' },
+  { value: 'fetch-xhr', label: 'Fetch/XHR' },
+  { value: 'doc', label: 'Doc' },
+  { value: 'css', label: 'CSS' },
+  { value: 'js', label: 'JS' },
+  { value: 'font', label: 'Font' },
+  { value: 'img', label: 'Img' },
+  { value: 'media', label: 'Media' },
+  { value: 'socket', label: 'Socket' },
+  { value: 'other', label: 'Other' },
 ];
 
 function formatTs(ts: string) {
@@ -51,75 +48,54 @@ function formatTs(ts: string) {
 }
 
 function getResourceTypeLabel(resourceType?: NetworkResourceType): string {
-  if (!resourceType) return "";
+  if (!resourceType) return '';
   const labels: Record<NetworkResourceType, string> = {
-    fetch: "Fetch",
-    xhr: "XHR",
-    doc: "Doc",
-    css: "CSS",
-    js: "JS",
-    font: "Font",
-    img: "Img",
-    media: "Media",
-    socket: "WS",
-    other: "Other",
+    fetch: 'Fetch',
+    xhr: 'XHR',
+    doc: 'Doc',
+    css: 'CSS',
+    js: 'JS',
+    font: 'Font',
+    img: 'Img',
+    media: 'Media',
+    socket: 'WS',
+    other: 'Other',
   };
   return labels[resourceType] || resourceType;
 }
 
 function getResourceTypeColor(
   resourceType?: NetworkResourceType,
-):
-  | "default"
-  | "primary"
-  | "secondary"
-  | "info"
-  | "success"
-  | "warning"
-  | "error" {
-  if (!resourceType) return "default";
+): 'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error' {
+  if (!resourceType) return 'default';
   const colors: Record<
     NetworkResourceType,
-    | "default"
-    | "primary"
-    | "secondary"
-    | "info"
-    | "success"
-    | "warning"
-    | "error"
+    'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error'
   > = {
-    fetch: "primary",
-    xhr: "primary",
-    doc: "info",
-    css: "secondary",
-    js: "warning",
-    font: "default",
-    img: "success",
-    media: "error",
-    socket: "info",
-    other: "default",
+    fetch: 'primary',
+    xhr: 'primary',
+    doc: 'info',
+    css: 'secondary',
+    js: 'warning',
+    font: 'default',
+    img: 'success',
+    media: 'error',
+    socket: 'info',
+    other: 'default',
   };
-  return colors[resourceType] || "default";
+  return colors[resourceType] || 'default';
 }
 
 const NetworkPage = () => {
-  const {
-    networkEvents,
-    activeDeviceId,
-    networkClearedAtMs,
-    setNetworkClearedAtMs,
-  } = useProxy();
+  const { networkEvents, activeDeviceId, networkClearedAtMs, setNetworkClearedAtMs } = useProxy();
   const [selectedEvent, setSelectedEvent] = useState<NetworkEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "headers" | "payload" | "response"
-  >("headers");
+  const [activeTab, setActiveTab] = useState<'headers' | 'payload' | 'response'>('headers');
   const [fullScreen, setFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showHtmlPreview, setShowHtmlPreview] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [resourceFilter, setResourceFilter] =
-    useState<ResourceFilterType>("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [resourceFilter, setResourceFilter] = useState<ResourceFilterType>('all');
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -127,73 +103,65 @@ const NetworkPage = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getStatusColor = (
-    status?: number,
-  ): "success" | "warning" | "error" | "default" => {
-    if (!status) return "default";
-    if (status >= 200 && status < 300) return "success";
-    if (status >= 300 && status < 400) return "warning";
-    if (status >= 400) return "error";
-    return "default";
+  const getStatusColor = (status?: number): 'success' | 'warning' | 'error' | 'default' => {
+    if (!status) return 'default';
+    if (status >= 200 && status < 300) return 'success';
+    if (status >= 300 && status < 400) return 'warning';
+    if (status >= 400) return 'error';
+    return 'default';
   };
 
   const getCurrentTabContent = (): string => {
-    if (!selectedEvent) return "";
-    if (activeTab === "headers") {
+    if (!selectedEvent) return '';
+    if (activeTab === 'headers') {
       const reqHeaders = selectedEvent.requestHeaders
         ? Object.entries(selectedEvent.requestHeaders)
             .map(([k, v]) => `${k}: ${v}`)
-            .join("\n")
-        : "";
+            .join('\n')
+        : '';
       const resHeaders = selectedEvent.responseHeaders
         ? Object.entries(selectedEvent.responseHeaders)
             .map(([k, v]) => `${k}: ${v}`)
-            .join("\n")
-        : "";
+            .join('\n')
+        : '';
       return `Request Headers:\n${reqHeaders}\n\nResponse Headers:\n${resHeaders}`;
     }
-    if (activeTab === "payload") {
+    if (activeTab === 'payload') {
       return selectedEvent.requestBody != null
         ? JSON.stringify(selectedEvent.requestBody, null, 2)
-        : "";
+        : '';
     }
-    if (activeTab === "response") {
+    if (activeTab === 'response') {
       return selectedEvent.responseBody != null
-        ? typeof selectedEvent.responseBody === "string"
+        ? typeof selectedEvent.responseBody === 'string'
           ? selectedEvent.responseBody
           : JSON.stringify(selectedEvent.responseBody, null, 2)
-        : "";
+        : '';
     }
-    return "";
+    return '';
   };
 
   const responseContentType = useMemo(() => {
-    if (!selectedEvent || !selectedEvent.responseHeaders) return "";
+    if (!selectedEvent || !selectedEvent.responseHeaders) return '';
     const headers = selectedEvent.responseHeaders;
-    const target = "content-type";
+    const target = 'content-type';
     for (const [k, v] of Object.entries(headers)) {
       if (k.toLowerCase() === target) return v;
     }
-    return "";
+    return '';
   }, [selectedEvent]);
 
-  const isImageResponse = responseContentType.toLowerCase().includes("image/");
-  const isPdfResponse = responseContentType
-    .toLowerCase()
-    .includes("application/pdf");
-  const isVideoResponse = responseContentType.toLowerCase().includes("video/");
-  const isHtmlResponse = responseContentType
-    .toLowerCase()
-    .includes("text/html");
+  const isImageResponse = responseContentType.toLowerCase().includes('image/');
+  const isPdfResponse = responseContentType.toLowerCase().includes('application/pdf');
+  const isVideoResponse = responseContentType.toLowerCase().includes('video/');
+  const isHtmlResponse = responseContentType.toLowerCase().includes('text/html');
 
   const sanitizedHtmlPreview = useMemo(() => {
-    if (!isHtmlResponse || typeof selectedEvent?.responseBody !== "string") {
+    if (!isHtmlResponse || typeof selectedEvent?.responseBody !== 'string') {
       return null;
     }
     try {
-      const encoded = btoa(
-        unescape(encodeURIComponent(selectedEvent.responseBody)),
-      );
+      const encoded = btoa(unescape(encodeURIComponent(selectedEvent.responseBody)));
       return `data:text/html;base64,${encoded}`;
     } catch {
       return null;
@@ -202,18 +170,18 @@ const NetworkPage = () => {
 
   const isTextLikeResponse =
     isHtmlResponse ||
-    responseContentType.toLowerCase().includes("text/") ||
+    responseContentType.toLowerCase().includes('text/') ||
     (!isImageResponse && !isPdfResponse && !isVideoResponse);
 
   let parsedJsonBody: unknown | null = null;
   if (selectedEvent && selectedEvent.responseBody != null) {
-    if (typeof selectedEvent.responseBody === "object") {
+    if (typeof selectedEvent.responseBody === 'object') {
       parsedJsonBody = selectedEvent.responseBody;
-    } else if (typeof selectedEvent.responseBody === "string") {
+    } else if (typeof selectedEvent.responseBody === 'string') {
       const trimmed = selectedEvent.responseBody.trim();
       if (
-        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-        (trimmed.startsWith("[") && trimmed.endsWith("]"))
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
       ) {
         try {
           parsedJsonBody = JSON.parse(trimmed);
@@ -225,8 +193,7 @@ const NetworkPage = () => {
   }
 
   const isJsonResponse =
-    responseContentType.toLowerCase().includes("application/json") ||
-    parsedJsonBody !== null;
+    responseContentType.toLowerCase().includes('application/json') || parsedJsonBody !== null;
 
   const mergedNetworkEvents = useMemo(() => {
     const byId = new Map<string, NetworkEvent>();
@@ -282,17 +249,15 @@ const NetworkPage = () => {
 
     let byDevice = latest;
     if (activeDeviceId) {
-      byDevice = byDevice.filter(
-        (evt) => !evt.deviceId || evt.deviceId === activeDeviceId,
-      );
+      byDevice = byDevice.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
     }
 
     // Apply resource type filter
-    if (resourceFilter !== "all") {
+    if (resourceFilter !== 'all') {
       byDevice = byDevice.filter((evt) => {
-        const evtType = evt.resourceType || "other";
-        if (resourceFilter === "fetch-xhr") {
-          return evtType === "fetch" || evtType === "xhr";
+        const evtType = evt.resourceType || 'other';
+        if (resourceFilter === 'fetch-xhr') {
+          return evtType === 'fetch' || evtType === 'xhr';
         }
         return evtType === resourceFilter;
       });
@@ -303,23 +268,15 @@ const NetworkPage = () => {
       byDevice = byDevice.filter((evt) => {
         const url = evt.url.toLowerCase();
         const method = evt.method.toLowerCase();
-        const statusText = evt.status != null ? String(evt.status) : "";
+        const statusText = evt.status != null ? String(evt.status) : '';
         return (
-          url.includes(query) ||
-          method.includes(query) ||
-          statusText.toLowerCase().includes(query)
+          url.includes(query) || method.includes(query) || statusText.toLowerCase().includes(query)
         );
       });
     }
 
     return byDevice;
-  }, [
-    mergedNetworkEvents,
-    activeDeviceId,
-    searchQuery,
-    networkClearedAtMs,
-    resourceFilter,
-  ]);
+  }, [mergedNetworkEvents, activeDeviceId, searchQuery, networkClearedAtMs, resourceFilter]);
 
   useEffect(() => {
     setShowHtmlPreview(false);
@@ -338,32 +295,30 @@ const NetworkPage = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", gap: 2, flexDirection: "column" }}>
+    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
       <Box
         sx={{
           p: 2,
           borderRadius: 2,
           background: (theme) =>
-            theme.palette.mode === "dark"
-              ? "rgba(255,255,255,0.03)"
-              : "rgba(0,0,0,0.02)",
+            theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
           border: (theme) => `1px solid ${theme.palette.divider}`,
           boxShadow: (theme) =>
-            `0 6px 18px ${theme.palette.mode === "dark" ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.08)"}`,
-          display: "flex",
-          flexDirection: "column",
+            `0 6px 18px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.08)'}`,
+          display: 'flex',
+          flexDirection: 'column',
           gap: 1.5,
         }}
       >
         <Box
           sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 1.5,
           }}
         >
-          <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <Typography variant="h5" fontWeight={600}>
               Network
             </Typography>
@@ -371,17 +326,17 @@ const NetworkPage = () => {
               HTTP requests captured from proxy
             </Typography>
           </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
             <Box
               sx={(theme) => ({
-                display: "flex",
-                alignItems: "center",
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1,
                 px: 1,
                 py: 0.5,
                 borderRadius: 999,
-                backdropFilter: "blur(14px) saturate(130%)",
-                WebkitBackdropFilter: "blur(14px) saturate(130%)",
+                backdropFilter: 'blur(14px) saturate(130%)',
+                WebkitBackdropFilter: 'blur(14px) saturate(130%)',
                 border: `1px solid ${theme.palette.divider}`,
               })}
             >
@@ -399,23 +354,23 @@ const NetworkPage = () => {
                 }}
                 sx={{
                   minWidth: 260,
-                  "& .MuiOutlinedInput-root": {
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: 999,
-                    border: "none",
+                    border: 'none',
                     px: 1,
                     py: 0.25,
-                    "& fieldset": {
-                      border: "none",
+                    '& fieldset': {
+                      border: 'none',
                     },
-                    "&:hover fieldset": {
-                      border: "none",
+                    '&:hover fieldset': {
+                      border: 'none',
                     },
-                    "&.Mui-focused fieldset": {
-                      border: "none",
+                    '&.Mui-focused fieldset': {
+                      border: 'none',
                     },
-                    "&.Mui-focused": {
-                      boxShadow: "none",
-                      outline: "none",
+                    '&.Mui-focused': {
+                      boxShadow: 'none',
+                      outline: 'none',
                     },
                   },
                 }}
@@ -427,12 +382,12 @@ const NetworkPage = () => {
               onClick={handleClear}
               disabled={networkEvents.length === 0}
               sx={(theme) => ({
-                textTransform: "none",
+                textTransform: 'none',
                 borderRadius: 999,
                 px: 1.75,
                 fontSize: 12,
                 borderColor: theme.palette.divider,
-                "&:hover": {
+                '&:hover': {
                   borderColor: theme.palette.primary.main,
                 },
               })}
@@ -451,11 +406,11 @@ const NetworkPage = () => {
           sx={{
             mt: 1,
             minHeight: 40,
-            "& .MuiTab-root": {
+            '& .MuiTab-root': {
               minHeight: 40,
               fontWeight: 600,
               fontSize: 13,
-              textTransform: "none",
+              textTransform: 'none',
             },
           }}
         >
@@ -467,12 +422,12 @@ const NetworkPage = () => {
 
       <GlassPanel
         sx={{
-          overflow: "auto",
+          overflow: 'auto',
           p: { xs: 1.5, md: 2 },
         }}
       >
         {networkEvents.length === 0 ? (
-          <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>
+          <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
             Waiting for network events from proxy…
           </Box>
         ) : (
@@ -482,20 +437,20 @@ const NetworkPage = () => {
                 key={`${evt.ts}-${idx}`}
                 onClick={() => {
                   setSelectedEvent(evt);
-                  setActiveTab("headers");
+                  setActiveTab('headers');
                   setDrawerOpen(true);
                 }}
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: 1.5,
                   px: 1.5,
                   py: 1,
                   borderRadius: 2,
                   border: (theme) => `1px solid ${theme.palette.divider}`,
-                  cursor: "pointer",
-                  "&:hover": {
-                    backgroundColor: "action.hover",
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
                   },
                 }}
               >
@@ -504,7 +459,7 @@ const NetworkPage = () => {
                     {formatTs(evt.ts)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {evt.durationMs != null ? `${evt.durationMs} ms` : "—"}
+                    {evt.durationMs != null ? `${evt.durationMs} ms` : '—'}
                   </Typography>
                 </Box>
                 <Box sx={{ minWidth: 80 }}>
@@ -514,7 +469,7 @@ const NetworkPage = () => {
                     label={evt.method}
                     variant="filled"
                     color="default"
-                    sx={{ textTransform: "uppercase", borderRadius: 2 }}
+                    sx={{ textTransform: 'uppercase', borderRadius: 2 }}
                   />
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -526,11 +481,11 @@ const NetworkPage = () => {
                 </Box>
                 <Box
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 0.5,
                     minWidth: 180,
-                    justifyContent: "flex-end",
+                    justifyContent: 'flex-end',
                   }}
                 >
                   {evt.resourceType && (
@@ -549,17 +504,13 @@ const NetworkPage = () => {
                   )}
                   <Chip
                     size="small"
-                    label={evt.status != null ? evt.status : "Pending"}
+                    label={evt.status != null ? evt.status : 'Pending'}
                     color={getStatusColor(evt.status)}
                     variant="filled"
-                    sx={{ borderRadius: 2, textTransform: "none" }}
+                    sx={{ borderRadius: 2, textTransform: 'none' }}
                   />
                   {evt.error && (
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="text.secondary"
-                    >
+                    <Typography component="span" variant="caption" color="text.secondary">
                       {` (${evt.error})`}
                     </Typography>
                   )}
@@ -576,66 +527,64 @@ const NetworkPage = () => {
         onClose={() => setDrawerOpen(false)}
         PaperProps={{
           sx: {
-            width: fullScreen ? "100%" : { xs: "100%", sm: 560 },
+            width: fullScreen ? '100%' : { xs: '100%', sm: 560 },
             background: (theme) => theme.palette.background.paper,
-            border: "none",
+            border: 'none',
             borderRadius: 0,
-            boxShadow: "none",
-            overflow: "hidden",
+            boxShadow: 'none',
+            overflow: 'hidden',
             m: 0,
-            height: "100%",
+            height: '100%',
           },
         }}
       >
         <Box
           sx={{
             p: 0,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            position: "relative",
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
           }}
         >
           {/* Accent glow */}
           <Box
             aria-hidden
             sx={(theme) => ({
-              position: "absolute",
+              position: 'absolute',
               top: -80,
               right: -60,
               width: 220,
               height: 220,
-              borderRadius: "50%",
+              borderRadius: '50%',
               background: `linear-gradient(135deg, ${theme.palette.info.main}, ${theme.palette.primary.main})`,
               opacity: 0.15,
-              filter: "blur(40px)",
-              pointerEvents: "none",
+              filter: 'blur(40px)',
+              pointerEvents: 'none',
             })}
           />
 
           {/* Header */}
           <Box
             sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               p: 2,
               m: 2,
               mb: 0,
               background: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(0,0,0,0.02)",
-              backdropFilter: "blur(14px) saturate(140%)",
-              WebkitBackdropFilter: "blur(14px) saturate(140%)",
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+              backdropFilter: 'blur(14px) saturate(140%)',
+              WebkitBackdropFilter: 'blur(14px) saturate(140%)',
               border: (theme) => `1px solid ${theme.palette.divider}`,
               borderRadius: 2,
             }}
           >
             <Box
               sx={{
-                display: "flex",
-                alignItems: "center",
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1.5,
                 minWidth: 0,
                 flex: 1,
@@ -653,7 +602,7 @@ const NetworkPage = () => {
                     variant="caption"
                     color="text.secondary"
                     noWrap
-                    sx={{ display: "block" }}
+                    sx={{ display: 'block' }}
                   >
                     {selectedEvent.method} • {formatTs(selectedEvent.ts)}
                   </Typography>
@@ -663,25 +612,23 @@ const NetworkPage = () => {
 
             <Box
               sx={{
-                display: "inline-flex",
+                display: 'inline-flex',
                 gap: 0.5,
                 background: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "rgba(255,255,255,0.04)"
-                    : "rgba(0,0,0,0.03)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
                 border: (theme) => `1px solid ${theme.palette.divider}`,
                 borderRadius: 2,
                 px: 0.5,
                 py: 0.25,
               }}
             >
-              <Tooltip title={copied ? "Copied!" : "Copy content"}>
+              <Tooltip title={copied ? 'Copied!' : 'Copy content'}>
                 <IconButton
                   onClick={() => handleCopy(getCurrentTabContent())}
                   size="small"
-                  color={copied ? "success" : "default"}
+                  color={copied ? 'success' : 'default'}
                 >
                   <ContentCopyIcon fontSize="small" />
                 </IconButton>
@@ -703,10 +650,10 @@ const NetworkPage = () => {
             <Box
               sx={{
                 flex: 1,
-                overflow: "auto",
+                overflow: 'auto',
                 p: 2,
-                display: "flex",
-                flexDirection: "column",
+                display: 'flex',
+                flexDirection: 'column',
                 gap: 2,
               }}
             >
@@ -715,28 +662,24 @@ const NetworkPage = () => {
                 sx={{
                   p: 2,
                   background: (theme) =>
-                    theme.palette.mode === "dark"
-                      ? "rgba(255,255,255,0.02)"
-                      : "rgba(0,0,0,0.01)",
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
                   border: (theme) => `1px solid ${theme.palette.divider}`,
                   borderRadius: 2,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
                     background: (theme) =>
-                      theme.palette.mode === "dark"
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(0,0,0,0.02)",
-                    transform: "translateY(-1px)",
+                      theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                    transform: 'translateY(-1px)',
                   },
                 }}
               >
                 <Box
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 1,
                     mb: 1.5,
-                    flexWrap: "wrap",
+                    flexWrap: 'wrap',
                   }}
                 >
                   <Chip
@@ -747,7 +690,7 @@ const NetworkPage = () => {
                   />
                   <Chip
                     size="small"
-                    label={selectedEvent.status ?? "Pending"}
+                    label={selectedEvent.status ?? 'Pending'}
                     color={getStatusColor(selectedEvent.status)}
                     variant="filled"
                     sx={{ fontWeight: 600 }}
@@ -770,12 +713,7 @@ const NetworkPage = () => {
                     />
                   )}
                   {selectedEvent.error && (
-                    <Chip
-                      size="small"
-                      label={selectedEvent.error}
-                      color="error"
-                      variant="filled"
-                    />
+                    <Chip size="small" label={selectedEvent.error} color="error" variant="filled" />
                   )}
                 </Box>
                 <Typography
@@ -783,8 +721,8 @@ const NetworkPage = () => {
                   sx={{
                     fontFamily: '"Fira Code", "JetBrains Mono", monospace',
                     fontSize: 12,
-                    wordBreak: "break-all",
-                    color: "text.secondary",
+                    wordBreak: 'break-all',
+                    color: 'text.secondary',
                   }}
                 >
                   {selectedEvent.url}
@@ -795,12 +733,10 @@ const NetworkPage = () => {
               <Box
                 sx={{
                   background: (theme) =>
-                    theme.palette.mode === "dark"
-                      ? "rgba(255,255,255,0.02)"
-                      : "rgba(0,0,0,0.01)",
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
                   border: (theme) => `1px solid ${theme.palette.divider}`,
                   borderRadius: 2,
-                  overflow: "hidden",
+                  overflow: 'hidden',
                 }}
               >
                 <Tabs
@@ -809,7 +745,7 @@ const NetworkPage = () => {
                   variant="fullWidth"
                   sx={{
                     minHeight: 44,
-                    "& .MuiTab-root": {
+                    '& .MuiTab-root': {
                       minHeight: 44,
                       fontWeight: 600,
                       fontSize: 13,
@@ -828,32 +764,26 @@ const NetworkPage = () => {
                   flex: 1,
                   p: 2,
                   background: (theme) =>
-                    theme.palette.mode === "dark"
-                      ? "rgba(255,255,255,0.02)"
-                      : "rgba(0,0,0,0.01)",
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
                   border: (theme) => `1px solid ${theme.palette.divider}`,
                   borderRadius: 2,
-                  overflow: "auto",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
+                  overflow: 'auto',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
                     background: (theme) =>
-                      theme.palette.mode === "dark"
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(0,0,0,0.02)",
+                      theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
                   },
                 }}
               >
-                {activeTab === "headers" && (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 3 }}
-                  >
+                {activeTab === 'headers' && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Request Headers */}
                     <Box>
                       <Box
                         sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
                           mb: 1,
                         }}
                       >
@@ -868,7 +798,7 @@ const NetworkPage = () => {
                                 handleCopy(
                                   Object.entries(selectedEvent.requestHeaders!)
                                     .map(([k, v]) => `${k}: ${v}`)
-                                    .join("\n"),
+                                    .join('\n'),
                                 )
                               }
                             >
@@ -881,60 +811,54 @@ const NetworkPage = () => {
                         <Box
                           sx={{
                             borderRadius: 1.5,
-                            border: (theme) =>
-                              `1px solid ${theme.palette.divider}`,
-                            overflow: "hidden",
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            overflow: 'hidden',
                           }}
                         >
-                          {Object.entries(selectedEvent.requestHeaders).map(
-                            ([key, value]) => (
-                              <Box
-                                key={key}
+                          {Object.entries(selectedEvent.requestHeaders).map(([key, value]) => (
+                            <Box
+                              key={key}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 2,
+                                px: 1.25,
+                                py: 0.75,
+                                borderBottom: '1px solid',
+                                borderColor: 'divider',
+                                '&:last-of-type': { borderBottom: 'none' },
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
                                 sx={{
-                                  display: "flex",
-                                  alignItems: "flex-start",
-                                  gap: 2,
-                                  px: 1.25,
-                                  py: 0.75,
-                                  borderBottom: "1px solid",
-                                  borderColor: "divider",
-                                  "&:last-of-type": { borderBottom: "none" },
+                                  minWidth: 140,
+                                  fontWeight: 600,
+                                  wordBreak: 'break-all',
                                 }}
                               >
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    minWidth: 140,
-                                    fontWeight: 600,
-                                    wordBreak: "break-all",
-                                  }}
-                                >
-                                  {key}
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    flex: 1,
-                                    wordBreak: "break-word",
-                                    fontFamily:
-                                      '"Fira Code", "JetBrains Mono", monospace',
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  {Array.isArray(value)
-                                    ? value.join(", ")
-                                    : String(value)}
-                                </Typography>
-                              </Box>
-                            ),
-                          )}
+                                {key}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  flex: 1,
+                                  wordBreak: 'break-word',
+                                  fontFamily: '"Fira Code", "JetBrains Mono", monospace',
+                                  fontSize: 12,
+                                }}
+                              >
+                                {Array.isArray(value) ? value.join(', ') : String(value)}
+                              </Typography>
+                            </Box>
+                          ))}
                         </Box>
                       ) : (
                         <Typography
                           variant="body2"
                           color="text.secondary"
-                          sx={{ fontStyle: "italic" }}
+                          sx={{ fontStyle: 'italic' }}
                         >
                           No request headers available.
                         </Typography>
@@ -945,9 +869,9 @@ const NetworkPage = () => {
                     <Box>
                       <Box
                         sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
                           mb: 1,
                         }}
                       >
@@ -962,7 +886,7 @@ const NetworkPage = () => {
                                 handleCopy(
                                   Object.entries(selectedEvent.responseHeaders!)
                                     .map(([k, v]) => `${k}: ${v}`)
-                                    .join("\n"),
+                                    .join('\n'),
                                 )
                               }
                             >
@@ -975,60 +899,54 @@ const NetworkPage = () => {
                         <Box
                           sx={{
                             borderRadius: 1.5,
-                            border: (theme) =>
-                              `1px solid ${theme.palette.divider}`,
-                            overflow: "hidden",
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            overflow: 'hidden',
                           }}
                         >
-                          {Object.entries(selectedEvent.responseHeaders).map(
-                            ([key, value]) => (
-                              <Box
-                                key={key}
+                          {Object.entries(selectedEvent.responseHeaders).map(([key, value]) => (
+                            <Box
+                              key={key}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 2,
+                                px: 1.25,
+                                py: 0.75,
+                                borderBottom: '1px solid',
+                                borderColor: 'divider',
+                                '&:last-of-type': { borderBottom: 'none' },
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
                                 sx={{
-                                  display: "flex",
-                                  alignItems: "flex-start",
-                                  gap: 2,
-                                  px: 1.25,
-                                  py: 0.75,
-                                  borderBottom: "1px solid",
-                                  borderColor: "divider",
-                                  "&:last-of-type": { borderBottom: "none" },
+                                  minWidth: 140,
+                                  fontWeight: 600,
+                                  wordBreak: 'break-all',
                                 }}
                               >
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    minWidth: 140,
-                                    fontWeight: 600,
-                                    wordBreak: "break-all",
-                                  }}
-                                >
-                                  {key}
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    flex: 1,
-                                    wordBreak: "break-word",
-                                    fontFamily:
-                                      '"Fira Code", "JetBrains Mono", monospace',
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  {Array.isArray(value)
-                                    ? value.join(", ")
-                                    : String(value)}
-                                </Typography>
-                              </Box>
-                            ),
-                          )}
+                                {key}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  flex: 1,
+                                  wordBreak: 'break-word',
+                                  fontFamily: '"Fira Code", "JetBrains Mono", monospace',
+                                  fontSize: 12,
+                                }}
+                              >
+                                {Array.isArray(value) ? value.join(', ') : String(value)}
+                              </Typography>
+                            </Box>
+                          ))}
                         </Box>
                       ) : (
                         <Typography
                           variant="body2"
                           color="text.secondary"
-                          sx={{ fontStyle: "italic" }}
+                          sx={{ fontStyle: 'italic' }}
                         >
                           No response headers available.
                         </Typography>
@@ -1037,13 +955,13 @@ const NetworkPage = () => {
                   </Box>
                 )}
 
-                {activeTab === "payload" && (
+                {activeTab === 'payload' && (
                   <Box>
                     <Box
                       sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                         mb: 1,
                       }}
                     >
@@ -1055,13 +973,7 @@ const NetworkPage = () => {
                           <IconButton
                             size="small"
                             onClick={() =>
-                              handleCopy(
-                                JSON.stringify(
-                                  selectedEvent.requestBody,
-                                  null,
-                                  2,
-                                ),
-                              )
+                              handleCopy(JSON.stringify(selectedEvent.requestBody, null, 2))
                             }
                           >
                             <ContentCopyIcon sx={{ fontSize: 14 }} />
@@ -1073,21 +985,18 @@ const NetworkPage = () => {
                       <Box
                         component="pre"
                         sx={{
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          fontFamily:
-                            '"Fira Code", "JetBrains Mono", monospace',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          fontFamily: '"Fira Code", "JetBrains Mono", monospace',
                           fontSize: 12,
                           lineHeight: 1.6,
                           m: 0,
                           p: 1.5,
                           background: (theme) =>
-                            theme.palette.mode === "dark"
-                              ? "rgba(0,0,0,0.3)"
-                              : "rgba(0,0,0,0.04)",
+                            theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
                           borderRadius: 1.5,
                           maxHeight: 400,
-                          overflow: "auto",
+                          overflow: 'auto',
                         }}
                       >
                         {JSON.stringify(selectedEvent.requestBody, null, 2)}
@@ -1096,7 +1005,7 @@ const NetworkPage = () => {
                       <Typography
                         variant="body2"
                         color="text.secondary"
-                        sx={{ fontStyle: "italic" }}
+                        sx={{ fontStyle: 'italic' }}
                       >
                         No request payload captured.
                       </Typography>
@@ -1104,59 +1013,46 @@ const NetworkPage = () => {
                   </Box>
                 )}
 
-                {activeTab === "response" && (
+                {activeTab === 'response' && (
                   <Box>
                     <Box
                       sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                         mb: 1,
                       }}
                     >
                       <Typography variant="overline" color="text.secondary">
                         Response Body
                       </Typography>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
-                        {selectedEvent.responseBody != null &&
-                          isTextLikeResponse && (
-                            <Tooltip title="Copy">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  handleCopy(
-                                    typeof selectedEvent.responseBody ===
-                                      "string"
-                                      ? selectedEvent.responseBody
-                                      : JSON.stringify(
-                                          selectedEvent.responseBody,
-                                          null,
-                                          2,
-                                        ),
-                                  )
-                                }
-                              >
-                                <ContentCopyIcon sx={{ fontSize: 14 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        {selectedEvent?.responseBody != null &&
-                          isHtmlResponse && (
-                            <Button
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {selectedEvent.responseBody != null && isTextLikeResponse && (
+                          <Tooltip title="Copy">
+                            <IconButton
                               size="small"
-                              variant={
-                                showHtmlPreview ? "contained" : "outlined"
+                              onClick={() =>
+                                handleCopy(
+                                  typeof selectedEvent.responseBody === 'string'
+                                    ? selectedEvent.responseBody
+                                    : JSON.stringify(selectedEvent.responseBody, null, 2),
+                                )
                               }
-                              onClick={() => setShowHtmlPreview((v) => !v)}
-                              sx={{ textTransform: "none" }}
                             >
-                              {showHtmlPreview
-                                ? "Hide HTML preview"
-                                : "Render HTML"}
-                            </Button>
-                          )}
+                              <ContentCopyIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {selectedEvent?.responseBody != null && isHtmlResponse && (
+                          <Button
+                            size="small"
+                            variant={showHtmlPreview ? 'contained' : 'outlined'}
+                            onClick={() => setShowHtmlPreview((v) => !v)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            {showHtmlPreview ? 'Hide HTML preview' : 'Render HTML'}
+                          </Button>
+                        )}
                         {selectedEvent && !isTextLikeResponse && (
                           <Button
                             component="a"
@@ -1165,7 +1061,7 @@ const NetworkPage = () => {
                             rel="noopener noreferrer"
                             size="small"
                             variant="outlined"
-                            sx={{ textTransform: "none" }}
+                            sx={{ textTransform: 'none' }}
                           >
                             Open in browser
                           </Button>
@@ -1176,9 +1072,9 @@ const NetworkPage = () => {
                       isImageResponse ? (
                         <Box
                           sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "flex-start",
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
                             gap: 1,
                           }}
                         >
@@ -1187,26 +1083,24 @@ const NetworkPage = () => {
                             src={selectedEvent.url}
                             alt="Response image"
                             sx={{
-                              maxWidth: "100%",
+                              maxWidth: '100%',
                               maxHeight: 360,
                               borderRadius: 1.5,
-                              border: (theme) =>
-                                `1px solid ${theme.palette.divider}`,
-                              objectFit: "contain",
-                              backgroundColor: "background.paper",
+                              border: (theme) => `1px solid ${theme.palette.divider}`,
+                              objectFit: 'contain',
+                              backgroundColor: 'background.paper',
                             }}
                           />
                           <Typography variant="caption" color="text.secondary">
-                            {responseContentType || "image/*"}
+                            {responseContentType || 'image/*'}
                           </Typography>
                         </Box>
                       ) : isPdfResponse ? (
                         <Box
                           sx={{
                             borderRadius: 1.5,
-                            border: (theme) =>
-                              `1px solid ${theme.palette.divider}`,
-                            overflow: "hidden",
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            overflow: 'hidden',
                             height: 360,
                           }}
                         >
@@ -1215,10 +1109,10 @@ const NetworkPage = () => {
                             src={selectedEvent.url}
                             title="PDF preview"
                             sx={{
-                              width: "100%",
-                              height: "100%",
-                              border: "none",
-                              backgroundColor: "background.paper",
+                              width: '100%',
+                              height: '100%',
+                              border: 'none',
+                              backgroundColor: 'background.paper',
                             }}
                           />
                         </Box>
@@ -1226,9 +1120,8 @@ const NetworkPage = () => {
                         <Box
                           sx={{
                             borderRadius: 1.5,
-                            border: (theme) =>
-                              `1px solid ${theme.palette.divider}`,
-                            overflow: "hidden",
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            overflow: 'hidden',
                           }}
                         >
                           <Box
@@ -1236,99 +1129,88 @@ const NetworkPage = () => {
                             src={selectedEvent.url}
                             controls
                             sx={{
-                              width: "100%",
+                              width: '100%',
                               maxHeight: 360,
-                              backgroundColor: "black",
+                              backgroundColor: 'black',
                             }}
                           />
                         </Box>
                       ) : (
                         <Box
                           sx={{
-                            display: "flex",
-                            flexDirection: "column",
+                            display: 'flex',
+                            flexDirection: 'column',
                             gap: 2,
                           }}
                         >
                           <Box
                             component="pre"
                             sx={{
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                              fontFamily:
-                                '"Fira Code", "JetBrains Mono", monospace',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontFamily: '"Fira Code", "JetBrains Mono", monospace',
                               fontSize: 12,
                               lineHeight: 1.6,
                               m: 0,
                               p: 1.5,
                               background: (theme) =>
-                                theme.palette.mode === "dark"
-                                  ? "rgba(0,0,0,0.3)"
-                                  : "rgba(0,0,0,0.04)",
+                                theme.palette.mode === 'dark'
+                                  ? 'rgba(0,0,0,0.3)'
+                                  : 'rgba(0,0,0,0.04)',
                               borderRadius: 1.5,
                               maxHeight: 400,
-                              overflow: "auto",
+                              overflow: 'auto',
                             }}
                           >
-                            {typeof selectedEvent.responseBody === "string"
+                            {typeof selectedEvent.responseBody === 'string'
                               ? selectedEvent.responseBody
-                              : JSON.stringify(
-                                  selectedEvent.responseBody,
-                                  null,
-                                  2,
-                                )}
+                              : JSON.stringify(selectedEvent.responseBody, null, 2)}
                           </Box>
                           {isJsonResponse && parsedJsonBody !== null && (
                             <Box
                               sx={{
                                 p: 1.5,
                                 background: (theme) =>
-                                  theme.palette.mode === "dark"
-                                    ? "rgba(0,0,0,0.3)"
-                                    : "rgba(0,0,0,0.04)",
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(0,0,0,0.3)'
+                                    : 'rgba(0,0,0,0.04)',
                                 borderRadius: 1.5,
                                 maxHeight: 400,
-                                overflow: "auto",
+                                overflow: 'auto',
                               }}
                             >
-                              <JsonTreeView
-                                data={parsedJsonBody}
-                                defaultExpanded
+                              <JsonTreeView data={parsedJsonBody} defaultExpanded />
+                            </Box>
+                          )}
+                          {isHtmlResponse && showHtmlPreview && sanitizedHtmlPreview && (
+                            <Box
+                              sx={{
+                                borderRadius: 1.5,
+                                border: (theme) => `1px solid ${theme.palette.divider}`,
+                                overflow: 'hidden',
+                                height: 360,
+                              }}
+                            >
+                              <Box
+                                component="iframe"
+                                src={sanitizedHtmlPreview}
+                                title="HTML preview"
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  border: 'none',
+                                  backgroundColor: 'background.paper',
+                                }}
                               />
                             </Box>
                           )}
-                          {isHtmlResponse &&
-                            showHtmlPreview &&
-                            sanitizedHtmlPreview && (
-                              <Box
-                                sx={{
-                                  borderRadius: 1.5,
-                                  border: (theme) =>
-                                    `1px solid ${theme.palette.divider}`,
-                                  overflow: "hidden",
-                                  height: 360,
-                                }}
-                              >
-                                <Box
-                                  component="iframe"
-                                  src={sanitizedHtmlPreview}
-                                  title="HTML preview"
-                                  sx={{
-                                    width: "100%",
-                                    height: "100%",
-                                    border: "none",
-                                    backgroundColor: "background.paper",
-                                  }}
-                                />
-                              </Box>
-                            )}
                         </Box>
                       )
                     ) : (
                       <Typography
                         variant="body2"
                         color="text.secondary"
-                        sx={{ fontStyle: "italic" }}
+                        sx={{ fontStyle: 'italic' }}
                       >
                         No response body captured.
                       </Typography>

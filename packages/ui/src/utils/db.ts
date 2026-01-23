@@ -106,13 +106,13 @@ export interface ConsoleQueryOptions {
 }
 
 export async function queryConsoleEvents(
-  options: ConsoleQueryOptions = {}
+  options: ConsoleQueryOptions = {},
 ): Promise<(ConsoleEvent & { id: number })[]> {
   const db = await getDB();
   const { deviceId, level, searchQuery, limit = 300, offset = 0, afterTimestamp } = options;
 
   let events = await db.getAllFromIndex('console', 'by-timestamp');
-  
+
   events = events.reverse();
 
   if (afterTimestamp) {
@@ -157,13 +157,13 @@ export interface NetworkQueryOptions {
 }
 
 export async function queryNetworkEvents(
-  options: NetworkQueryOptions = {}
+  options: NetworkQueryOptions = {},
 ): Promise<(NetworkEvent & { id: number })[]> {
   const db = await getDB();
   const { deviceId, method, searchQuery, limit = 300, offset = 0 } = options;
 
   let events = await db.getAllFromIndex('network', 'by-timestamp');
-  
+
   events = events.reverse();
 
   if (deviceId) {
@@ -192,12 +192,12 @@ export async function getNetworkCount(deviceId?: string): Promise<number> {
 
 export async function queryStorageEvents(
   deviceId?: string,
-  limit = 50
+  limit = 50,
 ): Promise<(StorageEvent & { id: number })[]> {
   const db = await getDB();
-  
+
   let events = await db.getAllFromIndex('storage', 'by-timestamp');
-  
+
   events = events.reverse();
 
   if (deviceId) {
@@ -208,13 +208,13 @@ export async function queryStorageEvents(
 }
 
 export async function getLatestStorageEvent(
-  deviceId: string
+  deviceId: string,
 ): Promise<(StorageEvent & { id: number }) | undefined> {
   const db = await getDB();
   const events = await db.getAllFromIndex('storage', 'by-device', deviceId);
-  
+
   if (events.length === 0) return undefined;
-  
+
   return events[events.length - 1];
 }
 
@@ -242,12 +242,12 @@ export async function clearAllData(): Promise<void> {
 export async function pruneOldConsoleEvents(keepCount = 10000): Promise<void> {
   const db = await getDB();
   const count = await db.count('console');
-  
+
   if (count <= keepCount) return;
-  
+
   const toDelete = count - keepCount;
   const events = await db.getAllFromIndex('console', 'by-timestamp', null, toDelete);
-  
+
   const tx = db.transaction('console', 'readwrite');
   for (const event of events) {
     await tx.store.delete(event.id);
@@ -258,12 +258,12 @@ export async function pruneOldConsoleEvents(keepCount = 10000): Promise<void> {
 export async function pruneOldNetworkEvents(keepCount = 10000): Promise<void> {
   const db = await getDB();
   const count = await db.count('network');
-  
+
   if (count <= keepCount) return;
-  
+
   const toDelete = count - keepCount;
   const events = await db.getAllFromIndex('network', 'by-timestamp', null, toDelete);
-  
+
   const tx = db.transaction('network', 'readwrite');
   for (const event of events) {
     await tx.store.delete(event.id);
@@ -274,12 +274,12 @@ export async function pruneOldNetworkEvents(keepCount = 10000): Promise<void> {
 export async function pruneOldStorageEvents(keepCount = 1000): Promise<void> {
   const db = await getDB();
   const count = await db.count('storage');
-  
+
   if (count <= keepCount) return;
-  
+
   const toDelete = count - keepCount;
   const events = await db.getAllFromIndex('storage', 'by-timestamp', null, toDelete);
-  
+
   const tx = db.transaction('storage', 'readwrite');
   for (const event of events) {
     await tx.store.delete(event.id);

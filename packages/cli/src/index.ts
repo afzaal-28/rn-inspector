@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-import http, { IncomingMessage, ServerResponse } from "http";
-import WebSocket, { RawData, WebSocketServer } from "ws";
-import path from "path";
-import fs from "fs";
-import serveStatic from "serve-static";
-import finalhandler from "finalhandler";
-import chalk from "chalk";
-import { spawn } from "child_process";
-import { discoverDevtoolsTargets } from "./devtools/discovery";
-import { attachDevtoolsBridge } from "./devtools/bridge";
-import type { DevtoolsBridge, ProxyOptions } from "./types/Index";
+import http, { IncomingMessage, ServerResponse } from 'http';
+import WebSocket, { RawData, WebSocketServer } from 'ws';
+import path from 'path';
+import fs from 'fs';
+import serveStatic from 'serve-static';
+import finalhandler from 'finalhandler';
+import chalk from 'chalk';
+import { spawn } from 'child_process';
+import { discoverDevtoolsTargets } from './devtools/discovery';
+import { attachDevtoolsBridge } from './devtools/bridge';
+import type { DevtoolsBridge, ProxyOptions } from './types/Index';
 import {
   DEFAULT_HOST,
   DEFAULT_METRO_PORT,
@@ -41,7 +41,7 @@ import {
   getCliVersion,
   getMetroPort,
   getUiStaticDir,
-} from "./config/Index";
+} from './config/Index';
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -61,34 +61,34 @@ function parseArgs() {
     const arg = args[i];
     const next = args[i + 1];
 
-    if (arg === "--version" || arg === "-v" || arg === "version") {
+    if (arg === '--version' || arg === '-v' || arg === 'version') {
       parsed.showVersion = true;
-    } else if (arg === "--port" && next && !next.startsWith("-")) {
+    } else if (arg === '--port' && next && !next.startsWith('-')) {
       const val = Number(next);
       if (!Number.isNaN(val)) parsed.metroPort = val;
       i += 1;
-    } else if (arg.startsWith("--port=")) {
-      const val = Number(arg.split("=")[1]);
+    } else if (arg.startsWith('--port=')) {
+      const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.metroPort = val;
-    } else if (arg === "--ui-port" && next && !next.startsWith("-")) {
+    } else if (arg === '--ui-port' && next && !next.startsWith('-')) {
       const val = Number(next);
       if (!Number.isNaN(val)) parsed.uiPort = val;
       i += 1;
-    } else if (arg.startsWith("--ui-port=")) {
-      const val = Number(arg.split("=")[1]);
+    } else if (arg.startsWith('--ui-port=')) {
+      const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.uiPort = val;
-    } else if (arg === "--ui-ws-port" && next && !next.startsWith("-")) {
+    } else if (arg === '--ui-ws-port' && next && !next.startsWith('-')) {
       const val = Number(next);
       if (!Number.isNaN(val)) parsed.uiWsPort = val;
       i += 1;
-    } else if (arg.startsWith("--ui-ws-port=")) {
-      const val = Number(arg.split("=")[1]);
+    } else if (arg.startsWith('--ui-ws-port=')) {
+      const val = Number(arg.split('=')[1]);
       if (!Number.isNaN(val)) parsed.uiWsPort = val;
-    } else if (arg === "--devtools-url" && next && !next.startsWith("-")) {
+    } else if (arg === '--devtools-url' && next && !next.startsWith('-')) {
       if (next) parsed.devtoolsWsUrl = next;
       i += 1;
-    } else if (arg.startsWith("--devtools-url=")) {
-      const val = arg.split("=")[1];
+    } else if (arg.startsWith('--devtools-url=')) {
+      const val = arg.split('=')[1];
       if (val) parsed.devtoolsWsUrl = val;
     }
   }
@@ -109,35 +109,29 @@ async function startProxy(opts: ProxyOptions = {}) {
 
   const metroWs = new WebSocket(targetWsUrl);
 
-  metroWs.on("error", (err: Error) => {
-    if (err.message.includes("ECONNREFUSED")) {
+  metroWs.on('error', (err: Error) => {
+    if (err.message.includes('ECONNREFUSED')) {
       console.error(
-        chalk.red(
-          `[rn-inspector] Error: Could not connect to Metro server on port ${metroPort}`,
-        ),
+        chalk.red(`[rn-inspector] Error: Could not connect to Metro server on port ${metroPort}`),
       );
       console.error(
         chalk.yellow(
           `[rn-inspector] Make sure your React Native app is running and Metro is started`,
         ),
       );
-      console.error(
-        chalk.cyan(
-          `[rn-inspector] Try: npx react-native start or npx expo start`,
-        ),
-      );
+      console.error(chalk.cyan(`[rn-inspector] Try: npx react-native start or npx expo start`));
       process.exit(1);
     } else {
       console.error(chalk.red(`[rn-inspector] Metro WebSocket error:`), err);
     }
   });
 
-  metroWs.on("open", () => {
+  metroWs.on('open', () => {
     console.log(chalk.green(`[rn-inspector] Connected to Metro websocket`));
   });
 
   const messagesWss = new WebSocketServer({ port: uiPort });
-  messagesWss.on("listening", () => {
+  messagesWss.on('listening', () => {
     console.log(
       chalk.blue(
         `[rn-inspector] Messages WebSocket on ws://${host}:${uiPort}${UI_WS_MESSAGES_PATH}`,
@@ -146,7 +140,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   });
 
   const networkWss = new WebSocketServer({ port: uiPort + 1 });
-  networkWss.on("listening", () => {
+  networkWss.on('listening', () => {
     console.log(
       chalk.blue(
         `[rn-inspector] Network WebSocket on ws://${host}:${uiPort + 1}${UI_WS_NETWORK_PATH}`,
@@ -155,7 +149,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   });
 
   const storageWss = new WebSocketServer({ port: uiPort + 2 });
-  storageWss.on("listening", () => {
+  storageWss.on('listening', () => {
     console.log(
       chalk.blue(
         `[rn-inspector] Storage WebSocket on ws://${host}:${uiPort + 2}${UI_WS_STORAGE_PATH}`,
@@ -164,7 +158,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   });
 
   const controlWss = new WebSocketServer({ port: uiPort + 3 });
-  controlWss.on("listening", () => {
+  controlWss.on('listening', () => {
     console.log(
       chalk.blue(
         `[rn-inspector] Control WebSocket on ws://${host}:${uiPort + 3}${UI_WS_CONTROL_PATH}`,
@@ -173,7 +167,7 @@ async function startProxy(opts: ProxyOptions = {}) {
   });
 
   const navigationWss = new WebSocketServer({ port: uiPort + 4 });
-  navigationWss.on("listening", () => {
+  navigationWss.on('listening', () => {
     console.log(
       chalk.blue(
         `[rn-inspector] Navigation WebSocket on ws://${host}:${uiPort + 4}${UI_WS_NAVIGATION_PATH}`,
@@ -187,14 +181,13 @@ async function startProxy(opts: ProxyOptions = {}) {
     const data = JSON.stringify(message);
     const msg = message as any;
 
-    const isConsole = msg?.type === "console";
-    const isNetwork = msg?.type === "network";
-    const isStorage = msg?.type === "storage";
-    const isControl = msg?.type === "control";
-    const isNavigation = msg?.type === "navigation";
-    const isMetaDevices =
-      msg?.type === "meta" && msg?.payload?.kind === "devices";
-    const isMeta = msg?.type === "meta";
+    const isConsole = msg?.type === 'console';
+    const isNetwork = msg?.type === 'network';
+    const isStorage = msg?.type === 'storage';
+    const isControl = msg?.type === 'control';
+    const isNavigation = msg?.type === 'navigation';
+    const isMetaDevices = msg?.type === 'meta' && msg?.payload?.kind === 'devices';
+    const isMeta = msg?.type === 'meta';
 
     if (isConsole) {
       messagesWss.clients.forEach((client) => {
@@ -227,25 +220,21 @@ async function startProxy(opts: ProxyOptions = {}) {
         }
       });
     } else if (isMetaDevices) {
-      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach(
-        (wss) => {
-          wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(data);
-            }
-          });
-        },
-      );
+      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach((wss) => {
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+          }
+        });
+      });
     } else if (isMeta) {
-      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach(
-        (wss) => {
-          wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(data);
-            }
-          });
-        },
-      );
+      [messagesWss, networkWss, storageWss, controlWss, navigationWss].forEach((wss) => {
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+          }
+        });
+      });
     }
   };
 
@@ -263,9 +252,7 @@ async function startProxy(opts: ProxyOptions = {}) {
       if (opts.devtoolsWsUrl) {
         const deviceId = DEVICE_ID_EXPLICIT;
         console.log(
-          chalk.cyan(
-            `[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`,
-          ),
+          chalk.cyan(`[rn-inspector] Connecting to DevTools websocket ${opts.devtoolsWsUrl} ...`),
         );
         const bridge = attachDevtoolsBridge(
           opts.devtoolsWsUrl,
@@ -284,7 +271,7 @@ async function startProxy(opts: ProxyOptions = {}) {
         ];
 
         broadcast({
-          type: "meta",
+          type: 'meta',
           payload: {
             kind: META_KIND_DEVICES,
             devices: currentDevices,
@@ -334,18 +321,18 @@ async function startProxy(opts: ProxyOptions = {}) {
           broadcast({
             type: META_MSG_TYPE,
             payload: {
-              source: "devtools",
-              status: "closed",
-              level: "warning",
+              source: 'devtools',
+              status: 'closed',
+              level: 'warning',
               message:
-                "DevTools auto-discovery found no /json targets (falling back to Metro-only mode). Make sure your React Native app is running with debugging enabled.",
+                'DevTools auto-discovery found no /json targets (falling back to Metro-only mode). Make sure your React Native app is running with debugging enabled.',
               ts: new Date().toISOString(),
             },
           });
         }
       }
     } catch (err) {
-      console.error("[rn-inspector] Failed to attach DevTools bridge(s):", err);
+      console.error('[rn-inspector] Failed to attach DevTools bridge(s):', err);
     }
   };
 
@@ -366,27 +353,21 @@ async function startProxy(opts: ProxyOptions = {}) {
     }
   };
 
-  messagesWss.on("connection", sendDevicesOnConnect);
-  networkWss.on("connection", sendDevicesOnConnect);
-  storageWss.on("connection", sendDevicesOnConnect);
-  navigationWss.on("connection", sendDevicesOnConnect);
+  messagesWss.on('connection', sendDevicesOnConnect);
+  networkWss.on('connection', sendDevicesOnConnect);
+  storageWss.on('connection', sendDevicesOnConnect);
+  navigationWss.on('connection', sendDevicesOnConnect);
 
-  controlWss.on("connection", (client) => {
+  controlWss.on('connection', (client) => {
     sendDevicesOnConnect(client);
 
-    client.on("message", (data) => {
+    client.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        if (!msg || typeof msg !== "object") return;
-        if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_RECONNECT
-        ) {
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_RECONNECT) {
           void attachDevtools();
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_FETCH_STORAGE
-        ) {
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_FETCH_STORAGE) {
           const requestId = msg.requestId || `storage-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
 
@@ -396,7 +377,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               bridge.requestStorage(requestId);
             } else {
               broadcast({
-                type: "storage",
+                type: 'storage',
                 payload: {
                   requestId,
                   asyncStorage: { error: `Device ${targetDeviceId} not found` },
@@ -409,11 +390,11 @@ async function startProxy(opts: ProxyOptions = {}) {
           } else {
             if (devtoolsBridges.size === 0) {
               broadcast({
-                type: "storage",
+                type: 'storage',
                 payload: {
                   requestId,
-                  asyncStorage: { error: "No devices connected" },
-                  redux: { error: "No devices connected" },
+                  asyncStorage: { error: 'No devices connected' },
+                  redux: { error: 'No devices connected' },
                   deviceId: DEVICE_ID_ALL,
                   ts: new Date().toISOString(),
                 },
@@ -424,10 +405,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_MUTATE_STORAGE
-        ) {
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_MUTATE_STORAGE) {
           const requestId = msg.requestId || `storage-mutate-${Date.now()}`;
           const targetDeviceId = msg.deviceId;
           const payload = {
@@ -438,8 +416,8 @@ async function startProxy(opts: ProxyOptions = {}) {
             value: msg.value,
           } as {
             requestId: string;
-            target: "asyncStorage" | "redux";
-            op: "set" | "delete";
+            target: 'asyncStorage' | 'redux';
+            op: 'set' | 'delete';
             path: string;
             value?: unknown;
           };
@@ -454,7 +432,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               sendMutation(bridge);
             } else {
               broadcast({
-                type: "storage",
+                type: 'storage',
                 payload: {
                   requestId,
                   asyncStorage: { error: `Device ${targetDeviceId} not found` },
@@ -467,11 +445,11 @@ async function startProxy(opts: ProxyOptions = {}) {
           } else {
             if (devtoolsBridges.size === 0) {
               broadcast({
-                type: "storage",
+                type: 'storage',
                 payload: {
                   requestId,
-                  asyncStorage: { error: "No devices connected" },
-                  redux: { error: "No devices connected" },
+                  asyncStorage: { error: 'No devices connected' },
+                  redux: { error: 'No devices connected' },
                   deviceId: DEVICE_ID_ALL,
                   ts: new Date().toISOString(),
                 },
@@ -485,10 +463,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               });
             }
           }
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_NAVIGATE
-        ) {
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_NAVIGATE) {
           const targetDeviceId = msg.deviceId;
           const bridge =
             targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
@@ -498,7 +473,7 @@ async function startProxy(opts: ProxyOptions = {}) {
           if (bridge) {
             bridge.ws.send(
               JSON.stringify({
-                method: "Runtime.evaluate",
+                method: 'Runtime.evaluate',
                 params: {
                   expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['navigate']?.(${JSON.stringify({ routeName: msg.routeName, params: msg.params })})`,
                 },
@@ -507,7 +482,7 @@ async function startProxy(opts: ProxyOptions = {}) {
             setTimeout(() => {
               bridge.ws.send(
                 JSON.stringify({
-                  method: "Runtime.evaluate",
+                  method: 'Runtime.evaluate',
                   params: {
                     expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
                   },
@@ -515,10 +490,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               );
             }, 300);
           }
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_GO_BACK
-        ) {
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_GO_BACK) {
           const targetDeviceId = msg.deviceId;
           const bridge =
             targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
@@ -528,7 +500,7 @@ async function startProxy(opts: ProxyOptions = {}) {
           if (bridge) {
             bridge.ws.send(
               JSON.stringify({
-                method: "Runtime.evaluate",
+                method: 'Runtime.evaluate',
                 params: {
                   expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['go-back']?.()`,
                 },
@@ -537,7 +509,7 @@ async function startProxy(opts: ProxyOptions = {}) {
             setTimeout(() => {
               bridge.ws.send(
                 JSON.stringify({
-                  method: "Runtime.evaluate",
+                  method: 'Runtime.evaluate',
                   params: {
                     expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
                   },
@@ -545,10 +517,7 @@ async function startProxy(opts: ProxyOptions = {}) {
               );
             }, 300);
           }
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_RESET_NAVIGATION
-        ) {
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_RESET_NAVIGATION) {
           const targetDeviceId = msg.deviceId;
           const bridge =
             targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
@@ -558,17 +527,14 @@ async function startProxy(opts: ProxyOptions = {}) {
           if (bridge) {
             bridge.ws.send(
               JSON.stringify({
-                method: "Runtime.evaluate",
+                method: 'Runtime.evaluate',
                 params: {
                   expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['reset-navigation']?.(${JSON.stringify({ state: msg.state })})`,
                 },
               }),
             );
           }
-        } else if (
-          msg.type === CONTROL_MSG_TYPE &&
-          msg.command === CONTROL_CMD_OPEN_URL
-        ) {
+        } else if (msg.type === CONTROL_MSG_TYPE && msg.command === CONTROL_CMD_OPEN_URL) {
           const targetDeviceId = msg.deviceId;
           const bridge =
             targetDeviceId && targetDeviceId !== DEVICE_ID_ALL
@@ -578,7 +544,7 @@ async function startProxy(opts: ProxyOptions = {}) {
           if (bridge) {
             bridge.ws.send(
               JSON.stringify({
-                method: "Runtime.evaluate",
+                method: 'Runtime.evaluate',
                 params: {
                   expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['open-url']?.(${JSON.stringify({ url: msg.url })})`,
                 },
@@ -598,7 +564,7 @@ async function startProxy(opts: ProxyOptions = {}) {
           if (bridge) {
             bridge.ws.send(
               JSON.stringify({
-                method: "Runtime.evaluate",
+                method: 'Runtime.evaluate',
                 params: {
                   expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
                 },
@@ -612,72 +578,69 @@ async function startProxy(opts: ProxyOptions = {}) {
 
   await attachDevtools();
 
-  metroWs.on("message", (data: RawData) => {
+  metroWs.on('message', (data: RawData) => {
     const raw = data.toString();
     const evt = {
-      type: "console",
+      type: 'console',
       payload: {
         ts: new Date().toISOString(),
-        level: "info",
+        level: 'info',
         msg: raw,
-        origin: "metro",
+        origin: 'metro',
       },
     };
     broadcast(evt);
   });
 
-  metroWs.on("close", () => {
-    console.warn("[rn-inspector] Metro websocket closed");
+  metroWs.on('close', () => {
+    console.warn('[rn-inspector] Metro websocket closed');
     try {
       broadcast({
-        type: "meta",
+        type: 'meta',
         payload: {
-          source: "metro",
-          status: "closed",
-          level: "error",
-          message:
-            "Metro websocket closed. Is the Metro bundler still running?",
+          source: 'metro',
+          status: 'closed',
+          level: 'error',
+          message: 'Metro websocket closed. Is the Metro bundler still running?',
           ts: new Date().toISOString(),
         },
       });
     } catch {}
   });
 
-  metroWs.on("error", (err: Error) => {
-    console.error("[rn-inspector] Metro websocket error:", err);
+  metroWs.on('error', (err: Error) => {
+    console.error('[rn-inspector] Metro websocket error:', err);
     try {
       broadcast({
-        type: "meta",
+        type: 'meta',
         payload: {
-          source: "metro",
-          status: "error",
-          level: "error",
-          message: "Metro websocket error. Check Metro bundler status.",
+          source: 'metro',
+          status: 'error',
+          level: 'error',
+          message: 'Metro websocket error. Check Metro bundler status.',
           ts: new Date().toISOString(),
         },
       });
     } catch {}
   });
 
-  const server = http.createServer(
-    (_req: IncomingMessage, res: ServerResponse) => {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: true,
-          uiWsMessages: `ws://${host}:${uiPort}${UI_WS_MESSAGES_PATH}`,
-          uiWsNetwork: `ws://${host}:${uiPort + 1}${UI_WS_NETWORK_PATH}`,
-          uiWsStorage: `ws://${host}:${uiPort + 2}${UI_WS_STORAGE_PATH}`,
-          uiWsControl: `ws://${host}:${uiPort + 3}${UI_WS_CONTROL_PATH}`,
-          uiWsNavigation: `ws://${host}:${uiPort + 4}${UI_WS_NAVIGATION_PATH}`,
-        }),
-      );
-    },
-  );
+  const server = http.createServer((_req: IncomingMessage, res: ServerResponse) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        uiWsMessages: `ws://${host}:${uiPort}${UI_WS_MESSAGES_PATH}`,
+        uiWsNetwork: `ws://${host}:${uiPort + 1}${UI_WS_NETWORK_PATH}`,
+        uiWsStorage: `ws://${host}:${uiPort + 2}${UI_WS_STORAGE_PATH}`,
+        uiWsControl: `ws://${host}:${uiPort + 3}${UI_WS_CONTROL_PATH}`,
+        uiWsNavigation: `ws://${host}:${uiPort + 4}${UI_WS_NAVIGATION_PATH}`,
+      }),
+    );
+  });
 
   await new Promise<void>((resolve) => server.listen(0, host, resolve));
   const address = server.address();
-  console.log("[rn-inspector] Local proxy health endpoint on", address);
+  console.log('[rn-inspector] Local proxy health endpoint on', address);
 
   return {
     metroWs,
@@ -696,9 +659,9 @@ function startStaticUi(staticPort: number) {
   const staticDir = getUiStaticDir();
   const serve = serveStatic(staticDir);
   const server = http.createServer((req, res) => {
-    if (req.url && req.url.includes("..")) {
-      res.writeHead(400, { "content-type": "text/plain" });
-      res.end("Bad Request");
+    if (req.url && req.url.includes('..')) {
+      res.writeHead(400, { 'content-type': 'text/plain' });
+      res.end('Bad Request');
       return;
     }
     const done = finalhandler(req as any, res as any);
@@ -707,10 +670,9 @@ function startStaticUi(staticPort: number) {
       if (err) {
         return done(err as any);
       }
-      if (req.method === "GET") {
+      if (req.method === 'GET') {
         const accept = req.headers.accept;
-        const acceptsHtml =
-          typeof accept === "string" && accept.includes("text/html");
+        const acceptsHtml = typeof accept === 'string' && accept.includes('text/html');
 
         if (acceptsHtml) {
           const indexPath = path.join(staticDir, UI_STATIC_INDEX);
@@ -718,7 +680,7 @@ function startStaticUi(staticPort: number) {
             if (readErr) {
               return done(readErr as any);
             }
-            res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+            res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
             res.end(data);
           });
           return;
@@ -736,75 +698,72 @@ function startStaticUi(staticPort: number) {
 function openInBrowser(url: string) {
   try {
     const platform = process.platform;
-    if (platform === "win32") {
-      const child = spawn("cmd", ["/c", "start", '""', url], {
-        stdio: "ignore",
+    if (platform === 'win32') {
+      const child = spawn('cmd', ['/c', 'start', '""', url], {
+        stdio: 'ignore',
         detached: true,
       });
       child.unref();
-    } else if (platform === "darwin") {
-      const child = spawn("open", [url], { stdio: "ignore", detached: true });
+    } else if (platform === 'darwin') {
+      const child = spawn('open', [url], { stdio: 'ignore', detached: true });
       child.unref();
     } else {
-      const child = spawn("xdg-open", [url], {
-        stdio: "ignore",
+      const child = spawn('xdg-open', [url], {
+        stdio: 'ignore',
         detached: true,
       });
       child.unref();
     }
   } catch (err) {
-    console.error("[rn-inspector] Failed to open browser:", err);
+    console.error('[rn-inspector] Failed to open browser:', err);
   }
 }
 
-function registerKeyHandlers(
-  uiUrl: string,
-  attachDevtoolsFn: () => Promise<void>,
-) {
-  if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
+function registerKeyHandlers(uiUrl: string, attachDevtoolsFn: () => Promise<void>) {
+  if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== 'function') {
     return;
   }
 
   try {
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.setEncoding("utf8");
+    process.stdin.setEncoding('utf8');
 
-    console.log(chalk.cyan("[rn-inspector] Keyboard shortcuts:"));
+    console.log(chalk.cyan('[rn-inspector] Keyboard shortcuts:'));
     console.log(chalk.white("  'o' = open UI in browser"));
     console.log(chalk.white("  'd' = reconnect to DevTools"));
     console.log(chalk.white("  'r' = show reload hint"));
     console.log(chalk.white("  'h' = show this help"));
-    console.log(chalk.white("  Ctrl+C = quit"));
+    console.log(chalk.white('  Ctrl+C = quit'));
 
-    process.stdin.on("data", (chunk: string) => {
+    process.stdin.on('data', (chunk: string) => {
       const key = chunk.toString();
 
-      if (key === "o" || key === "O") {
-        console.log(chalk.green("[rn-inspector] Opening UI in browser..."));
+      if (key === 'o' || key === 'O') {
+        console.log(chalk.green('[rn-inspector] Opening UI in browser...'));
         openInBrowser(uiUrl);
-      } else if (key === "d" || key === "D") {
-        console.log(chalk.yellow("[rn-inspector] Reconnecting to DevTools..."));
+      } else if (key === 'd' || key === 'D') {
+        console.log(chalk.yellow('[rn-inspector] Reconnecting to DevTools...'));
         void attachDevtoolsFn();
-      } else if (key === "r" || key === "R") {
+      } else if (key === 'r' || key === 'R') {
         console.log(
           chalk.yellow(
-            "[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.",
+            '[rn-inspector] Reload requested. To fully reload the CLI, press Ctrl+C to stop it and then run `rn-inspector` again.',
           ),
         );
-      } else if (key === "h" || key === "H") {
-        console.log(chalk.cyan("\n[rn-inspector] Keyboard shortcuts:"));
+      } else if (key === 'h' || key === 'H') {
+        console.log(chalk.cyan('\n[rn-inspector] Keyboard shortcuts:'));
         console.log(chalk.white("  'o' = open UI in browser"));
         console.log(chalk.white("  'd' = reconnect to DevTools"));
         console.log(chalk.white("  'r' = show reload hint"));
         console.log(chalk.white("  'h' = show this help"));
-        console.log(chalk.white("  Ctrl+C = quit\n"));
-      } else if (key === "\u0003") {
+        console.log(chalk.white('  Ctrl+C = quit\n'));
+      } else if (key === '\u0003') {
         process.exit(0);
       }
     });
   } catch (err) {
-    console.error("[rn-inspector] Failed to register key handlers:", err);
+    console.error('[rn-inspector] Failed to register key handlers:', err);
   }
 }
 
@@ -858,9 +817,7 @@ export async function main() {
     ),
   );
   if (devtoolsWsUrl) {
-    console.log(
-      chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`),
-    );
+    console.log(chalk.blue(`[rn-inspector] DevTools endpoint: ${devtoolsWsUrl}`));
   }
   const { attachDevtools } = await startProxy({
     metroPort,
@@ -868,7 +825,7 @@ export async function main() {
     devtoolsWsUrl,
   });
 
-  console.log(chalk.blue("[rn-inspector] Serving UI assets..."));
+  console.log(chalk.blue('[rn-inspector] Serving UI assets...'));
   startStaticUi(uiPort);
 
   const uiUrl = `http://localhost:${uiPort}`;
@@ -883,6 +840,6 @@ export async function main() {
 }
 
 main().catch((err) => {
-  console.error(chalk.red("[rn-inspector] CLI failed:"), err);
+  console.error(chalk.red('[rn-inspector] CLI failed:'), err);
   process.exit(1);
 });

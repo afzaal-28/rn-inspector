@@ -1,6 +1,6 @@
-import { Theme as MuiTheme } from "@mui/material/styles";
+import { Theme as MuiTheme } from '@mui/material/styles';
 
-declare module "@mui/material/styles" {
+declare module '@mui/material/styles' {
   interface TypeBackground {
     default: string;
     paper: string;

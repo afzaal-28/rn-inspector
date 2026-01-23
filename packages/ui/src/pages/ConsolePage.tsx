@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from 'react';
 import {
   Box,
   Chip,
@@ -15,40 +15,38 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import NotesIcon from "@mui/icons-material/Notes";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import GlassPanel from "../ui/GlassPanel";
-import JsonTreeView from "../components/JsonTreeView";
-import type { ConsoleEvent } from "../hooks/useProxyStream";
-import { useProxy } from "../context/ProxyContext";
-import SearchIcon from "@mui/icons-material/Search";
-import { queryConsoleEvents, clearConsoleEvents } from "../utils/db";
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import NotesIcon from '@mui/icons-material/Notes';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import GlassPanel from '../ui/GlassPanel';
+import JsonTreeView from '../components/JsonTreeView';
+import type { ConsoleEvent } from '../hooks/useProxyStream';
+import { useProxy } from '../context/ProxyContext';
+import SearchIcon from '@mui/icons-material/Search';
+import { queryConsoleEvents, clearConsoleEvents } from '../utils/db';
 
-const levelColor: Record<
-  string,
-  "default" | "primary" | "warning" | "error" | "info" | "success"
-> = {
-  log: "default",
-  info: "info",
-  warn: "warning",
-  error: "error",
-};
+const levelColor: Record<string, 'default' | 'primary' | 'warning' | 'error' | 'info' | 'success'> =
+  {
+    log: 'default',
+    info: 'info',
+    warn: 'warning',
+    error: 'error',
+  };
 
 const getLevelIcon = (level: string) => {
   switch (level) {
-    case "error":
+    case 'error':
       return <ErrorOutlineIcon fontSize="small" />;
-    case "warn":
+    case 'warn':
       return <WarningAmberIcon fontSize="small" />;
-    case "info":
+    case 'info':
       return <InfoOutlinedIcon fontSize="small" />;
     default:
       return <NotesIcon fontSize="small" />;
@@ -64,21 +62,15 @@ function formatTs(ts: string) {
 }
 
 const ConsolePage = () => {
-  const {
-    activeDeviceId,
-    consoleClearedAtMs,
-    setConsoleClearedAtMs,
-  } = useProxy();
+  const { activeDeviceId, consoleClearedAtMs, setConsoleClearedAtMs } = useProxy();
   const [dbConsoleEvents, setDbConsoleEvents] = useState<(ConsoleEvent & { id: number })[]>([]);
   const [loading, setLoading] = useState(false);
-  const [levelFilter, setLevelFilter] = useState<
-    "all" | "log" | "info" | "warn" | "error"
-  >("all");
+  const [levelFilter, setLevelFilter] = useState<'all' | 'log' | 'info' | 'warn' | 'error'>('all');
   const [selectedEvent, setSelectedEvent] = useState<ConsoleEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleCopyMessage = () => {
     if (selectedEvent?.msg) {
@@ -95,16 +87,18 @@ const ConsolePage = () => {
       try {
         const events = await queryConsoleEvents({
           deviceId: activeDeviceId,
-          level: levelFilter === "all" ? undefined : levelFilter,
+          level: levelFilter === 'all' ? undefined : levelFilter,
           searchQuery: searchQuery.trim() || undefined,
           limit: 500,
-          afterTimestamp: consoleClearedAtMs ? new Date(consoleClearedAtMs).toISOString() : undefined,
+          afterTimestamp: consoleClearedAtMs
+            ? new Date(consoleClearedAtMs).toISOString()
+            : undefined,
         });
         if (mounted) {
           setDbConsoleEvents(events);
         }
       } catch (err) {
-        console.error("Failed to load console events:", err);
+        console.error('Failed to load console events:', err);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -131,17 +125,14 @@ const ConsolePage = () => {
     >();
 
     filteredEvents.forEach((evt) => {
-      const key = `${evt.level}|${evt.origin ?? "metro"}|${evt.deviceId ?? ""}|${evt.msg}`;
+      const key = `${evt.level}|${evt.origin ?? 'metro'}|${evt.deviceId ?? ''}|${evt.msg}`;
       const existing = groups.get(key);
       if (existing) {
         existing.count += 1;
         // Prefer the latest timestamp for the representative event
         const prevTs = Date.parse(existing.event.ts);
         const currentTs = Date.parse(evt.ts);
-        if (
-          !Number.isNaN(currentTs) &&
-          (Number.isNaN(prevTs) || currentTs > prevTs)
-        ) {
+        if (!Number.isNaN(currentTs) && (Number.isNaN(prevTs) || currentTs > prevTs)) {
           existing.event = evt;
         }
       } else {
@@ -161,32 +152,30 @@ const ConsolePage = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", gap: 2, flexDirection: "column" }}>
+    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
       <Box
         sx={{
           p: 2,
           borderRadius: 2,
           background: (theme) =>
-            theme.palette.mode === "dark"
-              ? "rgba(255,255,255,0.03)"
-              : "rgba(0,0,0,0.02)",
+            theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
           border: (theme) => `1px solid ${theme.palette.divider}`,
           boxShadow: (theme) =>
-            `0 6px 18px ${theme.palette.mode === "dark" ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.08)"}`,
-          display: "flex",
-          flexDirection: "column",
+            `0 6px 18px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.08)'}`,
+          display: 'flex',
+          flexDirection: 'column',
           gap: 1.5,
         }}
       >
         <Box
           sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 1.5,
           }}
         >
-          <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <Typography variant="h5" fontWeight={600}>
               Console
             </Typography>
@@ -194,17 +183,17 @@ const ConsolePage = () => {
               Live logs from proxy
             </Typography>
           </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
             <Box
               sx={(theme) => ({
-                display: "flex",
-                alignItems: "center",
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1,
                 px: 1,
                 py: 0.5,
                 borderRadius: 999,
-                backdropFilter: "blur(14px) saturate(130%)",
-                WebkitBackdropFilter: "blur(14px) saturate(130%)",
+                backdropFilter: 'blur(14px) saturate(130%)',
+                WebkitBackdropFilter: 'blur(14px) saturate(130%)',
                 border: `1px solid ${theme.palette.divider}`,
               })}
             >
@@ -223,23 +212,23 @@ const ConsolePage = () => {
                 }}
                 sx={{
                   minWidth: 260,
-                  "& .MuiOutlinedInput-root": {
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: 999,
-                    border: "none",
+                    border: 'none',
                     px: 1,
                     py: 0.25,
-                    "& fieldset": {
-                      border: "none",
+                    '& fieldset': {
+                      border: 'none',
                     },
-                    "&:hover fieldset": {
-                      border: "none",
+                    '&:hover fieldset': {
+                      border: 'none',
                     },
-                    "&.Mui-focused fieldset": {
-                      border: "none",
+                    '&.Mui-focused fieldset': {
+                      border: 'none',
                     },
-                    "&.Mui-focused": {
-                      boxShadow: "none",
-                      outline: "none",
+                    '&.Mui-focused': {
+                      boxShadow: 'none',
+                      outline: 'none',
                     },
                   },
                 }}
@@ -251,12 +240,12 @@ const ConsolePage = () => {
               onClick={handleClear}
               disabled={dbConsoleEvents.length === 0 || loading}
               sx={(theme) => ({
-                textTransform: "none",
+                textTransform: 'none',
                 borderRadius: 999,
                 px: 1.75,
                 fontSize: 12,
                 borderColor: theme.palette.divider,
-                "&:hover": {
+                '&:hover': {
                   borderColor: theme.palette.primary.main,
                 },
               })}
@@ -272,11 +261,11 @@ const ConsolePage = () => {
           scrollButtons="auto"
           sx={{
             minHeight: 40,
-            "& .MuiTab-root": {
+            '& .MuiTab-root': {
               minHeight: 40,
               fontWeight: 600,
               fontSize: 13,
-              textTransform: "none",
+              textTransform: 'none',
             },
           }}
         >
@@ -289,12 +278,12 @@ const ConsolePage = () => {
       </Box>
       <GlassPanel
         sx={{
-          overflow: "auto",
+          overflow: 'auto',
           p: { xs: 1.5, md: 2 },
         }}
       >
         {groupedEvents.length === 0 ? (
-          <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>
+          <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
             Waiting for console events from proxy…
           </Box>
         ) : (
@@ -307,16 +296,16 @@ const ConsolePage = () => {
                   setDrawerOpen(true);
                 }}
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: 1.5,
                   px: 1.5,
                   py: 1,
                   borderRadius: 2,
                   border: (theme) => `1px solid ${theme.palette.divider}`,
-                  cursor: "pointer",
-                  "&:hover": {
-                    backgroundColor: "action.hover",
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
                   },
                 }}
               >
@@ -325,20 +314,20 @@ const ConsolePage = () => {
                     {formatTs(evt.ts)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {evt.origin ?? "metro"}
+                    {evt.origin ?? 'metro'}
                   </Typography>
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     variant="body2"
                     noWrap
-                    sx={{ fontFamily: "monospace", fontSize: 13 }}
+                    sx={{ fontFamily: 'monospace', fontSize: 13 }}
                     title={evt.msg}
                   >
                     {evt.msg}
                   </Typography>
                 </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   {count > 1 && (
                     <Chip
                       size="small"
@@ -352,9 +341,9 @@ const ConsolePage = () => {
                     size="small"
                     icon={getLevelIcon(evt.level)}
                     label={evt.level}
-                    color={levelColor[evt.level] ?? "default"}
+                    color={levelColor[evt.level] ?? 'default'}
                     variant="filled"
-                    sx={{ textTransform: "capitalize", borderRadius: 2 }}
+                    sx={{ textTransform: 'capitalize', borderRadius: 2 }}
                   />
                 </Box>
               </Box>
@@ -368,65 +357,63 @@ const ConsolePage = () => {
         onClose={() => setDrawerOpen(false)}
         PaperProps={{
           sx: {
-            width: fullScreen ? "100%" : { xs: "100%", sm: 520 },
+            width: fullScreen ? '100%' : { xs: '100%', sm: 520 },
             background: (theme) => theme.palette.background.paper,
-            border: "none",
+            border: 'none',
             borderRadius: 0,
-            boxShadow: "none",
-            overflow: "hidden",
+            boxShadow: 'none',
+            overflow: 'hidden',
             m: 0,
-            height: "100%",
+            height: '100%',
           },
         }}
       >
         <Box
           sx={{
             p: 0,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            position: "relative",
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
           }}
         >
           {/* Accent glow */}
           <Box
             aria-hidden
             sx={(theme) => ({
-              position: "absolute",
+              position: 'absolute',
               top: -80,
               right: -60,
               width: 220,
               height: 220,
-              borderRadius: "50%",
+              borderRadius: '50%',
               background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
               opacity: 0.15,
-              filter: "blur(40px)",
-              pointerEvents: "none",
+              filter: 'blur(40px)',
+              pointerEvents: 'none',
             })}
           />
 
           {/* Header */}
           <Box
             sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               p: 2,
               m: 2,
               background: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(0,0,0,0.02)",
-              backdropFilter: "blur(14px) saturate(140%)",
-              WebkitBackdropFilter: "blur(14px) saturate(140%)",
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+              backdropFilter: 'blur(14px) saturate(140%)',
+              WebkitBackdropFilter: 'blur(14px) saturate(140%)',
               border: (theme) => `1px solid ${theme.palette.divider}`,
               borderRadius: 2,
             }}
           >
             <Box
               sx={{
-                display: "flex",
-                alignItems: "center",
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1.5,
                 minWidth: 0,
                 flex: 1,
@@ -441,8 +428,7 @@ const ConsolePage = () => {
                 </Typography>
                 {selectedEvent && (
                   <Typography variant="caption" color="text.secondary">
-                    {formatTs(selectedEvent.ts)} •{" "}
-                    {selectedEvent.origin ?? "metro"}
+                    {formatTs(selectedEvent.ts)} • {selectedEvent.origin ?? 'metro'}
                   </Typography>
                 )}
               </Box>
@@ -450,25 +436,23 @@ const ConsolePage = () => {
 
             <Box
               sx={{
-                display: "inline-flex",
+                display: 'inline-flex',
                 gap: 0.5,
                 background: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "rgba(255,255,255,0.04)"
-                    : "rgba(0,0,0,0.03)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
                 border: (theme) => `1px solid ${theme.palette.divider}`,
                 borderRadius: 2,
                 px: 0.5,
                 py: 0.25,
               }}
             >
-              <Tooltip title={copied ? "Copied!" : "Copy message"}>
+              <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
                 <IconButton
                   onClick={handleCopyMessage}
                   size="small"
-                  color={copied ? "success" : "default"}
+                  color={copied ? 'success' : 'default'}
                 >
                   <ContentCopyIcon fontSize="small" />
                 </IconButton>
@@ -487,47 +471,39 @@ const ConsolePage = () => {
           </Box>
 
           {selectedEvent && (
-            <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
+            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
               <Box
                 sx={{
                   mb: 2,
                   p: 2,
                   mt: -2,
                   background: (theme) =>
-                    theme.palette.mode === "dark"
-                      ? "rgba(255,255,255,0.02)"
-                      : "rgba(0,0,0,0.01)",
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
                   border: (theme) => `1px solid ${theme.palette.divider}`,
                   borderRadius: 2,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
                     background: (theme) =>
-                      theme.palette.mode === "dark"
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(0,0,0,0.02)",
-                    transform: "translateY(-1px)",
+                      theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                    transform: 'translateY(-1px)',
                   },
                 }}
               >
                 <Box
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                     gap: 1,
                   }}
                 >
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    sx={{ letterSpacing: 0.8 }}
-                  >
+                  <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.8 }}>
                     Level
                   </Typography>
                   <Chip
                     size="small"
                     label={selectedEvent.level.toUpperCase()}
-                    color={levelColor[selectedEvent.level] ?? "default"}
+                    color={levelColor[selectedEvent.level] ?? 'default'}
                     variant="filled"
                     sx={{
                       fontWeight: 600,
@@ -540,8 +516,8 @@ const ConsolePage = () => {
 
               <Box
                 sx={{
-                  display: "flex",
-                  flexDirection: "column",
+                  display: 'flex',
+                  flexDirection: 'column',
                   gap: 2,
                 }}
               >
@@ -549,33 +525,31 @@ const ConsolePage = () => {
                   sx={{
                     p: 2,
                     background: (theme) =>
-                      theme.palette.mode === "dark"
-                        ? "rgba(255,255,255,0.02)"
-                        : "rgba(0,0,0,0.01)",
+                      theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
                     border: (theme) => `1px solid ${theme.palette.divider}`,
                     borderRadius: 2,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
                       background: (theme) =>
-                        theme.palette.mode === "dark"
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(0,0,0,0.02)",
-                      transform: "translateY(-1px)",
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.04)'
+                          : 'rgba(0,0,0,0.02)',
+                      transform: 'translateY(-1px)',
                     },
                   }}
                 >
                   <Box
                     sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       mb: 1.5,
                     }}
                   >
                     <Typography variant="overline" color="text.secondary">
                       Message
                     </Typography>
-                    <Tooltip title={copied ? "Copied!" : "Copy"}>
+                    <Tooltip title={copied ? 'Copied!' : 'Copy'}>
                       <IconButton size="small" onClick={handleCopyMessage}>
                         <ContentCopyIcon sx={{ fontSize: 16 }} />
                       </IconButton>
@@ -584,20 +558,18 @@ const ConsolePage = () => {
                   <Box
                     component="pre"
                     sx={{
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
                       fontFamily: '"Fira Code", "JetBrains Mono", monospace',
                       fontSize: 13,
                       lineHeight: 1.6,
                       m: 0,
                       p: 2,
                       background: (theme) =>
-                        theme.palette.mode === "dark"
-                          ? "rgba(0,0,0,0.3)"
-                          : "rgba(0,0,0,0.04)",
+                        theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
                       borderRadius: 1.5,
-                      maxHeight: "none",
-                      overflow: "auto",
+                      maxHeight: 'none',
+                      overflow: 'auto',
                     }}
                   >
                     {selectedEvent.msg}
@@ -609,26 +581,26 @@ const ConsolePage = () => {
                     sx={{
                       p: 2,
                       background: (theme) =>
-                        theme.palette.mode === "dark"
-                          ? "rgba(255,255,255,0.02)"
-                          : "rgba(0,0,0,0.01)",
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.02)'
+                          : 'rgba(0,0,0,0.01)',
                       border: (theme) => `1px solid ${theme.palette.divider}`,
                       borderRadius: 2,
-                      transition: "all 0.2s ease",
-                      "&:hover": {
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
                         background: (theme) =>
-                          theme.palette.mode === "dark"
-                            ? "rgba(255,255,255,0.04)"
-                            : "rgba(0,0,0,0.02)",
-                        transform: "translateY(-1px)",
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(255,255,255,0.04)'
+                            : 'rgba(0,0,0,0.02)',
+                        transform: 'translateY(-1px)',
                       },
                     }}
                   >
                     <Box
                       sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                         mb: 1.5,
                       }}
                     >
@@ -640,61 +612,50 @@ const ConsolePage = () => {
                       sx={{
                         p: 2,
                         background: (theme) =>
-                          theme.palette.mode === "dark"
-                            ? "rgba(0,0,0,0.3)"
-                            : "rgba(0,0,0,0.04)",
+                          theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
                         borderRadius: 1.5,
-                        maxHeight: "none",
-                        overflow: "auto",
+                        maxHeight: 'none',
+                        overflow: 'auto',
                       }}
                     >
-                      <JsonTreeView
-                        data={selectedEvent.rawArgs}
-                        defaultExpanded
-                      />
+                      <JsonTreeView data={selectedEvent.rawArgs} defaultExpanded />
                     </Box>
                   </Box>
                 )}
-                {selectedEvent.rawCdpArgs &&
-                  selectedEvent.rawCdpArgs.length > 0 && (
-                    <Accordion
-                      disableGutters
-                      sx={{
-                        borderRadius: 2,
-                        border: (theme) => `1px solid ${theme.palette.divider}`,
-                        background: (theme) =>
-                          theme.palette.mode === "dark"
-                            ? "rgba(255,255,255,0.02)"
-                            : "rgba(0,0,0,0.01)",
-                        "&:before": { display: "none" },
-                      }}
-                    >
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Typography variant="overline" color="text.secondary">
-                          Raw CDP
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        <Box
-                          sx={{
-                            p: 2,
-                            background: (theme) =>
-                              theme.palette.mode === "dark"
-                                ? "rgba(0,0,0,0.3)"
-                                : "rgba(0,0,0,0.04)",
-                            borderRadius: 1.5,
-                            maxHeight: "none",
-                            overflow: "auto",
-                          }}
-                        >
-                          <JsonTreeView
-                            data={selectedEvent.rawCdpArgs}
-                            defaultExpanded
-                          />
-                        </Box>
-                      </AccordionDetails>
-                    </Accordion>
-                  )}
+                {selectedEvent.rawCdpArgs && selectedEvent.rawCdpArgs.length > 0 && (
+                  <Accordion
+                    disableGutters
+                    sx={{
+                      borderRadius: 2,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      background: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.02)'
+                          : 'rgba(0,0,0,0.01)',
+                      '&:before': { display: 'none' },
+                    }}
+                  >
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="overline" color="text.secondary">
+                        Raw CDP
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box
+                        sx={{
+                          p: 2,
+                          background: (theme) =>
+                            theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
+                          borderRadius: 1.5,
+                          maxHeight: 'none',
+                          overflow: 'auto',
+                        }}
+                      >
+                        <JsonTreeView data={selectedEvent.rawCdpArgs} defaultExpanded />
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
               </Box>
             </Box>
           )}

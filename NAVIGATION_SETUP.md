@@ -53,7 +53,7 @@ The following commands are available through the inspector:
 #### Navigate to Route
 
 ```javascript
-global.__RN_INSPECTOR_NAVIGATION__.navigate("ScreenName", { id: 123 });
+global.__RN_INSPECTOR_NAVIGATION__.navigate('ScreenName', { id: 123 });
 ```
 
 #### Go Back
@@ -65,7 +65,7 @@ global.__RN_INSPECTOR_NAVIGATION__.goBack();
 #### Open Deep Link
 
 ```javascript
-global.__RN_INSPECTOR_NAVIGATION__.openUrl("myapp://screen/details?id=123");
+global.__RN_INSPECTOR_NAVIGATION__.openUrl('myapp://screen/details?id=123');
 ```
 
 #### Get Navigation State
