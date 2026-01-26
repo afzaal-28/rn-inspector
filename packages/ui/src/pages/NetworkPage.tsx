@@ -426,7 +426,7 @@ const NetworkPage = () => {
           p: { xs: 1.5, md: 2 },
         }}
       >
-        {networkEvents.length === 0 ? (
+        {filteredNetworkEvents.length === 0 ? (
           <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
             Waiting for network events from proxy…
           </Box>
@@ -473,7 +473,19 @@ const NetworkPage = () => {
                   />
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Tooltip title={evt.url}>
+                  <Tooltip
+                    title={evt.url}
+                    slotProps={{
+                      tooltip: {
+                        sx: {
+                          border: '1px solid',
+                          borderColor: (theme) => theme.palette.info.main,
+                          maxWidth: '60vw',
+                          backgroundColor: (theme) => theme.palette.background.paper,
+                        },
+                      },
+                    }}
+                  >
                     <Typography variant="body2" noWrap>
                       {evt.url}
                     </Typography>

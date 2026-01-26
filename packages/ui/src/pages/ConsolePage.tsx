@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
   Chip,
@@ -30,7 +30,6 @@ import JsonTreeView from '../components/JsonTreeView';
 import type { ConsoleEvent } from '../hooks/useProxyStream';
 import { useProxy } from '../context/ProxyContext';
 import SearchIcon from '@mui/icons-material/Search';
-import { queryConsoleEvents, clearConsoleEvents } from '../utils/db';
 
 const levelColor: Record<string, 'default' | 'primary' | 'warning' | 'error' | 'info' | 'success'> =
   {
@@ -62,9 +61,7 @@ function formatTs(ts: string) {
 }
 
 const ConsolePage = () => {
-  const { activeDeviceId, consoleClearedAtMs, setConsoleClearedAtMs } = useProxy();
-  const [dbConsoleEvents, setDbConsoleEvents] = useState<(ConsoleEvent & { id: number })[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { consoleEvents, activeDeviceId, consoleClearedAtMs, setConsoleClearedAtMs } = useProxy();
   const [levelFilter, setLevelFilter] = useState<'all' | 'log' | 'info' | 'warn' | 'error'>('all');
   const [selectedEvent, setSelectedEvent] = useState<ConsoleEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -80,40 +77,33 @@ const ConsolePage = () => {
     }
   };
 
-  useEffect(() => {
-    let mounted = true;
-    const loadEvents = async () => {
-      setLoading(true);
-      try {
-        const events = await queryConsoleEvents({
-          deviceId: activeDeviceId,
-          level: levelFilter === 'all' ? undefined : levelFilter,
-          searchQuery: searchQuery.trim() || undefined,
-          limit: 500,
-          afterTimestamp: consoleClearedAtMs
-            ? new Date(consoleClearedAtMs).toISOString()
-            : undefined,
-        });
-        if (mounted) {
-          setDbConsoleEvents(events);
-        }
-      } catch (err) {
-        console.error('Failed to load console events:', err);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-    loadEvents();
-    return () => {
-      mounted = false;
-    };
-  }, [activeDeviceId, levelFilter, searchQuery, consoleClearedAtMs]);
-
   const filteredEvents = useMemo(() => {
-    return dbConsoleEvents;
-  }, [dbConsoleEvents]);
+    let latest = consoleEvents.slice(-300);
+
+    if (consoleClearedAtMs) {
+      latest = latest.filter((evt) => {
+        const tsMs = Date.parse(evt.ts);
+        if (Number.isNaN(tsMs)) return true;
+        return tsMs > consoleClearedAtMs;
+      });
+    }
+
+    latest = latest.reverse();
+
+    let byLevel =
+      levelFilter === 'all' ? latest : latest.filter((evt) => evt.level === levelFilter);
+
+    if (activeDeviceId) {
+      byLevel = byLevel.filter((evt) => !evt.deviceId || evt.deviceId === activeDeviceId);
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      byLevel = byLevel.filter((evt) => evt.msg.toLowerCase().includes(query));
+    }
+
+    return byLevel;
+  }, [consoleEvents, levelFilter, activeDeviceId, searchQuery, consoleClearedAtMs]);
 
   const groupedEvents = useMemo(() => {
     const groups = new Map<
@@ -143,10 +133,14 @@ const ConsolePage = () => {
     return Array.from(groups.values());
   }, [filteredEvents]);
 
-  const handleClear = async () => {
-    await clearConsoleEvents();
-    setConsoleClearedAtMs(Date.now());
-    setDbConsoleEvents([]);
+  const handleClear = () => {
+    if (consoleEvents.length > 0) {
+      const last = consoleEvents[consoleEvents.length - 1];
+      const lastMs = Date.parse(last.ts);
+      setConsoleClearedAtMs(Number.isNaN(lastMs) ? Date.now() : lastMs);
+    } else {
+      setConsoleClearedAtMs(Date.now());
+    }
     setSelectedEvent(null);
     setDrawerOpen(false);
   };
@@ -238,7 +232,7 @@ const ConsolePage = () => {
               size="small"
               variant="outlined"
               onClick={handleClear}
-              disabled={dbConsoleEvents.length === 0 || loading}
+              disabled={consoleEvents.length === 0}
               sx={(theme) => ({
                 textTransform: 'none',
                 borderRadius: 999,
@@ -318,14 +312,27 @@ const ConsolePage = () => {
                   </Typography>
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
-                    noWrap
-                    sx={{ fontFamily: 'monospace', fontSize: 13 }}
+                  <Tooltip
                     title={evt.msg}
+                    slotProps={{
+                      tooltip: {
+                        sx: {
+                          border: '1px solid',
+                          borderColor: (theme) => theme.palette.info.main,
+                          maxWidth: '60vw',
+                          backgroundColor: (theme) => theme.palette.background.paper,
+                        },
+                      },
+                    }}
                   >
-                    {evt.msg}
-                  </Typography>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{ fontFamily: 'monospace', fontSize: 13 }}
+                    >
+                      {evt.msg}
+                    </Typography>
+                  </Tooltip>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   {count > 1 && (

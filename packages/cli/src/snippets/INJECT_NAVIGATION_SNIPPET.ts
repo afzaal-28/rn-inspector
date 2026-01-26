@@ -1,12 +1,18 @@
 export const INJECT_NAVIGATION_SNIPPET = `
 (function() {
+  'use strict';
+  
   const globalAny = globalThis;
   if (globalAny.__RN_INSPECTOR_NAVIGATION_INSTALLED__) return;
   globalAny.__RN_INSPECTOR_NAVIGATION_INSTALLED__ = true;
 
-  const navigationRef = { current: null };
+  let navigationRef = null;
+  let navigationContainerRef = null;
+  let stateListener = null;
+  let focusListener = null;
   const navigationHistory = [];
   const MAX_HISTORY = 50;
+  const availableRoutes = new Map();
 
   function sendNavigationEvent(type, payload) {
     try {
@@ -23,12 +29,12 @@ export const INJECT_NAVIGATION_SNIPPET = `
     }
   }
 
-  function captureNavigationState(navigation) {
-    if (!navigation) return null;
+  function captureNavigationState(nav) {
+    if (!nav) return null;
     
     try {
-      const state = navigation.getState();
-      const currentRoute = navigation.getCurrentRoute();
+      const state = nav.getState();
+      const currentRoute = nav.getCurrentRoute();
       
       return {
         state,
@@ -45,20 +51,25 @@ export const INJECT_NAVIGATION_SNIPPET = `
     }
   }
 
-  function extractRoutes(state) {
-    if (!state) return [];
+  function extractRoutesFromState(state) {
     const routes = [];
     
-    function traverse(node) {
+    function traverse(node, parentKey = null, parentName = null) {
+      if (!node) return;
+      
       if (node.routes) {
         node.routes.forEach(route => {
-          routes.push({
-            name: route.name,
-            key: route.key,
-            params: route.params,
-          });
+          if (route.name) {
+            routes.push({
+              name: route.name,
+              key: route.key,
+              params: route.params,
+              parentKey,
+              parentName,
+            });
+          }
           if (route.state) {
-            traverse(route.state);
+            traverse(route.state, route.key, route.name);
           }
         });
       }
@@ -68,264 +79,227 @@ export const INJECT_NAVIGATION_SNIPPET = `
     return routes;
   }
 
-  function getAvailableRoutes(navigation) {
-    if (!navigation) return [];
+  function updateAvailableRoutes(nav) {
+    if (!nav) return;
     
     try {
-      const parent = navigation.getParent();
-      const state = navigation.getState();
-      const routes = [];
-
-      if (state && state.routeNames) {
-        state.routeNames.forEach(name => {
-          const route = state.routes?.find(r => r.name === name);
-          if (route) {
-            routes.push({
-              name: route.name,
-              key: route.key,
-            });
-          } else {
-            routes.push({
-              name: name,
-              key: name,
-            });
-          }
-        });
-      }
-
-      if (state && state.routes) {
-        state.routes.forEach(route => {
-          if (route.state && route.state.routeNames) {
-            route.state.routeNames.forEach(nestedName => {
-              const nestedRoute = route.state.routes?.find(r => r.name === nestedName);
-              if (nestedRoute) {
-                routes.push({
-                  name: nestedRoute.name,
-                  key: nestedRoute.key,
-                  parentKey: route.key,
-                  parentName: route.name,
-                });
-              } else {
-                routes.push({
-                  name: nestedName,
-                  key: nestedName,
-                  parentKey: route.key,
-                  parentName: route.name,
-                });
-              }
-            });
-          }
-        });
-      }
-
-      if (parent) {
-        const parentRoutes = getAvailableRoutes(parent);
-        parentRoutes.forEach(route => routes.push(route));
-      }
-
-      const uniqueRoutes = routes.filter((route, index, self) => 
-        index === self.findIndex(r => r.key === route.key)
-      );
-
-      return uniqueRoutes;
+      const state = nav.getState();
+      const routes = extractRoutesFromState(state);
+      
+      // Clear and update available routes
+      availableRoutes.clear();
+      routes.forEach(route => {
+        availableRoutes.set(route.key, route);
+      });
+      
+      return routes;
     } catch (err) {
-      console.warn('[rn-inspector] Failed to get available routes:', err);
+      console.warn('[rn-inspector] Failed to update available routes:', err);
       return [];
     }
   }
 
-  globalAny.__RN_INSPECTOR_NAVIGATION__ = {
-    setNavigationRef: (ref) => {
-      navigationRef.current = ref;
+  function onNavigationStateChange(nav) {
+    try {
+      const state = captureNavigationState(nav);
+      const currentRoute = nav.getCurrentRoute();
       
-      if (ref) {
-        const navState = captureNavigationState(ref);
-        const availableRoutes = getAvailableRoutes(ref);
+      if (currentRoute) {
+        const historyEntry = {
+          name: currentRoute.name,
+          key: currentRoute.key,
+          params: currentRoute.params,
+          timestamp: new Date().toISOString(),
+        };
         
-        sendNavigationEvent('ref-ready', {
-          state: navState,
-          availableRoutes,
-        });
+        navigationHistory.unshift(historyEntry);
+        if (navigationHistory.length > MAX_HISTORY) {
+          navigationHistory.pop();
+        }
+      }
 
-        sendNavigationEvent('state-change', {
-          state: navState,
-          history: navigationHistory.slice(0, 10),
-          availableRoutes,
-        });
+      updateAvailableRoutes(nav);
 
-        const unsubscribe = ref.addListener('state', () => {
+      sendNavigationEvent('state-change', {
+        state,
+        history: navigationHistory.slice(0, 10),
+        availableRoutes: Array.from(availableRoutes.values()),
+      });
+    } catch (err) {
+      console.error('[rn-inspector] Error in navigation state change:', err);
+    }
+  }
+
+  function setupNavigationListeners(nav) {
+    try {
+      // Clean up existing listeners
+      if (stateListener) {
+        nav.removeListener('state', stateListener);
+        stateListener = null;
+      }
+      if (focusListener) {
+        nav.removeListener('focus', focusListener);
+        focusListener = null;
+      }
+
+      // Set up state listener
+      stateListener = nav.addListener('state', () => {
+        onNavigationStateChange(nav);
+      });
+
+      // Set up focus listener for better tracking
+      focusListener = nav.addListener('focus', () => {
+        onNavigationStateChange(nav);
+      });
+
+    } catch (err) {
+      console.warn('[rn-inspector] Failed to setup navigation listeners:', err);
+    }
+  }
+
+  function cleanupNavigationListeners(nav) {
+    try {
+      if (nav && stateListener) {
+        nav.removeListener('state', stateListener);
+      }
+      if (nav && focusListener) {
+        nav.removeListener('focus', focusListener);
+      }
+      stateListener = null;
+      focusListener = null;
+    } catch (err) {
+      console.warn('[rn-inspector] Failed to cleanup listeners:', err);
+    }
+  }
+
+  // Main navigation API
+  globalAny.__RN_INSPECTOR_NAVIGATION__ = {
+    setNavigationRef: function(ref) {
+      try {
+        cleanupNavigationListeners(navigationRef);
+        
+        navigationRef = ref;
+        
+        if (ref) {
           const state = captureNavigationState(ref);
-          const currentRoute = ref.getCurrentRoute();
+          const routes = updateAvailableRoutes(ref);
           
-          if (currentRoute) {
-            const historyEntry = {
-              name: currentRoute.name,
-              key: currentRoute.key,
-              params: currentRoute.params,
-              timestamp: new Date().toISOString(),
-            };
-            
-            navigationHistory.unshift(historyEntry);
-            if (navigationHistory.length > MAX_HISTORY) {
-              navigationHistory.pop();
-            }
-          }
+          sendNavigationEvent('ref-ready', {
+            state,
+            availableRoutes: routes,
+          });
 
           sendNavigationEvent('state-change', {
             state,
             history: navigationHistory.slice(0, 10),
-            availableRoutes: getAvailableRoutes(ref),
+            availableRoutes: routes,
           });
-        });
 
-        // Also set up periodic state refresh every 5 seconds to ensure UI stays updated
-        const periodicRefresh = setInterval(() => {
-          if (navigationRef.current) {
-            const state = captureNavigationState(navigationRef.current);
-            sendNavigationEvent('state-change', {
-              state,
-              history: navigationHistory.slice(0, 10),
-              availableRoutes: getAvailableRoutes(navigationRef.current),
-            });
-          }
-        }, 5000);
-
-        globalAny.__RN_INSPECTOR_NAVIGATION_UNSUB__ = () => {
-          unsubscribe();
-          clearInterval(periodicRefresh);
-        };
+          setupNavigationListeners(ref);
+          
+          console.log('[rn-inspector] Navigation ref attached successfully');
+        }
+      } catch (err) {
+        console.error('[rn-inspector] Error setting navigation ref:', err);
       }
     },
 
-    navigate: (routeName, params) => {
-      if (!navigationRef.current) {
+    setNavigationContainerRef: function(ref) {
+      try {
+        navigationContainerRef = ref;
+        
+        if (ref && ref.getCurrentRoute) {
+          this.setNavigationRef(ref);
+          console.log('[rn-inspector] Navigation container ref attached');
+        }
+      } catch (err) {
+        console.error('[rn-inspector] Error setting navigation container ref:', err);
+      }
+    },
+
+    navigate: function(routeName, params) {
+      if (!navigationRef) {
         console.warn('[rn-inspector] Navigation ref not set');
         return { success: false, error: 'Navigation ref not set' };
       }
 
       try {
-        const navigation = navigationRef.current;
-        const state = navigation.getState();
-
-        let parentRoute = null;
-        if (state && state.routes) {
-          for (const route of state.routes) {
-            if (route.state && route.state.routeNames && route.state.routeNames.includes(routeName)) {
-              parentRoute = route;
-              break;
-            }
-          }
-        }
-
-        if (parentRoute) {
-          navigation.navigate(parentRoute.name, { 
-            screen: routeName,
-            params: params 
-          });
+        // Try standard navigation first
+        if (typeof navigationRef.navigate === 'function') {
+          navigationRef.navigate(routeName, params);
           sendNavigationEvent('navigate', { routeName, params });
-          console.log('[rn-inspector] Navigated to nested route:', routeName, 'in', parentRoute.name, params);
-          return { success: true };
-        } else {
-          navigation.navigate(routeName, params);
-          sendNavigationEvent('navigate', { routeName, params });
-          console.log('[rn-inspector] Navigated to route:', routeName, params);
+          console.log('[rn-inspector] Navigated to:', routeName, params);
           return { success: true };
         }
+        
+        // Try dispatch method
+        if (typeof navigationRef.dispatch === 'function') {
+          const NavigationActions = require('@react-navigation/native').CommonActions;
+          navigationRef.dispatch(NavigationActions.navigate(routeName, params));
+          sendNavigationEvent('navigate', { routeName, params });
+          console.log('[rn-inspector] Dispatched navigation to:', routeName);
+          return { success: true };
+        }
+
+        return { success: false, error: 'Navigate method not available' };
       } catch (err) {
         console.error('[rn-inspector] Navigation error:', err);
         return { success: false, error: err.message };
       }
     },
 
-    goBack: () => {
-      if (!navigationRef.current) {
+    goBack: function() {
+      if (!navigationRef) {
         return { success: false, error: 'Navigation ref not set' };
       }
 
       try {
-        const navigation = navigationRef.current;
-        
-        if (navigation.canGoBack && navigation.canGoBack()) {
-          navigation.goBack();
-          sendNavigationEvent('go-back', {});
-          console.log('[rn-inspector] Went back using goBack()');
-          return { success: true };
-        }
-        
-        if (typeof navigation.dispatch === 'function') {
-          const NavigationActions = require('@react-navigation/native').CommonActions;
-          navigation.dispatch(NavigationActions.goBack());
-          sendNavigationEvent('go-back', {});
-          console.log('[rn-inspector] Went back using dispatch');
-          return { success: true };
-        }
-        
-        try {
-          const parent = navigation.getParent?.();
-          if (parent && parent.canGoBack && parent.canGoBack()) {
-            parent.goBack();
-            sendNavigationEvent('go-back', {});
-            console.log('[rn-inspector] Went back using parent navigator');
-            return { success: true };
+        // Try standard goBack
+        if (typeof navigationRef.goBack === 'function') {
+          if (navigationRef.canGoBack && !navigationRef.canGoBack()) {
+            return { success: false, error: 'Cannot go back - no history' };
           }
-        } catch (parentError) {
-          console.warn('[rn-inspector] Parent goBack failed:', parentError);
+          navigationRef.goBack();
+          sendNavigationEvent('go-back', {});
+          console.log('[rn-inspector] Went back');
+          return { success: true };
         }
         
-        return { success: false, error: 'Cannot go back - no available navigation history' };
+        // Try dispatch
+        if (typeof navigationRef.dispatch === 'function') {
+          const NavigationActions = require('@react-navigation/native').CommonActions;
+          navigationRef.dispatch(NavigationActions.goBack());
+          sendNavigationEvent('go-back', {});
+          console.log('[rn-inspector] Dispatched goBack');
+          return { success: true };
+        }
+
+        return { success: false, error: 'Go back method not available' };
       } catch (err) {
         console.error('[rn-inspector] Go back error:', err);
         return { success: false, error: err.message };
       }
     },
 
-    replace: (routeName, params) => {
-      if (!navigationRef.current) {
+    replace: function(routeName, params) {
+      if (!navigationRef) {
         console.warn('[rn-inspector] Navigation ref not set');
         return { success: false, error: 'Navigation ref not set' };
       }
 
       try {
-        const navigation = navigationRef.current;
-        const state = navigation.getState();
-
-        let parentRoute = null;
-        if (state && state.routes) {
-          for (const route of state.routes) {
-            if (route.state && route.state.routeNames && route.state.routeNames.includes(routeName)) {
-              parentRoute = route;
-              break;
-            }
-          }
-        }
-
-        if (parentRoute) {
-          // Replace in parent with screen
-          if (navigation.replace) {
-            navigation.replace(parentRoute.name, { 
-              screen: routeName,
-              params: params 
-            });
-            sendNavigationEvent('replace', { routeName, params });
-            console.log('[rn-inspector] Replaced with nested route:', routeName, 'in', parentRoute.name, params);
-            return { success: true };
-          }
-        } else {
-          // Direct replace
-          if (navigation.replace) {
-            navigation.replace(routeName, params);
-            sendNavigationEvent('replace', { routeName, params });
-            console.log('[rn-inspector] Replaced with route:', routeName, params);
-            return { success: true };
-          }
-        }
-
-        // Fallback: try dispatch with CommonActions
-        if (typeof navigation.dispatch === 'function') {
-          const NavigationActions = require('@react-navigation/native').CommonActions;
-          navigation.dispatch(NavigationActions.replace(routeName, params));
+        if (typeof navigationRef.replace === 'function') {
+          navigationRef.replace(routeName, params);
           sendNavigationEvent('replace', { routeName, params });
-          console.log('[rn-inspector] Replaced using dispatch:', routeName, params);
+          console.log('[rn-inspector] Replaced with:', routeName);
+          return { success: true };
+        }
+        
+        if (typeof navigationRef.dispatch === 'function') {
+          const NavigationActions = require('@react-navigation/native').CommonActions;
+          navigationRef.dispatch(NavigationActions.replace(routeName, params));
+          sendNavigationEvent('replace', { routeName, params });
+          console.log('[rn-inspector] Dispatched replace:', routeName);
           return { success: true };
         }
 
@@ -336,32 +310,44 @@ export const INJECT_NAVIGATION_SNIPPET = `
       }
     },
 
-    reset: (state) => {
-      if (!navigationRef.current) {
+    reset: function(state) {
+      if (!navigationRef) {
         return { success: false, error: 'Navigation ref not set' };
       }
 
       try {
-        navigationRef.current.reset(state);
-        sendNavigationEvent('reset', { state });
-        console.log('[rn-inspector] Reset navigation to:', state);
-        return { success: true };
+        if (typeof navigationRef.reset === 'function') {
+          navigationRef.reset(state);
+          sendNavigationEvent('reset', { state });
+          console.log('[rn-inspector] Reset navigation');
+          return { success: true };
+        }
+        
+        if (typeof navigationRef.dispatch === 'function') {
+          const NavigationActions = require('@react-navigation/native').CommonActions;
+          navigationRef.dispatch(NavigationActions.reset(state));
+          sendNavigationEvent('reset', { state });
+          console.log('[rn-inspector] Dispatched reset');
+          return { success: true };
+        }
+
+        return { success: false, error: 'Reset method not available' };
       } catch (err) {
         console.error('[rn-inspector] Reset error:', err);
         return { success: false, error: err.message };
       }
     },
 
-    dispatch: (action) => {
-      if (!navigationRef.current) {
+    dispatch: function(action) {
+      if (!navigationRef) {
         return { success: false, error: 'Navigation ref not set' };
       }
 
       try {
-        if (typeof navigationRef.current.dispatch === 'function') {
-          navigationRef.current.dispatch(action);
+        if (typeof navigationRef.dispatch === 'function') {
+          navigationRef.dispatch(action);
           sendNavigationEvent('dispatch', { action });
-          console.log('[rn-inspector] Dispatched action:', action);
+          console.log('[rn-inspector] Dispatched action');
           return { success: true };
         }
         return { success: false, error: 'Dispatch method not available' };
@@ -371,162 +357,146 @@ export const INJECT_NAVIGATION_SNIPPET = `
       }
     },
 
-    openUrl: (url) => {
+    openUrl: function(url) {
       try {
         const Linking = require('react-native').Linking;
         Linking.openURL(url);
         sendNavigationEvent('open-url', { url });
+        console.log('[rn-inspector] Opened URL:', url);
         return { success: true };
       } catch (err) {
-        console.error('[rn-inspector] Deep link error:', err);
+        console.error('[rn-inspector] Open URL error:', err);
         return { success: false, error: err.message };
       }
     },
 
-    getState: () => {
-      if (!navigationRef.current) {
+    getState: function() {
+      if (!navigationRef) {
         return { success: false, error: 'Navigation ref not set' };
       }
 
       try {
-        const state = captureNavigationState(navigationRef.current);
-        const availableRoutes = getAvailableRoutes(navigationRef.current);
+        const state = captureNavigationState(navigationRef);
+        const routes = Array.from(availableRoutes.values());
         
         sendNavigationEvent('state-change', {
           state,
           history: navigationHistory.slice(0, 10),
-          availableRoutes,
+          availableRoutes: routes,
         });
         
         return {
           success: true,
           state,
           history: navigationHistory.slice(0, 10),
-          availableRoutes,
+          availableRoutes: routes,
         };
       } catch (err) {
         return { success: false, error: err.message };
       }
     },
 
-    getHistory: () => {
+    getHistory: function() {
       return navigationHistory;
     },
   };
 
+  // Control handlers for remote control
   globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__ = globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__ || {};
   
-  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['navigate'] = (payload) => {
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['navigate'] = function(payload) {
     const { routeName, params } = payload;
+    
+    // Try to attach ref if not set
+    if (!navigationRef) {
+      tryAttachExistingRef();
+    }
+    
     return globalAny.__RN_INSPECTOR_NAVIGATION__.navigate(routeName, params);
   };
 
-  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['go-back'] = () => {
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['go-back'] = function() {
+    // Try to attach ref if not set
+    if (!navigationRef) {
+      tryAttachExistingRef();
+    }
+    
     return globalAny.__RN_INSPECTOR_NAVIGATION__.goBack();
   };
 
-  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['reset-navigation'] = (payload) => {
-    return globalAny.__RN_INSPECTOR_NAVIGATION__.reset(payload.state);
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['reset-navigation'] = function(payload) {
+    const { state } = payload;
+    
+    // Try to attach ref if not set
+    if (!navigationRef) {
+      tryAttachExistingRef();
+    }
+    
+    return globalAny.__RN_INSPECTOR_NAVIGATION__.reset(state);
   };
 
-  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['open-url'] = (payload) => {
-    return globalAny.__RN_INSPECTOR_NAVIGATION__.openUrl(payload.url);
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['open-url'] = function(payload) {
+    const { url } = payload;
+    return globalAny.__RN_INSPECTOR_NAVIGATION__.openUrl(url);
   };
 
-  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['replace'] = (payload) => {
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['replace'] = function(payload) {
     const { routeName, params } = payload;
+    
+    // Try to attach ref if not set
+    if (!navigationRef) {
+      tryAttachExistingRef();
+    }
+    
     return globalAny.__RN_INSPECTOR_NAVIGATION__.replace(routeName, params);
   };
 
-  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['dispatch-navigation'] = (payload) => {
-    return globalAny.__RN_INSPECTOR_NAVIGATION__.dispatch(payload.action);
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['dispatch-navigation'] = function(payload) {
+    const { action } = payload;
+    
+    // Try to attach ref if not set
+    if (!navigationRef) {
+      tryAttachExistingRef();
+    }
+    
+    return globalAny.__RN_INSPECTOR_NAVIGATION__.dispatch(action);
+  };
+
+  globalAny.__RN_INSPECTOR_CONTROL_HANDLERS__['get-navigation-state'] = function() {
+    // Try to attach ref if not set
+    if (!navigationRef) {
+      tryAttachExistingRef();
+    }
+    
+    return globalAny.__RN_INSPECTOR_NAVIGATION__.getState();
   };
 
   console.log('[rn-inspector] Navigation tracking installed');
-  
+
   sendNavigationEvent('installed', {
     timestamp: new Date().toISOString(),
   });
 
-  const checkAndAttachExistingRef = () => {
+  // Try to attach to existing navigation ref
+  function tryAttachExistingRef() {
     try {
-      // Check common global navigation ref patterns
+      // Check for standard navigation ref
       const possibleRefs = [
         globalAny.navigationRef?.current,
         globalAny.navigation?.current,
         globalAny.navigator?.current,
+        globalAny.rootNavigation?.current,
       ];
 
       for (const ref of possibleRefs) {
-        if (ref && !navigationRef.current && ref) {
-          if (typeof ref.navigate === 'function' && typeof ref.getCurrentRoute === 'function') {
-            navigationRef.current = ref;
-            const state = captureNavigationState(ref);
-            const availableRoutes = getAvailableRoutes(ref);
-            
-            sendNavigationEvent('ref-ready', {
-              state,
-              availableRoutes,
-            });
-            
-            sendNavigationEvent('state-change', {
-              state,
-              history: navigationHistory.slice(0, 10),
-              availableRoutes,
-            });
-            
-            console.log('[rn-inspector] Navigation state broadcasted:', {
-              currentRoute: state?.currentRoute?.name,
-              availableRoutes: availableRoutes.length,
-            });
-
-            const unsubscribe = ref.addListener('state', () => {
-              const state = captureNavigationState(ref);
-              const currentRoute = ref.getCurrentRoute();
-              
-              if (currentRoute) {
-                const historyEntry = {
-                  name: currentRoute.name,
-                  key: currentRoute.key,
-                  params: currentRoute.params,
-                  timestamp: new Date().toISOString(),
-                };
-                
-                navigationHistory.unshift(historyEntry);
-                if (navigationHistory.length > MAX_HISTORY) {
-                  navigationHistory.pop();
-                }
-              }
-
-              sendNavigationEvent('state-change', {
-                state,
-                history: navigationHistory.slice(0, 10),
-                availableRoutes: getAvailableRoutes(ref),
-              });
-            });
-
-            // Periodic refresh
-            const periodicRefresh = setInterval(() => {
-              if (navigationRef.current) {
-                const state = captureNavigationState(navigationRef.current);
-                sendNavigationEvent('state-change', {
-                  state,
-                  history: navigationHistory.slice(0, 10),
-                  availableRoutes: getAvailableRoutes(navigationRef.current),
-                });
-              }
-            }, 5000);
-
-            globalAny.__RN_INSPECTOR_NAVIGATION_UNSUB__ = () => {
-              unsubscribe();
-              clearInterval(periodicRefresh);
-            };
-            
-            return true;
-          }
+        if (ref && typeof ref.navigate === 'function' && typeof ref.getCurrentRoute === 'function') {
+          globalAny.__RN_INSPECTOR_NAVIGATION__.setNavigationRef(ref);
+          console.log('[rn-inspector] Attached to existing navigation ref');
+          return true;
         }
       }
-      
+
+      // Try to find navigation in React Native app registry
       try {
         const AppRegistry = require('react-native').AppRegistry;
         const apps = AppRegistry.getRunnable ? AppRegistry.getRunnable() : null;
@@ -565,63 +535,9 @@ export const INJECT_NAVIGATION_SNIPPET = `
                   };
                   
                   const navRef = findNavInFiber(rootComponent._owner);
-                  if (navRef && !navigationRef.current) {
-                    navigationRef.current = navRef;
-                    const state = captureNavigationState(navRef);
-                    const availableRoutes = getAvailableRoutes(navRef);
-                    
-                    sendNavigationEvent('ref-ready', {
-                      state,
-                      availableRoutes,
-                    });
-                    
-                    sendNavigationEvent('state-change', {
-                      state,
-                      history: navigationHistory.slice(0, 10),
-                      availableRoutes,
-                    });
-                    
-                    const unsubscribe = navRef.addListener('state', () => {
-                      const state = captureNavigationState(navRef);
-                      const currentRoute = navRef.getCurrentRoute();
-                      
-                      if (currentRoute) {
-                        const historyEntry = {
-                          name: currentRoute.name,
-                          key: currentRoute.key,
-                          params: currentRoute.params,
-                          timestamp: new Date().toISOString(),
-                        };
-                        
-                        navigationHistory.unshift(historyEntry);
-                        if (navigationHistory.length > MAX_HISTORY) {
-                          navigationHistory.pop();
-                        }
-                      }
-
-                      sendNavigationEvent('state-change', {
-                        state,
-                        history: navigationHistory.slice(0, 10),
-                        availableRoutes: getAvailableRoutes(navRef),
-                      });
-                    });
-
-                    // Periodic refresh
-                    const periodicRefresh = setInterval(() => {
-                      if (navigationRef.current) {
-                        const state = captureNavigationState(navigationRef.current);
-                        sendNavigationEvent('state-change', {
-                          state,
-                          history: navigationHistory.slice(0, 10),
-                          availableRoutes: getAvailableRoutes(navigationRef.current),
-                        });
-                      }
-                    }, 5000);
-
-                    globalAny.__RN_INSPECTOR_NAVIGATION_UNSUB__ = () => {
-                      unsubscribe();
-                      clearInterval(periodicRefresh);
-                    };
+                  if (navRef) {
+                    globalAny.__RN_INSPECTOR_NAVIGATION__.setNavigationRef(navRef);
+                    console.log('[rn-inspector] Found navigation ref in component tree');
                     return true;
                   }
                 }
@@ -634,33 +550,25 @@ export const INJECT_NAVIGATION_SNIPPET = `
       } catch (err) {
         // Ignore AppRegistry errors
       }
-    } catch (err) {
-      // Ignore errors
-    }
-    return false;
-  };
 
-  if (checkAndAttachExistingRef()) {
-    console.log('[rn-inspector] Found existing navigation ref');
+      return false;
+    } catch (err) {
+      console.warn('[rn-inspector] Error attaching to existing ref:', err);
+      return false;
+    }
+  }
+
+  // Try to attach immediately
+  if (tryAttachExistingRef()) {
+    console.log('[rn-inspector] Successfully attached to existing navigation');
   } else {
+    // Poll for navigation ref
     let pollAttempts = 0;
     const maxPollAttempts = 120;
     const pollInterval = setInterval(() => {
       pollAttempts++;
       
-      if (navigationRef.current || checkAndAttachExistingRef()) {
-        clearInterval(pollInterval);
-        if (navigationRef.current) {
-          const state = captureNavigationState(navigationRef.current);
-          const availableRoutes = getAvailableRoutes(navigationRef.current);
-          sendNavigationEvent('state-change', {
-            state,
-            history: navigationHistory.slice(0, 10),
-            availableRoutes,
-          });
-          console.log('[rn-inspector] Initial navigation state broadcasted');
-        }
-      } else if (pollAttempts >= maxPollAttempts) {
+      if (tryAttachExistingRef() || pollAttempts >= maxPollAttempts) {
         clearInterval(pollInterval);
       }
     }, 500);
