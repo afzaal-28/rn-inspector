@@ -6,18 +6,12 @@ import {
   type DeviceInfo,
   type StorageEvent,
   type StorageMutationPayload,
-  type NavigationState,
-  type NavigationHistoryEntry,
-  type NavigationRoute,
 } from '../hooks/useProxyStream';
 
 export interface ProxyContextValue {
   consoleEvents: ConsoleEvent[];
   networkEvents: NetworkEvent[];
   storageData: Map<string, StorageEvent>;
-  navigationState: NavigationState | null;
-  navigationHistory: NavigationHistoryEntry[];
-  availableRoutes: NavigationRoute[];
   status: 'connecting' | 'open' | 'closed' | 'error';
   stats: { consoleCount: number; networkCount: number; status: typeof status };
   reconnect: () => void;
@@ -28,12 +22,6 @@ export interface ProxyContextValue {
   reconnectDevtools: () => void;
   fetchStorage: (deviceId?: string) => void;
   mutateStorage: (payload: StorageMutationPayload) => void;
-  navigateToRoute: (routeKey: string, params?: Record<string, unknown>, deviceId?: string) => void;
-  replaceToRoute: (routeKey: string, params?: Record<string, unknown>, deviceId?: string) => void;
-  goBack: (deviceId?: string) => void;
-  resetNavigation: (state: unknown, deviceId?: string) => void;
-  openUrl: (url: string, deviceId?: string) => void;
-  getNavigationState: (deviceId?: string) => void;
   consoleClearedAtMs: number | null;
   setConsoleClearedAtMs: (value: number | null) => void;
   networkClearedAtMs: number | null;
@@ -114,9 +102,6 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     consoleEvents,
     networkEvents,
     storageData: stream.storageData,
-    navigationState: stream.navigationState,
-    navigationHistory: stream.navigationHistory,
-    availableRoutes: stream.availableRoutes,
     status: stream.status,
     stats: stream.stats as any,
     reconnect: stream.reconnect,
@@ -127,12 +112,6 @@ export const ProxyProvider = ({ children }: ProxyProviderProps) => {
     reconnectDevtools: stream.reconnectDevtools,
     fetchStorage: stream.fetchStorage,
     mutateStorage: stream.mutateStorage,
-    navigateToRoute: stream.navigateToRoute,
-    replaceToRoute: stream.replaceToRoute,
-    goBack: stream.goBack,
-    resetNavigation: stream.resetNavigation,
-    openUrl: stream.openUrl,
-    getNavigationState: stream.getNavigationState,
     consoleClearedAtMs,
     setConsoleClearedAtMs,
     networkClearedAtMs,

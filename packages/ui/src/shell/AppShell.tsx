@@ -57,7 +57,7 @@ const navItems = [
     label: 'Navigation',
     icon: <NavigationIcon fontSize="small" />,
     path: '/navigation',
-    disabled: false,
+    disabled: true,
   },
   {
     label: 'Charts',

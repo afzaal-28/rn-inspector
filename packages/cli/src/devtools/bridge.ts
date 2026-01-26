@@ -2,12 +2,10 @@ import WebSocket from 'ws';
 import chalk from 'chalk';
 import { INJECT_NETWORK_SNIPPET } from '../snippets/INJECT_NETWORK_SNIPPET';
 import { INJECT_STORAGE_SNIPPET } from '../snippets/INJECT_STORAGE_SNIPPET';
-import { INJECT_NAVIGATION_SNIPPET } from '../snippets/INJECT_NAVIGATION_SNIPPET';
 import type { DevtoolsBridge, DevtoolsState } from '../types/Index';
 import {
   handleInjectedNetworkFromConsole,
   handleInjectedStorageFromConsole,
-  handleInjectedNavigationFromConsole,
   handleLogEntry,
   handleNetworkEvent,
   handleRuntimeConsole,
@@ -266,15 +264,6 @@ export function attachDevtoolsBridge(
               awaitPromise: false,
             },
           },
-          {
-            id: 8,
-            method: 'Runtime.evaluate',
-            params: {
-              expression: INJECT_NAVIGATION_SNIPPET,
-              includeCommandLineAPI: false,
-              awaitPromise: false,
-            },
-          },
         ];
         injections.forEach((injection) => {
           ws.send(JSON.stringify(injection));
@@ -285,7 +274,7 @@ export function attachDevtoolsBridge(
             JSON.stringify({
               method: 'Runtime.evaluate',
               params: {
-                expression: `globalThis.__RN_INSPECTOR_CONTROL_HANDLERS__?.['get-navigation-state']?.()`,
+                expression: `console.log('[rn-inspector] DevTools connected')`,
               },
             }),
           );
@@ -342,7 +331,6 @@ export function attachDevtoolsBridge(
         if (method === 'Runtime.consoleAPICalled') {
           if (handleInjectedNetworkFromConsole(params, state, broadcast, deviceId)) return;
           if (handleInjectedStorageFromConsole(params, broadcast, deviceId)) return;
-          if (handleInjectedNavigationFromConsole(params, broadcast, deviceId)) return;
           await handleRuntimeConsole(params, broadcast, deviceId, evaluateConsoleArg);
         } else if (method === 'Log.entryAdded') {
           handleLogEntry(params, broadcast, deviceId);
