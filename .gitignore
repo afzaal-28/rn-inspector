@@ -9,8 +9,10 @@ dist
 build
 .idea
 .vscode
-.env
 devtools-frontend/*
 react-native/*
 react-native-device-info/*
 ws-scrcpy/*
+config.bat
+temp_auto_push.bat
+temp_interactive_push.bat
