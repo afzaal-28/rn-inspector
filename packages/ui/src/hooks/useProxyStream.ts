@@ -200,7 +200,7 @@ export function useProxyStream(endpoint?: string) {
 
     const checkAllOpen = () => {
       openCount++;
-      if (openCount === 5) {
+      if (openCount === 4) {
         setStatus('open');
       }
     };
