@@ -10,7 +10,7 @@ import GlassPanel from '../ui/GlassPanel';
 import { useProxy } from '../context/ProxyContext';
 
 export default function ChartsPage() {
-  const { consoleEvents, networkEvents, navigationHistory } = useProxy();
+  const { consoleEvents, networkEvents } = useProxy();
 
   const consoleByLevel = useMemo(() => {
     const counts: Record<string, number> = {
@@ -51,11 +51,11 @@ export default function ChartsPage() {
     const now = Date.now();
     const timeWindow = 60000;
     const bucketSize = 5000;
-    const buckets: Record<number, { console: number; network: number; navigation: number }> = {};
+    const buckets: Record<number, { console: number; network: number }> = {};
 
     for (let i = 0; i < timeWindow; i += bucketSize) {
       const bucketTime = now - timeWindow + i;
-      buckets[bucketTime] = { console: 0, network: 0, navigation: 0 };
+      buckets[bucketTime] = { console: 0, network: 0 };
     }
 
     consoleEvents.forEach((event) => {
@@ -82,18 +82,6 @@ export default function ChartsPage() {
       } catch {}
     });
 
-    navigationHistory.forEach((entry) => {
-      try {
-        const eventTime = new Date(entry.timestamp).getTime();
-        const bucketTime =
-          Math.floor((eventTime - (now - timeWindow)) / bucketSize) * bucketSize +
-          (now - timeWindow);
-        if (buckets[bucketTime]) {
-          buckets[bucketTime].navigation++;
-        }
-      } catch {}
-    });
-
     const sortedBuckets = Object.entries(buckets).sort(([a], [b]) => Number(a) - Number(b));
 
     return {
@@ -106,9 +94,8 @@ export default function ChartsPage() {
       }),
       console: sortedBuckets.map(([, counts]) => counts.console),
       network: sortedBuckets.map(([, counts]) => counts.network),
-      navigation: sortedBuckets.map(([, counts]) => counts.navigation),
     };
-  }, [consoleEvents, networkEvents, navigationHistory]);
+  }, [consoleEvents, networkEvents]);
 
   const consolePieData = useMemo(() => {
     return Object.entries(consoleByLevel)
@@ -138,7 +125,6 @@ export default function ChartsPage() {
 
   const totalConsole = consoleEvents.length;
   const totalNetwork = networkEvents.length;
-  const totalNavigation = navigationHistory.length;
 
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
@@ -219,19 +205,7 @@ export default function ChartsPage() {
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
-            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" color="success.main" gutterBottom>
-                Navigation Events
-              </Typography>
-              <Typography variant="h3" fontWeight="bold">
-                {totalNavigation}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" mt={1}>
-                Route changes tracked
-              </Typography>
-            </CardContent>
-          </Card>
+          {/* Navigation analytics removed */}
         </Box>
 
         <GlassPanel>
@@ -258,11 +232,6 @@ export default function ChartsPage() {
                     data: eventTimeline.network,
                     label: 'Network',
                     color: '#ff9800',
-                  },
-                  {
-                    data: eventTimeline.navigation,
-                    label: 'Navigation',
-                    color: '#4caf50',
                   },
                 ]}
                 height={300}

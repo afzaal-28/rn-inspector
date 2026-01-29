@@ -127,9 +127,10 @@ const NetworkPage = () => {
       return `Request Headers:\n${reqHeaders}\n\nResponse Headers:\n${resHeaders}`;
     }
     if (activeTab === 'payload') {
-      return selectedEvent.requestBody != null
-        ? JSON.stringify(selectedEvent.requestBody, null, 2)
-        : '';
+      if (selectedEvent.requestBody == null) return '';
+      return typeof selectedEvent.requestBody === 'string'
+        ? selectedEvent.requestBody
+        : JSON.stringify(selectedEvent.requestBody, null, 2);
     }
     if (activeTab === 'response') {
       return selectedEvent.responseBody != null
@@ -985,7 +986,11 @@ const NetworkPage = () => {
                           <IconButton
                             size="small"
                             onClick={() =>
-                              handleCopy(JSON.stringify(selectedEvent.requestBody, null, 2))
+                              handleCopy(
+                                typeof selectedEvent.requestBody === 'string'
+                                  ? selectedEvent.requestBody
+                                  : JSON.stringify(selectedEvent.requestBody, null, 2)
+                              )
                             }
                           >
                             <ContentCopyIcon sx={{ fontSize: 14 }} />
@@ -994,24 +999,62 @@ const NetworkPage = () => {
                       )}
                     </Box>
                     {selectedEvent.requestBody != null ? (
-                      <Box
-                        component="pre"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          fontFamily: '"Fira Code", "JetBrains Mono", monospace',
-                          fontSize: 12,
-                          lineHeight: 1.6,
-                          m: 0,
-                          p: 1.5,
-                          background: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
-                          borderRadius: 1.5,
-                          maxHeight: 400,
-                          overflow: 'auto',
-                        }}
-                      >
-                        {JSON.stringify(selectedEvent.requestBody, null, 2)}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Box
+                          component="pre"
+                          sx={{
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            fontFamily: '"Fira Code", "JetBrains Mono", monospace',
+                            fontSize: 12,
+                            lineHeight: 1.6,
+                            m: 0,
+                            p: 1.5,
+                            background: (theme) =>
+                              theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
+                            borderRadius: 1.5,
+                            maxHeight: 400,
+                            overflow: 'auto',
+                          }}
+                        >
+                          {typeof selectedEvent.requestBody === 'string'
+                            ? selectedEvent.requestBody
+                            : JSON.stringify(selectedEvent.requestBody, null, 2)}
+                        </Box>
+                        {(() => {
+                          let parsedPayload: unknown | null = null;
+                          if (typeof selectedEvent.requestBody === 'object') {
+                            parsedPayload = selectedEvent.requestBody;
+                          } else if (typeof selectedEvent.requestBody === 'string') {
+                            const trimmed = selectedEvent.requestBody.trim();
+                            if (
+                              (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                              (trimmed.startsWith('[') && trimmed.endsWith(']'))
+                            ) {
+                              try {
+                                parsedPayload = JSON.parse(trimmed);
+                              } catch {
+                                parsedPayload = null;
+                              }
+                            }
+                          }
+                          return parsedPayload !== null ? (
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                background: (theme) =>
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(0,0,0,0.3)'
+                                    : 'rgba(0,0,0,0.04)',
+                                borderRadius: 1.5,
+                                maxHeight: 400,
+                                overflow: 'auto',
+                              }}
+                            >
+                              <JsonTreeView data={parsedPayload} defaultExpanded />
+                            </Box>
+                          ) : null;
+                        })()}
                       </Box>
                     ) : (
                       <Typography
